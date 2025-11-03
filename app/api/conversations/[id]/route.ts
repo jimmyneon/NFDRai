@@ -7,8 +7,9 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const supabase = await createClient()
 
@@ -29,7 +30,7 @@ export async function GET(
         messages(*),
         staff_notes(*)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error || !conversation) {
@@ -55,8 +56,9 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const supabase = await createClient()
 
@@ -90,7 +92,7 @@ export async function PATCH(
     const { data: conversation, error } = await supabase
       .from('conversations')
       .update(filteredUpdates)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -117,8 +119,9 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const supabase = await createClient()
 
@@ -149,7 +152,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('conversations')
       .update({ status: 'archived' })
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       return NextResponse.json(
