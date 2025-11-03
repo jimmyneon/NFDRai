@@ -41,7 +41,7 @@ Customer contacts you via:
 5. **Caller**: Select **"Any Contact"** or **"Any Number"**
 6. Tap **"OK"**
 
-#### Step 3: Add HTTP Request
+#### Step 3: Log Missed Call to Dashboard
 
 1. Tap **"Add Action"**
 2. Select **"Connectivity"**
@@ -53,17 +53,26 @@ URL: http://YOUR_IP:3000/api/messages/incoming
 Method: POST
 Content-Type: application/json
 
-Body:
+Content Body:
 {
   "from": "{call_number}",
-  "message": "Missed call - customer needs assistance",
+  "body": "Missed call - customer needs assistance",
   "channel": "missed_call",
   "customerName": "{contact_name}"
 }
 ```
 
-4. **Store Response In**: `ai_response`
-5. Tap **"OK"**
+**Save HTTP Response in String Variable:** (Not needed - we're just logging)
+
+**Save HTTP Return Code:** (Optional)
+
+**Query Params:** (Leave empty)
+
+**Header Params:** (Leave empty)
+
+**Note:** This logs the missed call in your dashboard so you have a record
+
+4. Tap **"OK"**
 
 #### Step 4: Send SMS Response
 
@@ -77,10 +86,15 @@ Recipient: {call_number}
 Message: Hi! I missed your call. How can I help you today? You can reply to this message and I'll assist you right away.
 ```
 
+**Note:** This is a hardcoded message, NOT from AI. When they reply to this SMS, the regular "SMS to AI Dashboard" macro will handle it with AI.
+
 4. Tap **"OK"**
 5. Save macro
 
-**Result**: When someone calls and you miss it, they get an SMS asking how to help!
+**Result**: 
+1. Missed call is logged in dashboard ✅
+2. Customer gets friendly SMS ✅
+3. When they reply, AI takes over ✅
 
 ---
 
