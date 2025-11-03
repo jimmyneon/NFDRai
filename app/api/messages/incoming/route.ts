@@ -87,11 +87,14 @@ export async function POST(request: NextRequest) {
     })
 
     // Check global kill switch
-    const { data: globalSettings } = await supabase
+    const { data: globalSettings, error: settingsError } = await supabase
       .from('ai_settings')
       .select('automation_enabled')
       .eq('active', true)
       .single()
+
+    console.log('Global settings:', globalSettings)
+    console.log('Settings error:', settingsError)
 
     if (!globalSettings?.automation_enabled) {
       await supabase.from('alerts').insert({
