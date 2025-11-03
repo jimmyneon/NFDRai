@@ -87,8 +87,8 @@ https://your-app-name.vercel.app/api/messages/incoming
 ```json
 {
   "from": "{sms_number}",
-  "body": "{sms_body}",
-  "timestamp": "{trigger_time}"
+  "message": "{sms_body}",
+  "channel": "sms"
 }
 ```
 
