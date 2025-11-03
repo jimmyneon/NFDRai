@@ -178,24 +178,41 @@ https://your-app-name.vercel.app/api/messages/incoming
 2. Select **"Connectivity"**
 3. Select **"HTTP Request"**
 
-**Configure:**
+#### Configure HTTP Request:
+
+**URL:**
 ```
-URL: http://YOUR_COMPUTER_IP:3000/api/messages/send
+For Local Testing:
+http://YOUR_COMPUTER_IP:3000/api/messages/send
 
-Method: POST
+For Production (Vercel):
+https://your-app-name.vercel.app/api/messages/send
+```
 
-Content-Type: application/json
+**Method:** POST
 
-Body:
+**Content Type:** application/json
+
+**Content Body:**
+```json
 {
   "conversationId": "lookup-by-phone",
   "text": "{sms_body}",
   "sender": "staff",
-  "customerPhone": "{sms_number}"
+  "customerPhone": "{sms_number}",
+  "sendVia": "none"
 }
 ```
 
-**Note**: The dashboard will find the conversation by phone number
+**Save HTTP Response in String Variable:** (Optional - not needed)
+
+**Save HTTP Return Code:** (Optional)
+
+**Query Params:** (Leave empty)
+
+**Header Params:** (Leave empty)
+
+**Note:** The dashboard will find the conversation by phone number
 
 4. Tap **"OK"**
 5. Save macro
