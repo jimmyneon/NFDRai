@@ -79,35 +79,31 @@ For Production (Vercel):
 https://your-app-name.vercel.app/api/messages/incoming
 ```
 
-**Method:**
-```
-POST
-```
+**Method:** POST
 
-**Content Type:**
-```
-application/json
-```
+**Content Type:** application/json
 
-**Request Body:**
+**Content Body:**
 ```json
 {
   "from": "{sms_number}",
-  "message": "{sms_body}",
-  "channel": "sms",
-  "customerName": "{contact_name}"
+  "body": "{sms_body}",
+  "timestamp": "{trigger_time}"
 }
 ```
 
-**Timeout:**
-```
-30 seconds
-```
+**Save HTTP Response in String Variable:**
+- Tap **"HTTP Response in String Variable"**
+- Create new string variable: `ai_response`
+- This will store the AI's reply
 
-**Store Response In:**
-```
-ai_response
-```
+**Save HTTP Return Code:**
+- Optional: Create integer variable `http_code` to check if request succeeded
+- 200 = success, 400/500 = error
+
+**Query Params:** (Leave empty - not needed)
+
+**Header Params:** (Leave empty - not needed)
 
 **Advanced Options:**
 - ✅ Enable **"Follow Redirects"**
