@@ -31,6 +31,8 @@ type Settings = {
 }
 
 export function AISettingsForm({ settings }: { settings: Settings | null }) {
+  const [automationEnabled, setAutomationEnabled] = useState(true)
+  const [priceCheckingEnabled, setPriceCheckingEnabled] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     provider: settings?.provider || 'openai',

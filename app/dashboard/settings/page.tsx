@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { AISettingsForm } from '@/components/settings/ai-settings-form'
+import { ControlToggles } from '@/components/settings/control-toggles'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default async function SettingsPage() {
@@ -19,6 +20,8 @@ export default async function SettingsPage() {
           Configure AI providers and system behavior
         </p>
       </div>
+
+      <ControlToggles />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
