@@ -36,6 +36,21 @@ export function ConversationList({ conversations: initialConversations }: { conv
   }, [initialConversations])
 
   useEffect(() => {
+    const sortByLastMessage = (convos: any[]) => {
+      return convos.sort((a, b) => {
+        // Get the last message timestamp for each conversation
+        const aLastMsg = a.messages?.[a.messages.length - 1]?.created_at
+        const bLastMsg = b.messages?.[b.messages.length - 1]?.created_at
+        
+        // If no messages, use conversation updated_at
+        const aTime = aLastMsg || a.updated_at
+        const bTime = bLastMsg || b.updated_at
+        
+        // Sort descending (most recent first)
+        return new Date(bTime).getTime() - new Date(aTime).getTime()
+      })
+    }
+
     const channel = supabase
       .channel('realtime-conversations')
       .on(
@@ -47,11 +62,7 @@ export function ConversationList({ conversations: initialConversations }: { conv
             .select('*, customer:customers(*), messages(*)')
             .order('updated_at', { ascending: false })
           if (data) {
-            // Sort by updated_at descending (most recent first)
-            const sorted = data.sort((a, b) => 
-              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-            )
-            setConversations(sorted)
+            setConversations(sortByLastMessage(data))
           }
         }
       )
@@ -64,11 +75,7 @@ export function ConversationList({ conversations: initialConversations }: { conv
             .select('*, customer:customers(*), messages(*)')
             .order('updated_at', { ascending: false })
           if (data) {
-            // Sort by updated_at descending (most recent first)
-            const sorted = data.sort((a, b) => 
-              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-            )
-            setConversations(sorted)
+            setConversations(sortByLastMessage(data))
           }
         }
       )
@@ -165,7 +172,7 @@ export function ConversationList({ conversations: initialConversations }: { conv
                   
                   <div className="text-right flex-shrink-0">
                     <p className="text-xs text-muted-foreground">
-                      {formatRelativeTime(conversation.updated_at)}
+                      {formatRelativeTime(lastMessage?.created_at || conversation.updated_at)}
                     </p>
                     <Badge variant="outline" className="mt-2">
                       {conversation.messages?.length || 0} msgs
