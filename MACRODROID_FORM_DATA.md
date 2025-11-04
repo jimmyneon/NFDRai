@@ -14,7 +14,7 @@ JSON with line breaks is causing parse errors. The solution is to use **form-enc
 **Content Type:** `application/x-www-form-urlencoded`  
 **Body:**
 ```
-phone={lv=customer_phone}&message={lv=message_text}&status=delivered&timestamp={time}
+phone={lv=parse[phone]}&message={lv=parse[message]}&status=delivered&timestamp={system_time}
 ```
 
 ---
@@ -26,7 +26,7 @@ phone={lv=customer_phone}&message={lv=message_text}&status=delivered&timestamp={
 **Content Type:** `application/x-www-form-urlencoded`  
 **Body:**
 ```
-conversationId=lookup-by-phone&customerPhone={sms_number}&text={sms_body}&sender=staff&trackOnly=true
+conversationId=lookup-by-phone&customerPhone={sms_number}&text={sms_message}&sender=staff&trackOnly=true
 ```
 
 ---
@@ -43,13 +43,13 @@ conversationId=lookup-by-phone&customerPhone={sms_number}&text={sms_body}&sender
 Instead of JSON format:
 ```json
 {
-  "phone": "{lv=customer_phone}"
+  "phone": "{lv=parse[phone]}"
 }
 ```
 
 Use URL-encoded format:
 ```
-phone={lv=customer_phone}&message={lv=message_text}
+phone={lv=parse[phone]}&message={lv=parse[message]}
 ```
 
 ---
@@ -76,7 +76,7 @@ phone={lv=customer_phone}&message={lv=message_text}
 4. **Content Type:** `application/x-www-form-urlencoded`
 5. **Body:**
 ```
-phone={lv=customer_phone}&message={lv=message_text}&status=delivered&timestamp={time}
+phone={lv=parse[phone]}&message={lv=parse[message]}&status=delivered&timestamp={system_time}
 ```
 
 ---
@@ -89,7 +89,7 @@ phone={lv=customer_phone}&message={lv=message_text}&status=delivered&timestamp={
 4. **Content Type:** `application/x-www-form-urlencoded`
 5. **Body:**
 ```
-conversationId=lookup-by-phone&customerPhone={sms_number}&text={sms_body}&sender=staff&trackOnly=true
+conversationId=lookup-by-phone&customerPhone={sms_number}&text={sms_message}&sender=staff&trackOnly=true
 ```
 
 ---
