@@ -16,6 +16,7 @@ import {
   FileText,
   Bell,
   Clock,
+  Activity,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/dashboard/faqs', label: 'FAQs', icon: HelpCircle },
   { href: '/dashboard/docs', label: 'Docs', icon: FileText },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/dashboard/api-logs', label: 'API Logs', icon: Activity },
   { href: '/dashboard/business-hours', label: 'Business Hours', icon: Clock },
   { href: '/dashboard/sandbox', label: 'Sandbox', icon: TestTube },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
