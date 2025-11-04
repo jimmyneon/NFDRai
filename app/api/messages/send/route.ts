@@ -21,7 +21,20 @@ export async function POST(request: NextRequest) {
     // This endpoint is used for tracking sent SMS from MacroDroid
     // which cannot authenticate
 
-    const { conversationId, text, sendVia, customerPhone, sender, trackOnly } = await request.json()
+    // Parse JSON with error handling for malformed input
+    let body
+    try {
+      const rawBody = await request.text()
+      body = JSON.parse(rawBody)
+    } catch (parseError) {
+      console.error('[Send Message] JSON parse error:', parseError)
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body. Check for unescaped line breaks or special characters.' },
+        { status: 400 }
+      )
+    }
+
+    const { conversationId, text, sendVia, customerPhone, sender, trackOnly } = body
 
     if (!text) {
       return NextResponse.json(

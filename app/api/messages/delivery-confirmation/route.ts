@@ -16,7 +16,21 @@ import { createServiceClient } from '@/lib/supabase/service'
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServiceClient()
-    const { phone, message, status, timestamp } = await request.json()
+    
+    // Parse JSON with error handling for malformed input
+    let body
+    try {
+      const rawBody = await request.text()
+      body = JSON.parse(rawBody)
+    } catch (parseError) {
+      console.error('[Delivery Confirmation] JSON parse error:', parseError)
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body. Check for unescaped line breaks or special characters.' },
+        { status: 400 }
+      )
+    }
+
+    const { phone, message, status, timestamp } = body
 
     console.log('[Delivery Confirmation] Received:', { phone, messageLength: message?.length, status })
 
