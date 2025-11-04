@@ -58,7 +58,6 @@ export async function POST(request: NextRequest) {
     const { data: businessInfo } = await supabase
       .from('business_info')
       .select('*')
-      .eq('active', true)
       .single()
 
     // Determine context
@@ -82,7 +81,7 @@ export async function POST(request: NextRequest) {
       response += 'Hi! '
     }
 
-    response += `This is ${businessInfo?.name || 'NFD Repairs'}. Sorry I missed your call!\n\n`
+    response += `This is ${businessInfo?.business_name || 'NFD Repairs'}. Sorry I missed your call!\n\n`
 
     // Active repair status
     if (hasActiveRepair) {
@@ -112,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Signature
-    response += `- ${businessInfo?.name || 'NFD Repairs'} Team`
+    response += `- ${businessInfo?.business_name || 'NFD Repairs'} Team`
 
     // Log the missed call as a conversation
     if (customer) {
