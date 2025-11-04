@@ -21,42 +21,45 @@ export async function POST(request: NextRequest) {
     // This endpoint is used for tracking sent SMS from MacroDroid
     // which cannot authenticate
 
-    // Parse JSON with error handling for malformed input
-    let body
-    try {
-      const rawBody = await request.text()
-      console.log('[Send Message] Raw body length:', rawBody.length)
-      
-      // Fix JSON by escaping control characters within string values
-      // This regex finds string values and escapes control chars within them
-      let fixedBody = rawBody.replace(
-        /"([^"\\]*(\\.[^"\\]*)*)"/g,
-        (match, p1) => {
-          const escaped = match
-            .replace(/\n/g, '\\n')
-            .replace(/\r/g, '\\r')
-            .replace(/\t/g, '\\t')
-            .replace(/\f/g, '\\f')
-            .replace(/\b/g, '\\b')
-          return escaped
-        }
-      )
-      
-      console.log('[Send Message] Fixed body length:', fixedBody.length)
-      body = JSON.parse(fixedBody)
-    } catch (parseError) {
-      console.error('[Send Message] JSON parse error:', parseError)
-      return NextResponse.json(
-        { 
-          error: 'Invalid JSON in request body',
-          hint: 'Message text contains unescaped special characters',
-          success: false
-        },
-        { status: 400 }
-      )
+    // Check content type and parse accordingly
+    const contentType = request.headers.get('content-type') || ''
+    let conversationId, text, sendVia, customerPhone, sender, trackOnly
+    
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      // Parse form data
+      const formData = await request.formData()
+      conversationId = formData.get('conversationId') as string
+      text = formData.get('text') as string
+      sendVia = formData.get('sendVia') as string
+      customerPhone = formData.get('customerPhone') as string
+      sender = formData.get('sender') as string
+      trackOnly = formData.get('trackOnly') === 'true'
+      console.log('[Send Message] Parsed form data')
+    } else {
+      // Try to parse as JSON
+      try {
+        const rawBody = await request.text()
+        console.log('[Send Message] Raw body (first 100):', rawBody.substring(0, 100))
+        
+        const body = JSON.parse(rawBody)
+        conversationId = body.conversationId
+        text = body.text
+        sendVia = body.sendVia
+        customerPhone = body.customerPhone
+        sender = body.sender
+        trackOnly = body.trackOnly
+      } catch (parseError: any) {
+        console.error('[Send Message] JSON parse error:', parseError.message)
+        return NextResponse.json(
+          { 
+            error: 'Invalid JSON. Use form-encoded data instead',
+            hint: 'Change Content-Type to application/x-www-form-urlencoded in MacroDroid',
+            success: false
+          },
+          { status: 400 }
+        )
+      }
     }
-
-    const { conversationId, text, sendVia, customerPhone, sender, trackOnly } = body
 
     if (!text) {
       return NextResponse.json(

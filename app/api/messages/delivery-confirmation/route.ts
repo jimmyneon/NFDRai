@@ -17,42 +17,42 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createServiceClient()
     
-    // Parse JSON with error handling for malformed input
-    let body
-    try {
-      const rawBody = await request.text()
-      console.log('[Delivery Confirmation] Raw body length:', rawBody.length)
-      
-      // Fix JSON by escaping control characters within string values
-      // This regex finds string values and escapes control chars within them
-      let fixedBody = rawBody.replace(
-        /"([^"\\]*(\\.[^"\\]*)*)"/g,
-        (match, p1) => {
-          const escaped = match
-            .replace(/\n/g, '\\n')
-            .replace(/\r/g, '\\r')
-            .replace(/\t/g, '\\t')
-            .replace(/\f/g, '\\f')
-            .replace(/\b/g, '\\b')
-          return escaped
-        }
-      )
-      
-      console.log('[Delivery Confirmation] Fixed body length:', fixedBody.length)
-      body = JSON.parse(fixedBody)
-    } catch (parseError) {
-      console.error('[Delivery Confirmation] JSON parse error:', parseError)
-      return NextResponse.json(
-        { 
-          error: 'Invalid JSON in request body',
-          hint: 'Message text contains unescaped special characters',
-          success: false
-        },
-        { status: 400 }
-      )
+    // Check content type and parse accordingly
+    const contentType = request.headers.get('content-type') || ''
+    let phone, message, status, timestamp
+    
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      // Parse form data
+      const formData = await request.formData()
+      phone = formData.get('phone') as string
+      message = formData.get('message') as string
+      status = formData.get('status') as string
+      timestamp = formData.get('timestamp') as string
+      console.log('[Delivery Confirmation] Parsed form data')
+    } else {
+      // Try to parse as JSON
+      try {
+        const rawBody = await request.text()
+        console.log('[Delivery Confirmation] Raw body (first 100):', rawBody.substring(0, 100))
+        
+        // Simple approach: just try to parse, if it fails return helpful error
+        const body = JSON.parse(rawBody)
+        phone = body.phone
+        message = body.message
+        status = body.status
+        timestamp = body.timestamp
+      } catch (parseError: any) {
+        console.error('[Delivery Confirmation] JSON parse error:', parseError.message)
+        return NextResponse.json(
+          { 
+            error: 'Invalid JSON. Use form-encoded data instead',
+            hint: 'Change Content-Type to application/x-www-form-urlencoded in MacroDroid',
+            success: false
+          },
+          { status: 400 }
+        )
+      }
     }
-
-    const { phone, message, status, timestamp } = body
 
     console.log('[Delivery Confirmation] Received:', { phone, messageLength: message?.length, status })
 
