@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
+import { checkRateLimit } from '@/app/lib/rate-limiter'
 
 /**
  * POST /api/messages/missed-call
@@ -22,6 +23,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Missing required field: from' },
         { status: 400 }
+      )
+    }
+
+    // Rate limiting: Max 1 missed call response per 2 minutes per phone number
+    const rateLimit = checkRateLimit(from, 'missed-call', {
+      windowMs: 2 * 60 * 1000, // 2 minutes
+      maxRequests: 1,
+    })
+
+    if (!rateLimit.allowed) {
+      console.log(`[Missed Call] Rate limited: ${from} (retry after ${rateLimit.retryAfter}s)`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Rate limit exceeded',
+          message: 'Please wait before calling again',
+          retryAfter: rateLimit.retryAfter,
+        },
+        { status: 429 }
       )
     }
 

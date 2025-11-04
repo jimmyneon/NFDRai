@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateAIResponse } from '@/lib/ai/response-generator'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
+import { checkRateLimit } from '@/app/lib/rate-limiter'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -23,6 +24,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Missing required fields: from, message, channel' },
         { status: 400 }
+      )
+    }
+
+    // Rate limiting: Max 10 messages per minute per phone number (prevents spam)
+    const rateLimit = checkRateLimit(from, 'incoming-sms', {
+      windowMs: 60 * 1000, // 1 minute
+      maxRequests: 10,
+    })
+
+    if (!rateLimit.allowed) {
+      console.log(`[Incoming SMS] Rate limited: ${from}`)
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Too many messages. Please slow down.',
+        },
+        { status: 429 }
       )
     }
 
