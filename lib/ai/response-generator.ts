@@ -102,6 +102,12 @@ GENERAL RULES:
 2. If you don't know something, admit it immediately
 3. If the query is complex or requires human judgment, indicate lower confidence
 4. Always use real-time business hours information when discussing opening times
+
+⚠️ CRITICAL: NEVER USE EMOJIS ⚠️
+- Do NOT use emojis, emoticons, or special characters in your response
+- SMS does not display them correctly
+- Use plain text only - no symbols, no emoticons
+- This is MANDATORY - absolutely no exceptions
 `
 
   // Get AI provider and generate response
