@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,8 +26,46 @@ type Conversation = {
   }>
 }
 
-export function ConversationList({ conversations }: { conversations: Conversation[] }) {
+export function ConversationList({ conversations: initialConversations }: { conversations: Conversation[] }) {
+  const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    setConversations(initialConversations)
+  }, [initialConversations])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-conversations')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        async () => {
+          const { data } = await supabase
+            .from('conversations')
+            .select('*, customer:customers(*), messages(*)')
+            .order('updated_at', { ascending: false })
+          if (data) setConversations(data)
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        async () => {
+          const { data } = await supabase
+            .from('conversations')
+            .select('*, customer:customers(*), messages(*)')
+            .order('updated_at', { ascending: false })
+          if (data) setConversations(data)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -44,13 +83,13 @@ export function ConversationList({ conversations }: { conversations: Conversatio
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'sms':
-        return '💬'
+        return 'SMS'
       case 'whatsapp':
-        return '📱'
+        return 'WA'
       case 'messenger':
-        return '💌'
+        return 'MSG'
       default:
-        return '📧'
+        return 'MSG'
     }
   }
 
@@ -81,7 +120,7 @@ export function ConversationList({ conversations }: { conversations: Conversatio
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4 flex-1 min-w-0">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xl">{getChannelIcon(conversation.channel)}</span>
+                      <span className="text-xs font-bold">{getChannelIcon(conversation.channel)}</span>
                     </div>
                     
                     <div className="flex-1 min-w-0">
@@ -103,7 +142,9 @@ export function ConversationList({ conversations }: { conversations: Conversatio
                       
                       {lastMessage && (
                         <p className="text-sm text-muted-foreground truncate">
-                          {lastMessage.sender === 'customer' ? '👤' : lastMessage.sender === 'ai' ? '🤖' : '👨‍💼'}{' '}
+                          <span className="font-semibold">
+                            {lastMessage.sender === 'customer' ? 'Customer' : lastMessage.sender === 'ai' ? 'AI' : 'Staff'}:
+                          </span>{' '}
                           {lastMessage.text}
                         </p>
                       )}
