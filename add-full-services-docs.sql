@@ -136,8 +136,4 @@ BRANDS:
 - Mix of quality brands and budget options
 - Something for every price point
 
-Pop into the shop to see what we have in stock. If we don''t have exactly what you need, we can usually get it quickly!')
-
-ON CONFLICT (title) DO UPDATE SET
-  content = EXCLUDED.content,
-  updated_at = NOW();
+Pop into the shop to see what we have in stock. If we don''t have exactly what you need, we can usually get it quickly!');

@@ -16,11 +16,7 @@ INSERT INTO faqs (question, answer) VALUES
 
 ('What''s your buyback process?', 'Easy - either pop in with your device for an instant quote, or message me with: device model, condition, and any issues. I''ll give you a fair price straight away. No waiting around or lowball offers like the online services!'),
 
-('Do you do trade-ins?', 'Yes! We buy your old device and you can put the money towards a repair or purchasing a refurbished device from us. Pop in or send me the details for a quick quote.')
-
-ON CONFLICT (question) DO UPDATE SET
-  answer = EXCLUDED.answer,
-  updated_at = NOW();
+('Do you do trade-ins?', 'Yes! We buy your old device and you can put the money towards a repair or purchasing a refurbished device from us. Pop in or send me the details for a quick quote.');
 
 -- Update existing repair FAQ to mention full services
 UPDATE faqs 
@@ -29,7 +25,4 @@ WHERE question LIKE '%what do you repair%' OR question LIKE '%what devices%';
 
 -- Add general services FAQ
 INSERT INTO faqs (question, answer) VALUES
-('What services do you offer?', 'We offer repairs for all devices (iPhones, iPads, MacBooks, laptops, tablets), we buy devices at good rates, we sell refurbished devices, and we stock all accessories (cases, chargers, cables, etc). For more info, search "New Forest Device Repairs" online!')
-ON CONFLICT (question) DO UPDATE SET
-  answer = EXCLUDED.answer,
-  updated_at = NOW();
+('What services do you offer?', 'We offer repairs for all devices (iPhones, iPads, MacBooks, laptops, tablets), we buy devices at good rates, we sell refurbished devices, and we stock all accessories (cases, chargers, cables, etc). For more info, search "New Forest Device Repairs" online!');
