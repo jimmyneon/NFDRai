@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,14 @@ export function ConversationDialog({
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
   const { toast } = useToast()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to bottom when dialog opens or messages change
+  useEffect(() => {
+    if (open && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [open, conversation.messages])
 
   const handleTakeOver = async () => {
     setLoading(true)
@@ -191,6 +199,8 @@ export function ConversationDialog({
                 </div>
               </div>
             ))}
+            {/* Invisible element to scroll to */}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Actions */}
