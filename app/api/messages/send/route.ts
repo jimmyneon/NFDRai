@@ -34,26 +34,28 @@ export async function POST(request: NextRequest) {
     // We should only log it, not send it again
     const isTrackingOnly = trackOnly === true || sender === 'staff'
 
-    // Check if this exact message was recently sent by AI (within last 10 seconds)
-    // to avoid duplicate tracking
-    if (isTrackingOnly && customerPhone) {
-      const tenSecondsAgo = new Date(Date.now() - 10000).toISOString()
+    // Check if this exact message was recently sent by AI or system (within last 30 seconds)
+    // to avoid duplicate tracking from MacroDroid
+    if (isTrackingOnly && text) {
+      const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString()
       
+      // Check for exact match in recent messages
       const { data: recentMessages } = await supabase
         .from('messages')
-        .select('id, text, created_at, conversation:conversations!inner(customer:customers!inner(phone))')
-        .eq('sender', 'ai')
+        .select('id, text, sender, created_at')
         .eq('text', text)
-        .gte('created_at', tenSecondsAgo)
+        .in('sender', ['ai', 'system'])
+        .gte('created_at', thirtySecondsAgo)
         .limit(1)
 
       if (recentMessages && recentMessages.length > 0) {
-        // This message was just sent by AI, don't track it again
-        console.log('[Track SMS] Skipping duplicate - AI already sent this message')
+        // This message was just sent by AI/system, don't track it again
+        console.log(`[Track SMS] Skipping duplicate - ${recentMessages[0].sender} already sent this message`)
         return NextResponse.json({
           success: true,
           message: 'Skipped - already tracked',
-          duplicate: true
+          duplicate: true,
+          originalSender: recentMessages[0].sender
         })
       }
     }
