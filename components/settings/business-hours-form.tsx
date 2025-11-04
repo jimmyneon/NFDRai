@@ -50,24 +50,31 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  // Helper to format time from database (09:00:00 -> 09:00)
+  const formatTime = (time: string | null | undefined) => {
+    if (!time) return ''
+    // If time includes seconds (09:00:00), remove them
+    return time.substring(0, 5)
+  }
+
   const [formData, setFormData] = useState({
     business_name: businessInfo?.business_name || 'New Forest Device Repairs',
     google_maps_url: businessInfo?.google_maps_url || '',
     timezone: businessInfo?.timezone || 'Europe/London',
-    monday_open: businessInfo?.monday_open || '',
-    monday_close: businessInfo?.monday_close || '',
-    tuesday_open: businessInfo?.tuesday_open || '',
-    tuesday_close: businessInfo?.tuesday_close || '',
-    wednesday_open: businessInfo?.wednesday_open || '',
-    wednesday_close: businessInfo?.wednesday_close || '',
-    thursday_open: businessInfo?.thursday_open || '',
-    thursday_close: businessInfo?.thursday_close || '',
-    friday_open: businessInfo?.friday_open || '',
-    friday_close: businessInfo?.friday_close || '',
-    saturday_open: businessInfo?.saturday_open || '',
-    saturday_close: businessInfo?.saturday_close || '',
-    sunday_open: businessInfo?.sunday_open || '',
-    sunday_close: businessInfo?.sunday_close || '',
+    monday_open: formatTime(businessInfo?.monday_open),
+    monday_close: formatTime(businessInfo?.monday_close),
+    tuesday_open: formatTime(businessInfo?.tuesday_open),
+    tuesday_close: formatTime(businessInfo?.tuesday_close),
+    wednesday_open: formatTime(businessInfo?.wednesday_open),
+    wednesday_close: formatTime(businessInfo?.wednesday_close),
+    thursday_open: formatTime(businessInfo?.thursday_open),
+    thursday_close: formatTime(businessInfo?.thursday_close),
+    friday_open: formatTime(businessInfo?.friday_open),
+    friday_close: formatTime(businessInfo?.friday_close),
+    saturday_open: formatTime(businessInfo?.saturday_open),
+    saturday_close: formatTime(businessInfo?.saturday_close),
+    sunday_open: formatTime(businessInfo?.sunday_open),
+    sunday_close: formatTime(businessInfo?.sunday_close),
     special_hours_note: businessInfo?.special_hours_note || '',
   })
 
