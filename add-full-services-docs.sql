@@ -1,7 +1,7 @@
 -- Add comprehensive knowledge base documents about all services
 
 -- Main services overview
-INSERT INTO docs (title, content, category, active) VALUES
+INSERT INTO docs (title, content) VALUES
 ('Full Services Overview', 'New Forest Device Repairs offers comprehensive services:
 
 REPAIRS:
@@ -35,7 +35,7 @@ ACCESSORIES:
 - All the normal accessories you need
 - Always in stock
 
-For more information, search "New Forest Device Repairs" online!', 'services', true),
+For more information, search "New Forest Device Repairs" online!'),
 
 -- Buyback process
 ('Device Buyback Process', 'HOW OUR BUYBACK WORKS:
@@ -69,7 +69,7 @@ WHY CHOOSE US:
 - Local and trustworthy
 - Can do trade-ins towards repairs or purchases
 
-Unlike online buyback services, we don''t lowball you or find excuses to reduce the price. What we quote is what you get!', 'services', true),
+Unlike online buyback services, we don''t lowball you or find excuses to reduce the price. What we quote is what you get!'),
 
 -- Refurbished devices
 ('Refurbished Devices for Sale', 'QUALITY REFURBISHED DEVICES:
@@ -100,7 +100,7 @@ HOW TO BUY:
 - Ask about specific models you''re looking for
 - We can source devices if we don''t have what you need
 
-Great option if you want a quality device without the new price tag!', 'products', true),
+Great option if you want a quality device without the new price tag!'),
 
 -- Accessories
 ('Accessories and Products', 'IN-STOCK ACCESSORIES:
@@ -136,7 +136,7 @@ BRANDS:
 - Mix of quality brands and budget options
 - Something for every price point
 
-Pop into the shop to see what we have in stock. If we don''t have exactly what you need, we can usually get it quickly!', 'products', true)
+Pop into the shop to see what we have in stock. If we don''t have exactly what you need, we can usually get it quickly!')
 
 ON CONFLICT (title) DO UPDATE SET
   content = EXCLUDED.content,
