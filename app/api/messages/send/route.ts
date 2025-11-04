@@ -17,14 +17,9 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Note: Authentication check removed for MacroDroid compatibility
+    // This endpoint is used for tracking sent SMS from MacroDroid
+    // which cannot authenticate
 
     const { conversationId, text, sendVia, customerPhone, sender } = await request.json()
 
