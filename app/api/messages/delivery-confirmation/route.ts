@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 /**
  * POST /api/messages/delivery-confirmation
@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { phone, message, status, timestamp } = await request.json()
 
     console.log('[Delivery Confirmation] Received:', { phone, messageLength: message?.length, status })

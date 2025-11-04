@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 
 /**
@@ -15,7 +15,7 @@ import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Note: Authentication check removed for MacroDroid compatibility
     // This endpoint is used for tracking sent SMS from MacroDroid
