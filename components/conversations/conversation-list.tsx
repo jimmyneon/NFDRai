@@ -27,30 +27,33 @@ type Conversation = {
 }
 
 export function ConversationList({ conversations: initialConversations }: { conversations: Conversation[] }) {
-  const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const supabase = createClient()
 
+  // Helper function to sort conversations by last message time
+  const sortByLastMessage = (convos: any[]) => {
+    return convos.sort((a, b) => {
+      // Get the last message timestamp for each conversation
+      const aLastMsg = a.messages?.[a.messages.length - 1]?.created_at
+      const bLastMsg = b.messages?.[b.messages.length - 1]?.created_at
+      
+      // If no messages, use conversation updated_at
+      const aTime = aLastMsg || a.updated_at
+      const bTime = bLastMsg || b.updated_at
+      
+      // Sort descending (most recent first)
+      return new Date(bTime).getTime() - new Date(aTime).getTime()
+    })
+  }
+
+  // Initialize with sorted conversations
+  const [conversations, setConversations] = useState<Conversation[]>(sortByLastMessage([...initialConversations]))
+
   useEffect(() => {
-    setConversations(initialConversations)
+    setConversations(sortByLastMessage([...initialConversations]))
   }, [initialConversations])
 
   useEffect(() => {
-    const sortByLastMessage = (convos: any[]) => {
-      return convos.sort((a, b) => {
-        // Get the last message timestamp for each conversation
-        const aLastMsg = a.messages?.[a.messages.length - 1]?.created_at
-        const bLastMsg = b.messages?.[b.messages.length - 1]?.created_at
-        
-        // If no messages, use conversation updated_at
-        const aTime = aLastMsg || a.updated_at
-        const bTime = bLastMsg || b.updated_at
-        
-        // Sort descending (most recent first)
-        return new Date(bTime).getTime() - new Date(aTime).getTime()
-      })
-    }
-
     const channel = supabase
       .channel('realtime-conversations')
       .on(
