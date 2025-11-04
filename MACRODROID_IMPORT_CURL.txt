@@ -1,0 +1,61 @@
+=== DELIVERY CONFIRMATION WEBHOOK ===
+Add this AFTER "Send SMS" action in "Outgoing SMS (Webhook)" macro
+
+curl -X POST \
+  'https://nfd-rai.vercel.app/api/messages/delivery-confirmation' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "phone": "{lv=customer_phone}",
+  "message": "{lv=message_text}",
+  "status": "delivered",
+  "timestamp": "{time}"
+}'
+
+---
+
+=== TRACK SENT SMS WEBHOOK ===
+Use in "Track Sent SMS" macro to track YOUR manual messages
+
+curl -X POST \
+  'https://nfd-rai.vercel.app/api/messages/send' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "conversationId": "lookup-by-phone",
+  "customerPhone": "{sms_number}",
+  "text": "{sms_body}",
+  "sender": "staff",
+  "trackOnly": true
+}'
+
+---
+
+=== BREAKDOWN FOR MACRODROID ===
+
+DELIVERY CONFIRMATION:
+Method: POST
+URL: https://nfd-rai.vercel.app/api/messages/delivery-confirmation
+Headers:
+  Content-Type: application/json
+Body:
+{
+  "phone": "{lv=customer_phone}",
+  "message": "{lv=message_text}",
+  "status": "delivered",
+  "timestamp": "{time}"
+}
+
+---
+
+TRACK SENT SMS:
+Method: POST
+URL: https://nfd-rai.vercel.app/api/messages/send
+Headers:
+  Content-Type: application/json
+Body:
+{
+  "conversationId": "lookup-by-phone",
+  "customerPhone": "{sms_number}",
+  "text": "{sms_body}",
+  "sender": "staff",
+  "trackOnly": true
+}
