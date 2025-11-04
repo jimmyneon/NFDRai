@@ -21,11 +21,23 @@ export async function POST(request: NextRequest) {
     let body
     try {
       const rawBody = await request.text()
-      body = JSON.parse(rawBody)
+      console.log('[Delivery Confirmation] Raw body:', rawBody.substring(0, 200))
+      
+      // Try to fix common JSON issues
+      let fixedBody = rawBody
+        .replace(/\n/g, '\\n')  // Escape line breaks
+        .replace(/\r/g, '\\r')  // Escape carriage returns
+        .replace(/\t/g, '\\t')  // Escape tabs
+      
+      body = JSON.parse(fixedBody)
     } catch (parseError) {
       console.error('[Delivery Confirmation] JSON parse error:', parseError)
       return NextResponse.json(
-        { error: 'Invalid JSON in request body. Check for unescaped line breaks or special characters.' },
+        { 
+          error: 'Invalid JSON in request body',
+          hint: 'Message text contains unescaped special characters',
+          success: false
+        },
         { status: 400 }
       )
     }
