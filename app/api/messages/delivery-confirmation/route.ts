@@ -27,22 +27,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find the most recent message with this exact text sent to this phone number
+    // Find the most recent message with this exact text
     // within the last 5 minutes
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
 
     const { data: messages, error: findError } = await supabase
       .from('messages')
-      .select(`
-        id,
-        text,
-        created_at,
-        conversation:conversations!inner(
-          customer:customers!inner(phone)
-        )
-      `)
+      .select('id, text, created_at, sender')
       .eq('text', message)
-      .eq('sender', 'ai')
+      .in('sender', ['ai', 'system'])
       .gte('created_at', fiveMinutesAgo)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -50,23 +43,28 @@ export async function POST(request: NextRequest) {
     if (findError) {
       console.error('[Delivery Confirmation] Error finding message:', findError)
       return NextResponse.json(
-        { error: 'Failed to find message' },
+        { error: 'Failed to find message', details: findError.message },
         { status: 500 }
       )
     }
 
     if (!messages || messages.length === 0) {
-      console.log('[Delivery Confirmation] No matching message found')
+      console.log('[Delivery Confirmation] No matching message found for:', { 
+        phone, 
+        messageLength: message.length,
+        searchedSince: fiveMinutesAgo 
+      })
       return NextResponse.json(
         { 
           success: false,
-          message: 'No matching message found (may be older than 5 minutes)'
+          message: 'No matching message found (may be older than 5 minutes or text mismatch)'
         },
         { status: 404 }
       )
     }
 
     const messageId = messages[0].id
+    console.log('[Delivery Confirmation] Found message:', messageId)
 
     // Update message with delivery confirmation
     const { error: updateError } = await supabase
