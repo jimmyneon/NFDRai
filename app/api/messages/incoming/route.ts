@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateAIResponse } from '@/lib/ai/response-generator'
-import { sendMessageViaProvider } from '@/lib/messaging/provider'
+import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger

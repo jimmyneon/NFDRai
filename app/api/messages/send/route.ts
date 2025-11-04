@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sendMessageViaProvider } from '@/lib/messaging/provider'
+import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 
 /**
  * POST /api/messages/send
