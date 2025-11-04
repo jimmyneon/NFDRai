@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 
 /**
  * POST /api/messages/missed-call
@@ -161,11 +162,22 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Missed Call] Generated response for ${from}`)
 
+    // Send via MacroDroid webhook
+    const deliveryStatus = await sendMessageViaProvider({
+      channel: 'sms',
+      to: from,
+      text: response,
+    })
+
+    console.log(`[Missed Call] Delivery status:`, deliveryStatus)
+
     return NextResponse.json({
       success: true,
       message: response,
       isExistingCustomer,
       isBusinessHours,
+      delivered: deliveryStatus.sent,
+      deliveryProvider: deliveryStatus.provider,
     })
   } catch (error) {
     console.error('Missed call handler error:', error)
