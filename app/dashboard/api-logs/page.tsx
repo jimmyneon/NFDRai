@@ -24,6 +24,7 @@ export default function ApiLogsPage() {
   const [logs, setLogs] = useState<ApiLog[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
+  const [tableExists, setTableExists] = useState(true)
 
   useEffect(() => {
     loadLogs()
@@ -46,6 +47,10 @@ export default function ApiLogsPage() {
 
     if (error) {
       console.error('Error loading logs:', error)
+      // Check if table doesn't exist
+      if (error.message?.includes('api_logs') || error.code === 'PGRST205') {
+        setTableExists(false)
+      }
     } else {
       setLogs(data || [])
     }
@@ -64,6 +69,51 @@ export default function ApiLogsPage() {
     if (endpoint.includes('send')) return 'Send SMS'
     if (endpoint.includes('missed-call')) return 'Missed Call'
     return endpoint
+  }
+
+  if (!tableExists) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">API Logs</h1>
+          <p className="text-muted-foreground">Monitor API calls and debug issues</p>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Table Not Found</CardTitle>
+            <CardDescription>
+              The api_logs table doesn't exist yet. Run this SQL in Supabase:
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+{`CREATE TABLE IF NOT EXISTS public.api_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  endpoint TEXT NOT NULL,
+  method TEXT NOT NULL,
+  status_code INTEGER,
+  request_body JSONB,
+  response_body JSONB,
+  error TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
+  duration_ms INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_logs_endpoint ON public.api_logs(endpoint);
+CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON public.api_logs(created_at DESC);
+
+ALTER TABLE public.api_logs DISABLE ROW LEVEL SECURITY;`}
+            </pre>
+            <Button onClick={() => window.location.reload()} className="mt-4">
+              Refresh After Running SQL
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (

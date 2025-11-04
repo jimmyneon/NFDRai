@@ -37,26 +37,34 @@ export async function POST(request: NextRequest) {
     // Check if this exact message was recently sent by AI or system (within last 30 seconds)
     // to avoid duplicate tracking from MacroDroid
     if (isTrackingOnly && text) {
-      const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString()
-      
-      // Check for exact match in recent messages
-      const { data: recentMessages } = await supabase
-        .from('messages')
-        .select('id, text, sender, created_at')
-        .eq('text', text)
-        .in('sender', ['ai', 'system'])
-        .gte('created_at', thirtySecondsAgo)
-        .limit(1)
+      try {
+        const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString()
+        
+        // Check for exact match in recent messages
+        const { data: recentMessages, error: checkError } = await supabase
+          .from('messages')
+          .select('id, text, sender, created_at')
+          .eq('text', text)
+          .in('sender', ['ai', 'system'])
+          .gte('created_at', thirtySecondsAgo)
+          .limit(1)
 
-      if (recentMessages && recentMessages.length > 0) {
-        // This message was just sent by AI/system, don't track it again
-        console.log(`[Track SMS] Skipping duplicate - ${recentMessages[0].sender} already sent this message`)
-        return NextResponse.json({
-          success: true,
-          message: 'Skipped - already tracked',
-          duplicate: true,
-          originalSender: recentMessages[0].sender
-        })
+        if (checkError) {
+          console.error('[Track SMS] Error checking duplicates:', checkError)
+          // Continue anyway - better to track than to fail
+        } else if (recentMessages && recentMessages.length > 0) {
+          // This message was just sent by AI/system, don't track it again
+          console.log(`[Track SMS] Skipping duplicate - ${recentMessages[0].sender} already sent this message`)
+          return NextResponse.json({
+            success: true,
+            message: 'Skipped - already tracked',
+            duplicate: true,
+            originalSender: recentMessages[0].sender
+          })
+        }
+      } catch (err) {
+        console.error('[Track SMS] Exception checking duplicates:', err)
+        // Continue anyway
       }
     }
 
