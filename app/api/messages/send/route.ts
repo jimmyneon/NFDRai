@@ -25,14 +25,24 @@ export async function POST(request: NextRequest) {
     let body
     try {
       const rawBody = await request.text()
-      console.log('[Send Message] Raw body:', rawBody.substring(0, 200))
+      console.log('[Send Message] Raw body length:', rawBody.length)
       
-      // Try to fix common JSON issues
-      let fixedBody = rawBody
-        .replace(/\n/g, '\\n')  // Escape line breaks
-        .replace(/\r/g, '\\r')  // Escape carriage returns
-        .replace(/\t/g, '\\t')  // Escape tabs
+      // Fix JSON by escaping control characters within string values
+      // This regex finds string values and escapes control chars within them
+      let fixedBody = rawBody.replace(
+        /"([^"\\]*(\\.[^"\\]*)*)"/g,
+        (match, p1) => {
+          const escaped = match
+            .replace(/\n/g, '\\n')
+            .replace(/\r/g, '\\r')
+            .replace(/\t/g, '\\t')
+            .replace(/\f/g, '\\f')
+            .replace(/\b/g, '\\b')
+          return escaped
+        }
+      )
       
+      console.log('[Send Message] Fixed body length:', fixedBody.length)
       body = JSON.parse(fixedBody)
     } catch (parseError) {
       console.error('[Send Message] JSON parse error:', parseError)
