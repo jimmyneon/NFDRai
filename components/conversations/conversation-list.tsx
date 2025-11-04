@@ -46,7 +46,13 @@ export function ConversationList({ conversations: initialConversations }: { conv
             .from('conversations')
             .select('*, customer:customers(*), messages(*)')
             .order('updated_at', { ascending: false })
-          if (data) setConversations(data)
+          if (data) {
+            // Sort by updated_at descending (most recent first)
+            const sorted = data.sort((a, b) => 
+              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+            )
+            setConversations(sorted)
+          }
         }
       )
       .on(
@@ -57,7 +63,13 @@ export function ConversationList({ conversations: initialConversations }: { conv
             .from('conversations')
             .select('*, customer:customers(*), messages(*)')
             .order('updated_at', { ascending: false })
-          if (data) setConversations(data)
+          if (data) {
+            // Sort by updated_at descending (most recent first)
+            const sorted = data.sort((a, b) => 
+              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+            )
+            setConversations(sorted)
+          }
         }
       )
       .subscribe()

@@ -208,7 +208,7 @@ Sunday: Closed`
  * Generate a formatted message about business hours for AI responses
  */
 export function formatBusinessHoursMessage(status: BusinessHoursStatus): string {
-  let message = `**Current Status:** ${status.isOpen ? '🟢 OPEN' : '🔴 CLOSED'}\n`
+  let message = `**Current Status:** ${status.isOpen ? 'OPEN' : 'CLOSED'}\n`
   message += `**Current Time:** ${status.currentTime}\n`
   message += `**Today's Hours:** ${status.todayHours}\n`
   
@@ -219,7 +219,7 @@ export function formatBusinessHoursMessage(status: BusinessHoursStatus): string 
   message += `\n**Full Schedule:**\n${status.formattedSchedule}`
   
   if (status.googleMapsUrl) {
-    message += `\n\n**Live Hours:** Check our [Google Maps listing](${status.googleMapsUrl}) for real-time updates and holiday hours.`
+    message += `\n\n**Live Hours:** Check our Google Maps listing for real-time updates and holiday hours: ${status.googleMapsUrl}`
   }
   
   return message
