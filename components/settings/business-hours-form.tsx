@@ -225,7 +225,7 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
                     value={openValue}
                     onChange={(e) => handleDayChange(day.key, 'open', e.target.value)}
                     className="w-32"
-                    disabled={isClosed && !openValue}
+                    placeholder="09:00"
                   />
                   <span className="text-muted-foreground">to</span>
                   <Input
@@ -233,7 +233,7 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
                     value={closeValue}
                     onChange={(e) => handleDayChange(day.key, 'close', e.target.value)}
                     className="w-32"
-                    disabled={isClosed && !closeValue}
+                    placeholder="18:00"
                   />
                 </div>
 
