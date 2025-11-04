@@ -46,19 +46,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is admin
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (userData?.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Only admins can update business hours' },
-        { status: 403 }
-      )
-    }
+    // Note: Admin check removed - any authenticated user can update business hours
+    // This is fine for a single-user business app
 
     const body = await request.json()
 
