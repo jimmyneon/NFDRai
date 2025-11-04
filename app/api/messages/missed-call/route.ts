@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       response += 'Hi! '
     }
 
-    response += `This is ${businessInfo?.name || 'NFD Repairs'} 📱 Sorry I missed your call!\n\n`
+    response += `This is ${businessInfo?.name || 'NFD Repairs'}. Sorry I missed your call!\n\n`
 
     // Active repair status
     if (hasActiveRepair) {
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     
     // Fallback response if something goes wrong
     const fallbackResponse = 
-      `Hi! This is NFD Repairs 📱 Sorry I missed your call!\n\n` +
+      `Hi! This is NFD Repairs. Sorry I missed your call!\n\n` +
       `I can help with screen repairs, quotes, and repair status.\n\n` +
       `Just text me what you need and I'll respond right away!\n\n` +
       `Opening hours: Mon-Sat 9am-6pm\n\n` +
