@@ -290,6 +290,77 @@ export type Database = {
           created_at?: string
         }
       }
+      business_info: {
+        Row: {
+          id: string
+          business_name: string
+          google_maps_url: string | null
+          timezone: string
+          monday_open: string | null
+          monday_close: string | null
+          tuesday_open: string | null
+          tuesday_close: string | null
+          wednesday_open: string | null
+          wednesday_close: string | null
+          thursday_open: string | null
+          thursday_close: string | null
+          friday_open: string | null
+          friday_close: string | null
+          saturday_open: string | null
+          saturday_close: string | null
+          sunday_open: string | null
+          sunday_close: string | null
+          special_hours_note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          business_name?: string
+          google_maps_url?: string | null
+          timezone?: string
+          monday_open?: string | null
+          monday_close?: string | null
+          tuesday_open?: string | null
+          tuesday_close?: string | null
+          wednesday_open?: string | null
+          wednesday_close?: string | null
+          thursday_open?: string | null
+          thursday_close?: string | null
+          friday_open?: string | null
+          friday_close?: string | null
+          saturday_open?: string | null
+          saturday_close?: string | null
+          sunday_open?: string | null
+          sunday_close?: string | null
+          special_hours_note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          business_name?: string
+          google_maps_url?: string | null
+          timezone?: string
+          monday_open?: string | null
+          monday_close?: string | null
+          tuesday_open?: string | null
+          tuesday_close?: string | null
+          wednesday_open?: string | null
+          wednesday_close?: string | null
+          thursday_open?: string | null
+          thursday_close?: string | null
+          friday_open?: string | null
+          friday_close?: string | null
+          saturday_open?: string | null
+          saturday_close?: string | null
+          sunday_open?: string | null
+          sunday_close?: string | null
+          special_hours_note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

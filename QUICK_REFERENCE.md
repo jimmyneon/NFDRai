@@ -38,11 +38,33 @@ npm run build
 2. `ACTION_REQUIRED.md` - Quick checklist
 3. `tasks.md` - Full progress tracker
 
+## MacroDroid Setup
+
+| Macro | Trigger | Action | Purpose |
+|-------|---------|--------|---------|
+| 1 | SMS Received | HTTP POST to `/api/messages/incoming` | Notify dashboard |
+| 2 | Webhook (`send-sms`) | Send SMS | Send from dashboard |
+| 3 | SMS Sent | HTTP POST to `/api/messages/send` | Track your replies |
+| 4 | Missed Call | HTTP POST to `/api/messages/missed-call` + Send SMS | AI response |
+
+**Webhook URL**: Add to `.env.local`:
+```env
+MACRODROID_WEBHOOK_URL=https://trigger.macrodroid.com/YOUR_ID/send-sms
+```
+
+## Key Points
+
+✅ **One webhook** for AI + manual sends  
+✅ **Separate macros** for incoming vs outgoing  
+✅ **AI generates** missed call responses  
+✅ **Dashboard controls** all routing
+
 ## Next Steps
 
-1. Open `START_HERE.md`
-2. Follow steps 1-10
-3. Run `npm run dev`
-4. Open http://localhost:3000
+1. Open `YOUR_QUESTIONS_ANSWERED.md` - Answers all your questions
+2. Follow `QUICK_FIX_GUIDE.md` - 5-minute setup
+3. Read `MACRODROID_FLOW_DIAGRAM.md` - Visual guide
+4. Run `npm run dev`
+5. Open http://localhost:3000
 
 **Time**: 15 minutes to working app! 🚀

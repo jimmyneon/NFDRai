@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateAIResponse } from '@/lib/ai/response-generator'
+import { sendMessageViaProvider } from '@/lib/messaging/provider'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -189,11 +190,42 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Send AI response via MacroDroid webhook
+    const deliveryStatus = await sendMessageViaProvider({
+      channel: 'sms',
+      to: from,
+      text: aiResult.response,
+    })
+
+    // Update message with delivery status
+    if (deliveryStatus.sent) {
+      const { data: aiMessage } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('conversation_id', conversation.id)
+        .eq('sender', 'ai')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (aiMessage) {
+        await supabase
+          .from('messages')
+          .update({ 
+            delivered: true,
+            delivered_at: new Date().toISOString(),
+          })
+          .eq('id', aiMessage.id)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       response: aiResult.response,
       confidence: aiResult.confidence,
       fallback: aiResult.shouldFallback,
+      delivered: deliveryStatus.sent,
+      deliveryProvider: deliveryStatus.provider,
     })
   } catch (error) {
     console.error('Incoming message error:', error)

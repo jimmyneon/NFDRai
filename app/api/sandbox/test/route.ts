@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getProvider } from '@/lib/ai/providers'
+import { getBusinessHoursStatus, formatBusinessHoursMessage } from '@/lib/business-hours'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,6 +51,10 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('active', true)
 
+    // Get real-time business hours status
+    const hoursStatus = await getBusinessHoursStatus()
+    const hoursMessage = formatBusinessHoursMessage(hoursStatus)
+
     // Build context
     const pricingContext = prices
       ?.map((p) => `${p.device} ${p.repair_type}: £${p.cost} (${p.turnaround})`)
@@ -64,6 +69,16 @@ export async function POST(request: NextRequest) {
       .join('\n\n') || 'No additional documentation available.'
 
     const fullPrompt = `${settings.system_prompt}
+
+CURRENT BUSINESS HOURS STATUS (REAL-TIME):
+${hoursMessage}
+
+CRITICAL HOURS RULES:
+1. When asked about opening hours or if the business is open, ALWAYS use the REAL-TIME status above
+2. The "Current Status" shows if we are OPEN or CLOSED RIGHT NOW
+3. NEVER guess or assume - use the exact information provided above
+4. If asked "are you open", check the "Current Status" field
+5. Always provide the Google Maps link for live updates when discussing hours
 
 Available Pricing:
 ${pricingContext}
@@ -86,7 +101,8 @@ CRITICAL PRICING RULES:
 GENERAL RULES:
 1. Be friendly, professional, and concise
 2. If you don't know something, admit it immediately
-3. If the query is complex or requires human judgment, indicate lower confidence`
+3. If the query is complex or requires human judgment, indicate lower confidence
+4. Always use real-time business hours information when discussing opening times`
 
     // Generate AI response directly (no database records needed for sandbox)
     const provider = getProvider(settings.provider)
