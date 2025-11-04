@@ -21,13 +21,41 @@ export async function POST(request: NextRequest) {
     // This endpoint is used for tracking sent SMS from MacroDroid
     // which cannot authenticate
 
-    const { conversationId, text, sendVia, customerPhone, sender } = await request.json()
+    const { conversationId, text, sendVia, customerPhone, sender, trackOnly } = await request.json()
 
     if (!text) {
       return NextResponse.json(
         { error: 'Missing required field: text' },
         { status: 400 }
       )
+    }
+
+    // If trackOnly is true, this is from MacroDroid tracking an already-sent message
+    // We should only log it, not send it again
+    const isTrackingOnly = trackOnly === true || sender === 'staff'
+
+    // Check if this exact message was recently sent by AI (within last 10 seconds)
+    // to avoid duplicate tracking
+    if (isTrackingOnly && customerPhone) {
+      const tenSecondsAgo = new Date(Date.now() - 10000).toISOString()
+      
+      const { data: recentMessages } = await supabase
+        .from('messages')
+        .select('id, text, created_at, conversation:conversations!inner(customer:customers!inner(phone))')
+        .eq('sender', 'ai')
+        .eq('text', text)
+        .gte('created_at', tenSecondsAgo)
+        .limit(1)
+
+      if (recentMessages && recentMessages.length > 0) {
+        // This message was just sent by AI, don't track it again
+        console.log('[Track SMS] Skipping duplicate - AI already sent this message')
+        return NextResponse.json({
+          success: true,
+          message: 'Skipped - already tracked',
+          duplicate: true
+        })
+      }
     }
 
     // Handle lookup by phone (for MacroDroid sent SMS tracking)
@@ -98,15 +126,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const channel = sendVia || conversation.channel
-    const customerPhoneNumber = conversation.customer?.phone
+    // Only send the message if this is NOT just tracking
+    let deliveryStatus = { sent: false, provider: 'none' }
+    
+    if (!isTrackingOnly) {
+      const channel = sendVia || conversation.channel
+      const customerPhoneNumber = conversation.customer?.phone
 
-    // Send via MacroDroid webhook (if configured) or external provider
-    const deliveryStatus = await sendMessageViaProvider({
-      channel,
-      to: customerPhoneNumber,
-      text,
-    })
+      // Send via MacroDroid webhook (if configured) or external provider
+      deliveryStatus = await sendMessageViaProvider({
+        channel,
+        to: customerPhoneNumber,
+        text,
+      })
+    }
 
     // Update message with delivery status
     if (deliveryStatus.sent) {
