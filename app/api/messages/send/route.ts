@@ -173,7 +173,22 @@ export async function POST(request: NextRequest) {
       }
 
       if (!customer) {
-        console.log('[Send Message] Customer not found with any phone variant')
+        console.log('[Send Message] Customer not found - creating new customer for phone:', customerPhone)
+        
+        // Create new customer for this phone number
+        const { data: newCustomer, error: createError } = await supabase
+          .from('customers')
+          .insert({ phone: cleanPhone })
+          .select()
+          .single()
+        
+        if (createError) {
+          console.error('[Send Message] Failed to create customer:', createError)
+        } else {
+          customer = newCustomer
+          foundPhone = cleanPhone
+          console.log('[Send Message] Created new customer:', customer.id)
+        }
       }
 
       if (customer) {
@@ -185,11 +200,27 @@ export async function POST(request: NextRequest) {
           .limit(1)
           .single()
 
-        if (convError) {
-          console.log('[Send Message] Conversation not found for customer:', customer.id, convError.message)
-        }
-
-        if (conversation) {
+        if (convError || !conversation) {
+          console.log('[Send Message] No conversation found - creating new conversation for customer:', customer.id)
+          
+          // Create new conversation for this customer
+          const { data: newConversation, error: createConvError } = await supabase
+            .from('conversations')
+            .insert({
+              customer_id: customer.id,
+              channel: 'sms',
+              status: 'manual', // Manual since staff initiated
+            })
+            .select()
+            .single()
+          
+          if (createConvError) {
+            console.error('[Send Message] Failed to create conversation:', createConvError)
+          } else {
+            actualConversationId = newConversation.id
+            console.log('[Send Message] Created new conversation:', actualConversationId)
+          }
+        } else {
           actualConversationId = conversation.id
           console.log('[Send Message] Found conversation:', actualConversationId, 'for phone:', foundPhone)
         }
@@ -197,14 +228,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!actualConversationId || actualConversationId === 'lookup-by-phone') {
-      console.log('[Send Message] No conversation found - this may be a manual SMS not initiated by the system')
+      console.log('[Send Message] Failed to find or create conversation')
       return NextResponse.json(
         { 
           success: false,
-          error: 'Conversation not found',
-          hint: 'This phone number has no active conversation. SMS may have been sent manually outside the system.'
+          error: 'Failed to find or create conversation',
+          hint: 'Could not create conversation record for this phone number.'
         },
-        { status: 404 }
+        { status: 500 }
       )
     }
 

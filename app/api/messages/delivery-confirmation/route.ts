@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       .from('messages')
       .select('id, text, created_at, sender')
       .eq('text', message)
-      .in('sender', ['ai', 'system'])
+      .in('sender', ['ai', 'system', 'staff'])
       .gte('created_at', fiveMinutesAgo)
       .order('created_at', { ascending: false })
       .limit(1)
