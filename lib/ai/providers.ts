@@ -7,6 +7,7 @@ export interface AIProvider {
     maxTokens: number
     apiKey: string
     model: string
+    conversationMessages?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
   }): Promise<{ response: string; confidence: number }>
 }
 
@@ -20,7 +21,14 @@ export class OpenAIProvider implements AIProvider {
     maxTokens: number
     apiKey: string
     model: string
+    conversationMessages?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
   }): Promise<{ response: string; confidence: number }> {
+    // Use conversation messages if provided, otherwise fall back to simple prompt
+    const messages = params.conversationMessages || [
+      { role: 'system', content: params.systemPrompt },
+      { role: 'user', content: params.prompt },
+    ]
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -29,10 +37,7 @@ export class OpenAIProvider implements AIProvider {
       },
       body: JSON.stringify({
         model: params.model,
-        messages: [
-          { role: 'system', content: params.systemPrompt },
-          { role: 'user', content: params.prompt },
-        ],
+        messages,
         temperature: params.temperature,
         max_tokens: params.maxTokens,
       }),

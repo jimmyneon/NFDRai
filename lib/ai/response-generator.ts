@@ -139,6 +139,28 @@ GENERAL RULES:
 - This is MANDATORY - absolutely no exceptions
 `
 
+  // Build conversation messages array for better context understanding
+  const conversationMessages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
+    { role: 'system', content: enhancedPrompt }
+  ]
+  
+  // Add conversation history as proper message turns
+  if (messages && messages.length > 0) {
+    messages.forEach((m) => {
+      if (m.sender === 'customer') {
+        conversationMessages.push({ role: 'user', content: m.text })
+      } else if (m.sender === 'ai') {
+        conversationMessages.push({ role: 'assistant', content: m.text })
+      } else if (m.sender === 'staff') {
+        // Staff messages as user messages with context
+        conversationMessages.push({ role: 'user', content: `[John (Owner) said]: ${m.text}` })
+      }
+    })
+  }
+  
+  // Add current customer message
+  conversationMessages.push({ role: 'user', content: params.customerMessage })
+  
   // Get AI provider and generate response
   const provider = getProvider(settings.provider)
   
@@ -149,6 +171,7 @@ GENERAL RULES:
     maxTokens: settings.max_tokens,
     apiKey: settings.api_key,
     model: settings.model_name,
+    conversationMessages,
   })
 
   const shouldFallback = result.confidence < settings.confidence_threshold
