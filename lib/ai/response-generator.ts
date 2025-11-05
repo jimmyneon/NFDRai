@@ -25,17 +25,23 @@ export async function generateAIResponse(params: {
     throw new Error('No active AI settings found')
   }
 
-  // Get conversation context
+  // Get conversation context - fetch more messages for better context
   const { data: messages } = await supabase
     .from('messages')
     .select('*')
     .eq('conversation_id', params.conversationId)
     .order('created_at', { ascending: true })
-    .limit(10)
+    .limit(20)
 
-  // Build context from previous messages
+  // Build context from previous messages with clear labels
   const conversationContext = messages
-    ?.map((m) => `${m.sender}: ${m.text}`)
+    ?.map((m) => {
+      // Make sender labels explicit for AI to understand
+      const senderLabel = m.sender === 'staff' ? 'John (Owner)' : 
+                         m.sender === 'ai' ? 'AI Assistant' : 
+                         'Customer'
+      return `${senderLabel}: ${m.text}`
+    })
     .join('\n') || ''
 
   // Get relevant pricing data
@@ -74,12 +80,15 @@ Customer's Current Message:
 ${params.customerMessage}
 
 ⚠️ MANDATORY CONTEXT RULES - READ BEFORE RESPONDING:
-1. ALWAYS read the entire conversation history above BEFORE formulating your response
+1. ALWAYS read the ENTIRE conversation history above BEFORE formulating your response
 2. NEVER ask for information the customer has ALREADY PROVIDED in previous messages
 3. If the customer mentioned their name, device, or issue before - USE THAT INFORMATION
-4. Build on the conversation naturally - don't restart from scratch each time
-5. Reference previous messages when relevant (e.g., "Based on the iPhone repair you mentioned...")
-6. If you're unsure what they already told you, CHECK THE HISTORY ABOVE
+4. PAY SPECIAL ATTENTION to messages from "John (Owner)" - these contain important context like appointments, pricing, and commitments
+5. If customer says "still on for tomorrow" or similar, CHECK THE HISTORY for what was arranged
+6. Build on the conversation naturally - don't restart from scratch each time
+7. Reference previous messages when relevant (e.g., "Based on the appointment John arranged for tomorrow...")
+8. If you're unsure what they already told you, CHECK THE HISTORY ABOVE - the answer is there
+9. When customer references something from earlier ("that repair", "tomorrow", "the price you quoted"), FIND IT in the history above
 
 ═══════════════════════════════════════════════════════════════
 STEP 2: REFERENCE DATA & BUSINESS INFORMATION
