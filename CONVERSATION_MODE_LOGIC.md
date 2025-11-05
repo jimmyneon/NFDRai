@@ -38,8 +38,8 @@ The system analyzes the customer's message and decides:
 When you send: "Hi there Sarah, your iPhone 12 is fixed and ready for collection. Many thanks, John"
 - System extracts customer name and device
 - Updates customer record automatically
-- If customer replies within 24 hours → AI stays silent
-- After 24 hours → normal mode switching applies
+- If customer replies within 30 minutes → AI stays silent
+- After 30 minutes → normal mode switching applies (AI can respond)
 
 ## Examples
 
@@ -76,7 +76,7 @@ Sarah: "Do you take card?"
 
 ### Time Thresholds
 - **2 hours**: Auto-switch to AI if John hasn't replied
-- **24 hours**: Confirmation reply detection window
+- **30 minutes**: Confirmation reply detection window (AI stays silent)
 - **5 minutes**: Wait time if staff recently active
 
 ### Message Length

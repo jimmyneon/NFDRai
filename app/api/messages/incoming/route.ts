@@ -207,15 +207,15 @@ export async function POST(request: NextRequest) {
     const isReplyToConfirmation = lastStaffMessage && isConfirmationFromJohn(lastStaffMessage.text)
     
     if (isReplyToConfirmation) {
-      // Check if the last staff message was sent within the last 24 hours
+      // Check if the last staff message was sent within the last 30 minutes
       const lastMessageTime = new Date(lastStaffMessage.created_at).getTime()
       const now = Date.now()
-      const hoursSinceConfirmation = (now - lastMessageTime) / (1000 * 60 * 60)
+      const minutesSinceConfirmation = (now - lastMessageTime) / (1000 * 60)
       
-      if (hoursSinceConfirmation < 24) {
+      if (minutesSinceConfirmation < 30) {
         console.log('[Confirmation Reply] Customer is replying to confirmation message')
         console.log('[Confirmation Reply] Last staff message:', lastStaffMessage.text.substring(0, 50))
-        console.log('[Confirmation Reply] Hours since confirmation:', hoursSinceConfirmation.toFixed(1))
+        console.log('[Confirmation Reply] Minutes since confirmation:', minutesSinceConfirmation.toFixed(1))
         console.log('[Confirmation Reply] Customer message:', message.substring(0, 100))
         
         return NextResponse.json({
