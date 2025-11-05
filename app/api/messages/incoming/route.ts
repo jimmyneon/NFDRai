@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { generateAIResponse } from '@/lib/ai/response-generator'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 import { checkRateLimit } from '@/app/lib/rate-limiter'
+import { checkMessageBatch } from '@/app/lib/message-batcher'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -105,6 +106,22 @@ export async function POST(request: NextRequest) {
       text: message,
     })
 
+    // Check if we should batch this message with others (handles rapid messages)
+    const batchResult = await checkMessageBatch(
+      customer.id,
+      conversation.id,
+      message
+    )
+
+    // If this is part of a batch, combine all messages for a comprehensive response
+    const messageToProcess = batchResult.shouldBatch
+      ? batchResult.allMessages.join('\n')
+      : message
+
+    if (batchResult.shouldBatch) {
+      console.log(`[Batching] Combined ${batchResult.allMessages.length} rapid messages from ${from}`)
+    }
+
     // Check global kill switch
     const { data: globalSettings, error: settingsError } = await supabase
       .from('ai_settings')
@@ -145,54 +162,59 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Check if staff has recently replied (within last 5 messages)
-    // This prevents AI from jumping back in after manual intervention
+    // Check if staff has recently replied
+    // If staff replied, wait a few minutes before AI responds (give staff time to reply)
     const { data: recentMessages } = await supabase
       .from('messages')
       .select('sender, created_at')
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: false })
-      .limit(5)
+      .limit(10)
 
-    const hasRecentStaffMessage = recentMessages?.some(
+    const lastStaffMessage = recentMessages?.find(
       (msg) => msg.sender === 'staff'
     )
 
-    if (hasRecentStaffMessage) {
-      // Staff has manually intervened - switch to manual mode
-      await supabase
-        .from('conversations')
-        .update({ status: 'manual' })
-        .eq('id', conversation.id)
+    if (lastStaffMessage) {
+      const minutesSinceStaffMessage = 
+        (Date.now() - new Date(lastStaffMessage.created_at).getTime()) / 1000 / 60
 
-      await supabase.from('alerts').insert({
-        conversation_id: conversation.id,
-        type: 'manual_required',
-        notified_to: 'admin',
-      })
+      // If staff replied within last 5 minutes, wait and let staff handle it
+      if (minutesSinceStaffMessage < 5) {
+        // Send alert to notify staff of new message
+        await supabase.from('alerts').insert({
+          conversation_id: conversation.id,
+          type: 'manual_required',
+          notified_to: 'admin',
+        })
 
-      return NextResponse.json({
-        success: true,
-        mode: 'manual',
-        message: 'Staff has taken over - AI paused',
-      })
+        return NextResponse.json({
+          success: true,
+          mode: 'waiting',
+          message: 'Staff recently active - waiting for staff response',
+        })
+      }
+      
+      // If staff replied 5+ minutes ago, send a generic holding response
+      // This lets the customer know we got their message
     }
 
-    // Generate AI response
+    // Generate AI response (using batched message if applicable)
     const aiResult = await generateAIResponse({
-      customerMessage: message,
+      customerMessage: messageToProcess,
       conversationId: conversation.id,
     })
 
-    // Check if AI response indicates manual handoff
+    // Check if AI response indicates manual handoff (more specific patterns)
     const handoffPhrases = [
-      /i'?ll pass.*onto.*john/i,
+      /i'?ll pass.*(?:onto|on to|to).*john/i,
       /i'?ll check.*with.*john/i,
       /let me.*check.*with.*john/i,
-      /i'?ll.*forward.*to.*john/i,
+      /i'?ll.*forward.*(?:this|that|it).*to.*john/i,
       /i'?ll.*ask.*john/i,
-      /john.*will.*get.*back/i,
-      /need.*to.*check.*with.*john/i,
+      /john.*will.*(?:get back|contact|call)/i,
+      /need.*to.*(?:check|speak|talk).*with.*john/i,
+      /i'?ll.*have.*john.*(?:contact|call|reach out)/i,
     ]
     
     const indicatesHandoff = handoffPhrases.some(pattern => 
@@ -209,13 +231,9 @@ export async function POST(request: NextRequest) {
       ai_confidence: aiResult.confidence,
     })
 
-    // If fallback was triggered or AI indicates manual handoff, switch to manual mode
+    // If fallback was triggered or AI indicates manual handoff, create alert
+    // Don't switch modes - just notify staff
     if (aiResult.shouldFallback || indicatesHandoff) {
-      await supabase
-        .from('conversations')
-        .update({ status: 'manual' })
-        .eq('id', conversation.id)
-
       await supabase.from('alerts').insert({
         conversation_id: conversation.id,
         type: indicatesHandoff ? 'manual_required' : 'low_confidence',
