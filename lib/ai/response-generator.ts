@@ -25,13 +25,16 @@ export async function generateAIResponse(params: {
     throw new Error('No active AI settings found')
   }
 
-  // Get conversation context - fetch more messages for better context
-  const { data: messages } = await supabase
+  // Get conversation context - fetch LAST 20 messages (most recent)
+  const { data: messagesDesc } = await supabase
     .from('messages')
     .select('*')
     .eq('conversation_id', params.conversationId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(20)
+  
+  // Reverse to get chronological order (oldest to newest)
+  const messages = messagesDesc?.reverse() || []
 
   // Build context from previous messages with clear labels
   const conversationContext = messages
