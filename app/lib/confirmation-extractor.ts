@@ -39,7 +39,8 @@ export function isConfirmationFromJohn(message: string): boolean {
   const hasJohnSignature = johnSignatures.some(sig => lowerMessage.includes(sig))
   const hasReadyPhrase = readyPhrases.some(phrase => lowerMessage.includes(phrase))
   
-  return hasJohnSignature || hasReadyPhrase
+  // Must have BOTH John's signature AND a "ready" phrase to be a confirmation
+  return hasJohnSignature && hasReadyPhrase
 }
 
 /**
