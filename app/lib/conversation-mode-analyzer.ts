@@ -36,7 +36,8 @@ export function shouldSwitchToAutoMode(message: string): boolean {
   // Generic questions AI can handle - SWITCH TO AUTO MODE
   const autoPatterns = [
     /when\s+(are\s+you|do\s+you)\s+open/i,
-    /what\s+(time|are\s+your|are\s+the)\s+(hours|opening)/i,
+    /what\s+time\s+(are\s+you|do\s+you)\s+open/i,
+    /what\s+(time|are\s+your|are\s+the)\s+(hours|opening|open)/i,
     /how\s+much\s+(is|does|for|to)/i,
     /what.*price/i,
     /do\s+you\s+(have|do|offer|provide|fix|repair)/i,
