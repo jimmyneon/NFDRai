@@ -110,15 +110,23 @@ export async function POST(request: NextRequest) {
     let actualConversationId = conversationId
     
     if (conversationId === 'lookup-by-phone' && customerPhone) {
+      console.log('[Send Message] Looking up conversation for phone:', customerPhone)
+      
       // Find conversation by customer phone number
-      const { data: customer } = await supabase
+      const { data: customer, error: customerError } = await supabase
         .from('customers')
         .select('id')
         .eq('phone', customerPhone)
         .single()
 
+      if (customerError) {
+        console.log('[Send Message] Customer not found:', customerPhone, customerError.message)
+      }
+
       if (customer) {
-        const { data: conversation } = await supabase
+        console.log('[Send Message] Found customer:', customer.id)
+        
+        const { data: conversation, error: convError } = await supabase
           .from('conversations')
           .select('id')
           .eq('customer_id', customer.id)
@@ -126,15 +134,25 @@ export async function POST(request: NextRequest) {
           .limit(1)
           .single()
 
+        if (convError) {
+          console.log('[Send Message] Conversation not found for customer:', customer.id, convError.message)
+        }
+
         if (conversation) {
           actualConversationId = conversation.id
+          console.log('[Send Message] Found conversation:', actualConversationId)
         }
       }
     }
 
     if (!actualConversationId || actualConversationId === 'lookup-by-phone') {
+      console.log('[Send Message] No conversation found - this may be a manual SMS not initiated by the system')
       return NextResponse.json(
-        { error: 'Conversation not found' },
+        { 
+          success: false,
+          error: 'Conversation not found',
+          hint: 'This phone number has no active conversation. SMS may have been sent manually outside the system.'
+        },
         { status: 404 }
       )
     }
