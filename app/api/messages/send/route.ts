@@ -112,20 +112,41 @@ export async function POST(request: NextRequest) {
     if (conversationId === 'lookup-by-phone' && customerPhone) {
       console.log('[Send Message] Looking up conversation for phone:', customerPhone)
       
-      // Find conversation by customer phone number
-      const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('phone', customerPhone)
-        .single()
+      // Try multiple phone number formats to handle different formats from MacroDroid
+      const phoneVariants = [
+        customerPhone,                                    // Original: +447410381247
+        customerPhone.replace(/^\+/, ''),                // Remove +: 447410381247
+        customerPhone.replace(/^\+44/, '0'),             // UK format: 07410381247
+        customerPhone.replace(/^44/, '0'),               // 447410381247 -> 07410381247
+        customerPhone.replace(/^0/, '+44'),              // 07410381247 -> +447410381247
+      ].filter((v, i, arr) => arr.indexOf(v) === i) // Remove duplicates
+      
+      console.log('[Send Message] Trying phone variants:', phoneVariants)
+      
+      let customer = null
+      let foundPhone = null
+      
+      // Try each phone variant
+      for (const phoneVariant of phoneVariants) {
+        const { data: foundCustomer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('phone', phoneVariant)
+          .maybeSingle()
+        
+        if (foundCustomer) {
+          customer = foundCustomer
+          foundPhone = phoneVariant
+          console.log('[Send Message] Found customer with phone variant:', phoneVariant, 'Customer ID:', customer.id)
+          break
+        }
+      }
 
-      if (customerError) {
-        console.log('[Send Message] Customer not found:', customerPhone, customerError.message)
+      if (!customer) {
+        console.log('[Send Message] Customer not found with any phone variant')
       }
 
       if (customer) {
-        console.log('[Send Message] Found customer:', customer.id)
-        
         const { data: conversation, error: convError } = await supabase
           .from('conversations')
           .select('id')
@@ -140,7 +161,7 @@ export async function POST(request: NextRequest) {
 
         if (conversation) {
           actualConversationId = conversation.id
-          console.log('[Send Message] Found conversation:', actualConversationId)
+          console.log('[Send Message] Found conversation:', actualConversationId, 'for phone:', foundPhone)
         }
       }
     }
