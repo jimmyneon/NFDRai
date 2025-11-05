@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { RealtimeChannel } from '@supabase/supabase-js'
 import {
   Dialog,
   DialogContent,
@@ -48,19 +49,79 @@ export function ConversationDialog({
 }) {
   const [staffNote, setStaffNote] = useState('')
   const [loading, setLoading] = useState(false)
+  const [messages, setMessages] = useState<Message[]>(conversation.messages || [])
+  const [conversationStatus, setConversationStatus] = useState(conversation.status)
   const supabase = createClient()
   const { toast } = useToast()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  // Update local state when conversation prop changes
+  useEffect(() => {
+    setMessages(conversation.messages || [])
+    setConversationStatus(conversation.status)
+  }, [conversation])
 
   // Scroll to bottom when dialog opens or messages change
   useEffect(() => {
-    if (open && messagesEndRef.current) {
-      // Use setTimeout to ensure DOM is ready
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' })
-      }, 100)
+    if (open && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
     }
-  }, [open, conversation.messages])
+  }, [open, messages])
+
+  // Real-time subscription for new messages
+  useEffect(() => {
+    if (!open) return
+
+    const channel = supabase
+      .channel(`conversation-${conversation.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversation.id}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as Message
+          setMessages((prev) => [...prev, newMessage])
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversation.id}`,
+        },
+        (payload) => {
+          const updatedMessage = payload.new as Message
+          setMessages((prev) =>
+            prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
+          )
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversations',
+          filter: `id=eq.${conversation.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as any
+          setConversationStatus(updated.status)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [open, conversation.id, supabase])
 
   const handleTakeOver = async () => {
     setLoading(true)
@@ -147,7 +208,7 @@ export function ConversationDialog({
   }
 
   // Sort messages by created_at ascending (oldest first, newest last)
-  const sortedMessages = [...(conversation.messages || [])].sort(
+  const sortedMessages = [...messages].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   )
 
@@ -157,13 +218,18 @@ export function ConversationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>{conversation.customer?.name || 'Unknown Customer'}</span>
-            <Badge>{conversation.status}</Badge>
+            <Badge variant={conversationStatus === 'auto' ? 'default' : 'secondary'}>
+              {conversationStatus === 'auto' ? '🤖 AI Mode' : '👨‍💼 Manual Mode'}
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Messages */}
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div 
+            ref={messagesContainerRef}
+            className="space-y-3 max-h-96 overflow-y-auto scroll-smooth"
+          >
             {sortedMessages.map((message) => (
               <div
                 key={message.id}
