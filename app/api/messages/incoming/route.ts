@@ -7,6 +7,7 @@ import { checkMessageBatch } from '@/app/lib/message-batcher'
 import { logApiCall } from '@/app/lib/api-logger'
 import { shouldSwitchToAutoMode, getModeDecisionReason } from '@/app/lib/conversation-mode-analyzer'
 import { isAutoresponder, getAutoresponderReason } from '@/app/lib/autoresponder-detector'
+import { sendAlertNotification, shouldSendNotification } from '@/app/lib/alert-notifier'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -276,6 +277,27 @@ export async function POST(request: NextRequest) {
         } else {
           // Stay in manual mode - send alert to staff
           console.log('[Smart Mode] ⏸️  Staying in manual mode -', reason)
+          
+          // Check if we should send notification
+          const { data: recentAlerts } = await supabase
+            .from('alerts')
+            .select('created_at')
+            .eq('conversation_id', conversation.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+          
+          const lastAlertTime = recentAlerts?.[0]?.created_at
+          
+          if (shouldSendNotification(conversation.id, 'manual_required', lastAlertTime ? new Date(lastAlertTime) : undefined)) {
+            // Send SMS notification via MacroDroid
+            await sendAlertNotification({
+              conversationId: conversation.id,
+              alertType: 'manual_required',
+              customerPhone: customer.phone,
+              customerName: customer.name,
+              lastMessage: message,
+            })
+          }
           
           await supabase.from('alerts').insert({
             conversation_id: conversation.id,
