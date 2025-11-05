@@ -52,88 +52,6 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Check if this is a reply to John's confirmation message
-    // Look for recent staff messages in this conversation
-    const { data: recentStaffMessages } = await supabase
-      .from('messages')
-      .select('text, created_at')
-      .eq('sender', 'staff')
-      .order('created_at', { ascending: false })
-      .limit(1)
-    
-    const lastStaffMessage = recentStaffMessages?.[0]
-    const isReplyToConfirmation = lastStaffMessage && isConfirmationFromJohn(lastStaffMessage.text)
-    
-    if (isReplyToConfirmation) {
-      // Check if the last staff message was sent within the last 24 hours
-      const lastMessageTime = new Date(lastStaffMessage.created_at).getTime()
-      const now = Date.now()
-      const hoursSinceConfirmation = (now - lastMessageTime) / (1000 * 60 * 60)
-      
-      if (hoursSinceConfirmation < 24) {
-        console.log('[Confirmation Reply] Customer is replying to confirmation message')
-        console.log('[Confirmation Reply] Last staff message:', lastStaffMessage.text.substring(0, 50))
-        console.log('[Confirmation Reply] Hours since confirmation:', hoursSinceConfirmation.toFixed(1))
-        console.log('[Confirmation Reply] Customer message:', message.substring(0, 100))
-        
-        // Save the message but don't respond
-        // Find or create customer
-        let { data: customer } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('phone', from)
-          .maybeSingle()
-        
-        if (!customer) {
-          const { data: newCustomer } = await supabase
-            .from('customers')
-            .insert({ phone: from, name: customerName || null })
-            .select()
-            .single()
-          customer = newCustomer
-        }
-        
-        if (customer) {
-          // Find or create conversation
-          let { data: conversation } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('customer_id', customer.id)
-            .eq('channel', channel)
-            .single()
-          
-          if (!conversation) {
-            const { data: newConv } = await supabase
-              .from('conversations')
-              .insert({
-                customer_id: customer.id,
-                channel,
-                status: 'manual',
-              })
-              .select()
-              .single()
-            conversation = newConv
-          }
-          
-          if (conversation) {
-            // Save the message for record keeping
-            await supabase.from('messages').insert({
-              conversation_id: conversation.id,
-              text: message,
-              sender: 'customer',
-            })
-          }
-        }
-        
-        return NextResponse.json({
-          success: true,
-          mode: 'ignored',
-          message: 'Reply to confirmation message - no AI response needed',
-          reason: 'confirmation_reply',
-        })
-      }
-    }
-
     // Check if this is an automated message (e.g., eBay, Lebara, Dominos, delivery notifications)
     const isAutomated = isAutoresponder(message, from)
     if (isAutomated) {
@@ -275,6 +193,39 @@ export async function POST(request: NextRequest) {
       sender: 'customer',
       text: message,
     })
+
+    // Check if this is a reply to John's confirmation message in THIS conversation
+    const { data: recentStaffMessages } = await supabase
+      .from('messages')
+      .select('text, created_at')
+      .eq('conversation_id', conversation.id)
+      .eq('sender', 'staff')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    
+    const lastStaffMessage = recentStaffMessages?.[0]
+    const isReplyToConfirmation = lastStaffMessage && isConfirmationFromJohn(lastStaffMessage.text)
+    
+    if (isReplyToConfirmation) {
+      // Check if the last staff message was sent within the last 24 hours
+      const lastMessageTime = new Date(lastStaffMessage.created_at).getTime()
+      const now = Date.now()
+      const hoursSinceConfirmation = (now - lastMessageTime) / (1000 * 60 * 60)
+      
+      if (hoursSinceConfirmation < 24) {
+        console.log('[Confirmation Reply] Customer is replying to confirmation message')
+        console.log('[Confirmation Reply] Last staff message:', lastStaffMessage.text.substring(0, 50))
+        console.log('[Confirmation Reply] Hours since confirmation:', hoursSinceConfirmation.toFixed(1))
+        console.log('[Confirmation Reply] Customer message:', message.substring(0, 100))
+        
+        return NextResponse.json({
+          success: true,
+          mode: 'ignored',
+          message: 'Reply to confirmation message - no AI response needed',
+          reason: 'confirmation_reply',
+        })
+      }
+    }
 
     // Check if we should batch this message with others (handles rapid messages)
     const batchResult = await checkMessageBatch(
