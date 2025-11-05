@@ -222,7 +222,10 @@ export function ConversationDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>{conversation.customer?.name || 'Unknown Customer'}</span>
+            <div className="flex items-center gap-2">
+              <span>{conversation.customer?.name || 'Unknown Customer'}</span>
+              <span className="text-xs text-muted-foreground">(v2)</span>
+            </div>
             <Badge variant={conversationStatus === 'auto' ? 'default' : 'secondary'}>
               {conversationStatus === 'auto' ? '🤖 AI Mode' : '👨‍💼 Manual Mode'}
             </Badge>
