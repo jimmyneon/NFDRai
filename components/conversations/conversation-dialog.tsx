@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDate } from '@/lib/utils'
-import { User, Bot, UserCog } from 'lucide-react'
+import { User, Bot, UserCog, Check, CheckCheck } from 'lucide-react'
 
 type Message = {
   id: string
@@ -22,6 +22,8 @@ type Message = {
   created_at: string
   ai_provider?: string | null
   ai_confidence?: number | null
+  delivered?: boolean | null
+  delivered_at?: string | null
 }
 
 type Conversation = {
@@ -201,6 +203,22 @@ export function ConversationDialog({
                       <>
                         <span>•</span>
                         <span>{message.ai_confidence}% confidence</span>
+                      </>
+                    )}
+                    {(message.sender === 'ai' || message.sender === 'staff' || message.sender === 'system') && (
+                      <>
+                        <span>•</span>
+                        {message.delivered ? (
+                          <span className="flex items-center gap-1 text-green-600">
+                            <CheckCheck className="w-3 h-3" />
+                            Delivered
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <Check className="w-3 h-3" />
+                            Sent
+                          </span>
+                        )}
                       </>
                     )}
                   </div>
