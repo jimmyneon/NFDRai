@@ -102,12 +102,29 @@ export async function POST(request: NextRequest) {
     const messageId = messages[0].id
     console.log('[Delivery Confirmation] Found message:', messageId)
 
+    // Parse timestamp - MacroDroid sends Unix timestamp in seconds
+    let deliveredAt: string
+    if (timestamp) {
+      // Check if it's a Unix timestamp (number as string)
+      if (/^\d+$/.test(timestamp)) {
+        // Convert Unix timestamp (seconds) to ISO string
+        const timestampMs = parseInt(timestamp) * 1000
+        deliveredAt = new Date(timestampMs).toISOString()
+        console.log('[Delivery Confirmation] Converted Unix timestamp:', timestamp, '→', deliveredAt)
+      } else {
+        // Assume it's already an ISO string or parseable date
+        deliveredAt = new Date(timestamp).toISOString()
+      }
+    } else {
+      deliveredAt = new Date().toISOString()
+    }
+
     // Update message with delivery confirmation
     const { error: updateError } = await supabase
       .from('messages')
       .update({
         delivered: true,
-        delivered_at: timestamp || new Date().toISOString(),
+        delivered_at: deliveredAt,
       })
       .eq('id', messageId)
 
