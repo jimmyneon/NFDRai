@@ -63,7 +63,27 @@ export async function generateAIResponse(params: {
   const enhancedPrompt = `
 ${settings.system_prompt}
 
-IMPORTANT CONTEXT:
+═══════════════════════════════════════════════════════════════
+🔴 STEP 1: READ THE CONVERSATION HISTORY FIRST (CRITICAL!)
+═══════════════════════════════════════════════════════════════
+
+Previous Conversation:
+${conversationContext || 'No previous messages in this conversation.'}
+
+Customer's Current Message:
+${params.customerMessage}
+
+⚠️ MANDATORY CONTEXT RULES - READ BEFORE RESPONDING:
+1. ALWAYS read the entire conversation history above BEFORE formulating your response
+2. NEVER ask for information the customer has ALREADY PROVIDED in previous messages
+3. If the customer mentioned their name, device, or issue before - USE THAT INFORMATION
+4. Build on the conversation naturally - don't restart from scratch each time
+5. Reference previous messages when relevant (e.g., "Based on the iPhone repair you mentioned...")
+6. If you're unsure what they already told you, CHECK THE HISTORY ABOVE
+
+═══════════════════════════════════════════════════════════════
+STEP 2: REFERENCE DATA & BUSINESS INFORMATION
+═══════════════════════════════════════════════════════════════
 
 CURRENT BUSINESS HOURS STATUS (REAL-TIME):
 ${hoursMessage}
@@ -84,11 +104,9 @@ ${faqs?.map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n') || 'No FAQs av
 Knowledge Base Documents:
 ${docs?.map(d => `[${d.category.toUpperCase()}] ${d.title}:\n${d.content}`).join('\n\n') || 'No additional documentation available'}
 
-Previous Conversation:
-${conversationContext}
-
-Customer's Current Message:
-${params.customerMessage}
+═══════════════════════════════════════════════════════════════
+STEP 3: APPLY THESE RULES WHEN RESPONDING
+═══════════════════════════════════════════════════════════════
 
 CRITICAL PRICING RULES:
 1. ONLY use prices from the "Available Pricing" section above
