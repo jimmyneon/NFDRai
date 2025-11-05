@@ -61,13 +61,18 @@ export function shouldSwitchToAutoMode(message: string): boolean {
     }
   }
   
-  // If message is longer than 10 words and contains a question mark, likely a real question
-  const wordCount = lowerMessage.split(/\s+/).length
-  if (wordCount > 10 && lowerMessage.includes('?')) {
-    return true // Switch to auto mode for detailed questions
+  // If message contains a question mark, likely a real question
+  if (lowerMessage.includes('?')) {
+    return true // Switch to auto mode for questions
   }
   
-  // Default: if uncertain, stay in manual mode to be safe
+  // If message is longer than 5 words and not a simple acknowledgment, likely needs a response
+  const wordCount = lowerMessage.split(/\s+/).length
+  if (wordCount > 5) {
+    return true // Switch to auto mode for longer messages
+  }
+  
+  // Default: if uncertain and short, stay in manual mode to be safe
   return false
 }
 

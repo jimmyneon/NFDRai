@@ -284,11 +284,21 @@ export async function POST(request: NextRequest) {
       console.log('[Smart Mode] Staff has replied?', hasStaffReplied)
       
       if (hasStaffReplied) {
+        // Check how long ago staff replied
+        const lastStaffReplyTime = new Date(staffMessages[0].created_at).getTime()
+        const hoursSinceStaffReply = (Date.now() - lastStaffReplyTime) / (1000 * 60 * 60)
+        
+        // If staff replied more than 2 hours ago, auto-switch to AI
+        const timeBasedSwitch = hoursSinceStaffReply > 2
+        
         // Staff has replied - analyze if we should switch back to auto mode
-        const shouldAutoSwitch = shouldSwitchToAutoMode(message)
-        const reason = getModeDecisionReason(message, shouldAutoSwitch)
+        const shouldAutoSwitch = timeBasedSwitch || shouldSwitchToAutoMode(message)
+        const reason = timeBasedSwitch 
+          ? `Staff replied ${hoursSinceStaffReply.toFixed(1)}h ago - switching to auto`
+          : getModeDecisionReason(message, shouldAutoSwitch)
         
         console.log('[Smart Mode] Message:', message.substring(0, 50))
+        console.log('[Smart Mode] Hours since staff reply:', hoursSinceStaffReply.toFixed(1))
         console.log('[Smart Mode] Should switch to auto?', shouldAutoSwitch)
         console.log('[Smart Mode] Reason:', reason)
         
