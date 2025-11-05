@@ -11,10 +11,10 @@ export default async function DashboardPage() {
     .from('conversations')
     .select('*', { count: 'exact', head: true })
 
-  const { count: autoConversations } = await supabase
-    .from('conversations')
+  const { count: autoResponses } = await supabase
+    .from('messages')
     .select('*', { count: 'exact', head: true })
-    .eq('status', 'auto')
+    .eq('sender', 'ai')
 
   const { count: manualConversations } = await supabase
     .from('conversations')
@@ -26,7 +26,7 @@ export default async function DashboardPage() {
     .select('*', { count: 'exact', head: true })
     .eq('status', 'paused')
 
-  // Get recent activity
+  // Get recent activity with messages
   const { data: recentConversations } = await supabase
     .from('conversations')
     .select(`
@@ -34,10 +34,23 @@ export default async function DashboardPage() {
       customers:customer_id (
         name,
         phone
+      ),
+      messages (
+        id,
+        created_at
       )
     `)
     .order('updated_at', { ascending: false })
-    .limit(5)
+    .limit(10)
+
+  // Sort by most recent message timestamp
+  const sortedRecentConversations = recentConversations
+    ?.map(conv => {
+      const lastMessageTime = conv.messages?.[conv.messages.length - 1]?.created_at || conv.updated_at
+      return { ...conv, lastMessageTime }
+    })
+    .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
+    .slice(0, 5)
 
   const stats = [
     {
@@ -48,7 +61,7 @@ export default async function DashboardPage() {
     },
     {
       title: 'Auto Responses',
-      value: autoConversations || 0,
+      value: autoResponses || 0,
       icon: Bot,
       color: 'bg-green-500',
     },
@@ -105,9 +118,9 @@ export default async function DashboardPage() {
             <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            {recentConversations && recentConversations.length > 0 ? (
+            {sortedRecentConversations && sortedRecentConversations.length > 0 ? (
               <div className="space-y-3">
-                {recentConversations.map((conv) => (
+                {sortedRecentConversations.map((conv) => (
                   <a
                     key={conv.id}
                     href={`/dashboard/conversations?id=${conv.id}`}

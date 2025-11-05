@@ -184,6 +184,21 @@ export async function POST(request: NextRequest) {
       conversationId: conversation.id,
     })
 
+    // Check if AI response indicates manual handoff
+    const handoffPhrases = [
+      /i'?ll pass.*onto.*john/i,
+      /i'?ll check.*with.*john/i,
+      /let me.*check.*with.*john/i,
+      /i'?ll.*forward.*to.*john/i,
+      /i'?ll.*ask.*john/i,
+      /john.*will.*get.*back/i,
+      /need.*to.*check.*with.*john/i,
+    ]
+    
+    const indicatesHandoff = handoffPhrases.some(pattern => 
+      pattern.test(aiResult.response)
+    )
+
     // Insert AI response
     await supabase.from('messages').insert({
       conversation_id: conversation.id,
@@ -194,8 +209,8 @@ export async function POST(request: NextRequest) {
       ai_confidence: aiResult.confidence,
     })
 
-    // If fallback was triggered, switch to manual mode
-    if (aiResult.shouldFallback) {
+    // If fallback was triggered or AI indicates manual handoff, switch to manual mode
+    if (aiResult.shouldFallback || indicatesHandoff) {
       await supabase
         .from('conversations')
         .update({ status: 'manual' })
@@ -203,7 +218,7 @@ export async function POST(request: NextRequest) {
 
       await supabase.from('alerts').insert({
         conversation_id: conversation.id,
-        type: 'low_confidence',
+        type: indicatesHandoff ? 'manual_required' : 'low_confidence',
         notified_to: 'admin',
       })
     }

@@ -141,6 +141,11 @@ export function ConversationDialog({
     setLoading(false)
   }
 
+  // Sort messages by created_at ascending (oldest first, newest last)
+  const sortedMessages = [...(conversation.messages || [])].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -154,7 +159,7 @@ export function ConversationDialog({
         <div className="space-y-4">
           {/* Messages */}
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {conversation.messages?.map((message) => (
+            {sortedMessages.map((message) => (
               <div
                 key={message.id}
                 className={`flex gap-3 ${

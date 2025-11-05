@@ -113,8 +113,18 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('[Delivery Confirmation] Error updating message:', updateError)
+      // If columns don't exist yet, still return success
+      if (updateError.message?.includes('column') || updateError.code === '42703') {
+        console.log('[Delivery Confirmation] Columns not yet added - run migration 013')
+        return NextResponse.json({
+          success: true,
+          messageId,
+          message: 'Message found but delivery columns not yet added. Run migration 013.',
+          warning: 'Delivery tracking columns missing'
+        })
+      }
       return NextResponse.json(
-        { error: 'Failed to update message' },
+        { error: 'Failed to update message', details: updateError.message },
         { status: 500 }
       )
     }

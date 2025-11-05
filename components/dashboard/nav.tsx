@@ -31,6 +31,7 @@ const navItems = [
   { href: '/dashboard/docs', label: 'Docs', icon: FileText },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/dashboard/business-hours', label: 'Business Hours', icon: Clock },
+  { href: '/dashboard/api-logs', label: 'API Logs', icon: Activity },
   { href: '/dashboard/sandbox', label: 'Sandbox', icon: TestTube },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
