@@ -161,6 +161,13 @@ GENERAL RULES:
   // Add current customer message
   conversationMessages.push({ role: 'user', content: params.customerMessage })
   
+  // Debug: Log conversation messages being sent to AI
+  console.log('[AI Context] Sending conversation to AI:')
+  console.log('[AI Context] Total messages:', conversationMessages.length)
+  conversationMessages.forEach((msg, idx) => {
+    console.log(`[AI Context] ${idx}: ${msg.role} - ${msg.content.substring(0, 100)}...`)
+  })
+  
   // Get AI provider and generate response
   const provider = getProvider(settings.provider)
   
