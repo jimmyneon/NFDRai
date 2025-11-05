@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
+import { extractConfirmationData } from '@/app/lib/confirmation-extractor'
 
 /**
  * POST /api/messages/send
@@ -222,6 +223,49 @@ export async function POST(request: NextRequest) {
         { error: 'Conversation not found' },
         { status: 404 }
       )
+    }
+
+    // Extract customer data from confirmation messages
+    const confirmationData = extractConfirmationData(text)
+    
+    if (confirmationData.isConfirmationMessage) {
+      console.log('[Confirmation] Detected confirmation message')
+      console.log('[Confirmation] Extracted data:', confirmationData)
+      
+      // Update customer record with extracted information
+      if (confirmationData.customerName || confirmationData.device) {
+        const updateData: any = {}
+        
+        if (confirmationData.customerName) {
+          updateData.name = confirmationData.customerName
+        }
+        
+        // Store device in notes if we have it
+        if (confirmationData.device) {
+          const existingNotes = conversation.customer?.notes || ''
+          const deviceNote = `Device: ${confirmationData.device} (ready for collection)`
+          
+          // Only add if not already in notes
+          if (!existingNotes.includes(confirmationData.device)) {
+            updateData.notes = existingNotes 
+              ? `${existingNotes}\n${deviceNote}` 
+              : deviceNote
+          }
+        }
+        
+        if (Object.keys(updateData).length > 0) {
+          const { error: updateError } = await supabase
+            .from('customers')
+            .update(updateData)
+            .eq('id', conversation.customer_id)
+          
+          if (updateError) {
+            console.error('[Confirmation] Failed to update customer:', updateError)
+          } else {
+            console.log('[Confirmation] Updated customer with:', updateData)
+          }
+        }
+      }
     }
 
     // Insert message into database

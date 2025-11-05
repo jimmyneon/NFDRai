@@ -8,6 +8,7 @@ import { logApiCall } from '@/app/lib/api-logger'
 import { shouldSwitchToAutoMode, getModeDecisionReason } from '@/app/lib/conversation-mode-analyzer'
 import { isAutoresponder, getAutoresponderReason } from '@/app/lib/autoresponder-detector'
 import { sendAlertNotification, shouldSendNotification } from '@/app/lib/alert-notifier'
+import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -49,6 +50,90 @@ export async function POST(request: NextRequest) {
       return response
     }
 
+    const supabase = await createClient()
+
+    // Check if this is a reply to John's confirmation message
+    // Look for recent staff messages in this conversation
+    const { data: recentStaffMessages } = await supabase
+      .from('messages')
+      .select('text, created_at')
+      .eq('sender', 'staff')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    
+    const lastStaffMessage = recentStaffMessages?.[0]
+    const isReplyToConfirmation = lastStaffMessage && isConfirmationFromJohn(lastStaffMessage.text)
+    
+    if (isReplyToConfirmation) {
+      // Check if the last staff message was sent within the last 24 hours
+      const lastMessageTime = new Date(lastStaffMessage.created_at).getTime()
+      const now = Date.now()
+      const hoursSinceConfirmation = (now - lastMessageTime) / (1000 * 60 * 60)
+      
+      if (hoursSinceConfirmation < 24) {
+        console.log('[Confirmation Reply] Customer is replying to confirmation message')
+        console.log('[Confirmation Reply] Last staff message:', lastStaffMessage.text.substring(0, 50))
+        console.log('[Confirmation Reply] Hours since confirmation:', hoursSinceConfirmation.toFixed(1))
+        console.log('[Confirmation Reply] Customer message:', message.substring(0, 100))
+        
+        // Save the message but don't respond
+        // Find or create customer
+        let { data: customer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('phone', from)
+          .maybeSingle()
+        
+        if (!customer) {
+          const { data: newCustomer } = await supabase
+            .from('customers')
+            .insert({ phone: from, name: customerName || null })
+            .select()
+            .single()
+          customer = newCustomer
+        }
+        
+        if (customer) {
+          // Find or create conversation
+          let { data: conversation } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('customer_id', customer.id)
+            .eq('channel', channel)
+            .single()
+          
+          if (!conversation) {
+            const { data: newConv } = await supabase
+              .from('conversations')
+              .insert({
+                customer_id: customer.id,
+                channel,
+                status: 'manual',
+              })
+              .select()
+              .single()
+            conversation = newConv
+          }
+          
+          if (conversation) {
+            // Save the message for record keeping
+            await supabase.from('messages').insert({
+              conversation_id: conversation.id,
+              text: message,
+              sender: 'customer',
+            })
+          }
+        }
+        
+        return NextResponse.json({
+          success: true,
+          mode: 'ignored',
+          message: 'Reply to confirmation message - no AI response needed',
+          reason: 'confirmation_reply',
+        })
+      }
+    }
+
     // Check if this is an automated message (e.g., eBay, Lebara, Dominos, delivery notifications)
     const isAutomated = isAutoresponder(message, from)
     if (isAutomated) {
@@ -59,8 +144,6 @@ export async function POST(request: NextRequest) {
       console.log('[Autoresponder] Message preview:', message.substring(0, 100))
       
       // Still save the message but don't respond
-      const supabase = await createClient()
-      
       // Find or create customer for logging purposes
       let { data: customer } = await supabase
         .from('customers')
@@ -133,8 +216,6 @@ export async function POST(request: NextRequest) {
         { status: 429 }
       )
     }
-
-    const supabase = await createClient()
 
     // Find or create customer
     let { data: customer } = await supabase
@@ -339,13 +420,13 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    const lastStaffMessage = recentMessages?.find(
+    const recentStaffMessage = recentMessages?.find(
       (msg) => msg.sender === 'staff'
     )
 
-    if (lastStaffMessage) {
+    if (recentStaffMessage) {
       const minutesSinceStaffMessage = 
-        (Date.now() - new Date(lastStaffMessage.created_at).getTime()) / 1000 / 60
+        (Date.now() - new Date(recentStaffMessage.created_at).getTime()) / 1000 / 60
 
       // If staff replied within last 5 minutes, wait and let staff handle it
       if (minutesSinceStaffMessage < 5) {
