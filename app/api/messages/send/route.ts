@@ -28,13 +28,20 @@ export async function POST(request: NextRequest) {
     if (contentType.includes('application/x-www-form-urlencoded')) {
       // Parse form data
       const formData = await request.formData()
-      conversationId = formData.get('conversationId') as string
+      // Handle both camelCase and lowercase parameter names from MacroDroid
+      conversationId = (formData.get('conversationId') || formData.get('conversationid')) as string
       text = formData.get('text') as string
       sendVia = formData.get('sendVia') as string
-      customerPhone = formData.get('customerPhone') as string
+      customerPhone = (formData.get('customerPhone') || formData.get('customerphone')) as string
       sender = formData.get('sender') as string
       trackOnly = formData.get('trackOnly') === 'true'
-      console.log('[Send Message] Parsed form data')
+      
+      // Normalize conversation ID variants
+      if (conversationId === 'look-up-byphone' || conversationId === 'lookupbyphone') {
+        conversationId = 'lookup-by-phone'
+      }
+      
+      console.log('[Send Message] Parsed form data:', { conversationId, customerPhone, text: text?.substring(0, 30) })
     } else {
       // Try to parse as JSON
       try {
