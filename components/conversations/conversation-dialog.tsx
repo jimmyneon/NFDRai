@@ -65,7 +65,12 @@ export function ConversationDialog({
   // Scroll to bottom when dialog opens or messages change
   useEffect(() => {
     if (open && messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+      // Use setTimeout to ensure DOM has rendered
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+        }
+      }, 100)
     }
   }, [open, messages])
 
@@ -214,7 +219,7 @@ export function ConversationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>{conversation.customer?.name || 'Unknown Customer'}</span>
@@ -224,11 +229,11 @@ export function ConversationDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Messages */}
           <div 
             ref={messagesContainerRef}
-            className="space-y-3 max-h-96 overflow-y-auto scroll-smooth"
+            className="flex-1 space-y-3 overflow-y-auto scroll-smooth p-4"
           >
             {sortedMessages.map((message) => (
               <div
@@ -252,6 +257,8 @@ export function ConversationDialog({
                     className={`inline-block p-3 rounded-xl ${
                       message.sender === 'customer'
                         ? 'bg-muted'
+                        : message.sender === 'staff'
+                        ? 'bg-blue-500 text-white'
                         : 'bg-primary text-primary-foreground'
                     }`}
                   >
