@@ -13,7 +13,14 @@ export default async function AnalyticsPage() {
 
   const { data: messages } = await supabase
     .from('messages')
-    .select('sender, created_at, text')
+    .select('sender, created_at, text, delivered')
+  
+  // Get API logs for new features tracking
+  const { data: apiLogs } = await supabase
+    .from('api_logs')
+    .select('endpoint, status_code, response_body, created_at')
+    .order('created_at', { ascending: false })
+    .limit(1000)
 
   // Calculate stats
   const totalConversations = conversations?.length || 0
@@ -44,6 +51,38 @@ export default async function AnalyticsPage() {
   const topQueries = Object.entries(wordFrequency)
     .sort(([, a], [, b]) => (b as number) - (a as number))
     .slice(0, 10)
+
+  // New features analytics
+  const missedCalls = apiLogs?.filter(log => 
+    log.endpoint === '/api/messages/missed-call' && log.status_code === 200
+  ).length || 0
+
+  const deliveryConfirmations = messages?.filter(m => m.delivered === true).length || 0
+  const totalSentMessages = messages?.filter(m => m.sender === 'ai' || m.sender === 'staff').length || 0
+  const deliveryRate = totalSentMessages > 0 
+    ? Math.round((deliveryConfirmations / totalSentMessages) * 100)
+    : 0
+
+  const autoresponderBlocked = apiLogs?.filter(log => 
+    log.endpoint === '/api/messages/incoming' && 
+    log.response_body && 
+    typeof log.response_body === 'object' &&
+    (log.response_body as any).mode === 'ignored'
+  ).length || 0
+
+  const smartModeSwitches = apiLogs?.filter(log => 
+    log.endpoint === '/api/messages/incoming' &&
+    log.response_body &&
+    typeof log.response_body === 'object' &&
+    (log.response_body as any).message?.includes('Switched to auto mode')
+  ).length || 0
+
+  const batchedMessages = apiLogs?.filter(log =>
+    log.endpoint === '/api/messages/incoming' &&
+    log.response_body &&
+    typeof log.response_body === 'object' &&
+    (log.response_body as any).batched === true
+  ).length || 0
 
   return (
     <div className="space-y-6">
@@ -102,6 +141,50 @@ export default async function AnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* New Features Analytics */}
+      <Card>
+        <CardHeader>
+          <CardTitle>New Features Performance</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Track usage of recently implemented features
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Missed Calls</p>
+              <p className="text-2xl font-bold">{missedCalls}</p>
+              <p className="text-xs text-muted-foreground">Auto-responded</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Delivery Rate</p>
+              <p className="text-2xl font-bold text-green-600">{deliveryRate}%</p>
+              <p className="text-xs text-muted-foreground">{deliveryConfirmations}/{totalSentMessages}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Spam Blocked</p>
+              <p className="text-2xl font-bold text-red-600">{autoresponderBlocked}</p>
+              <p className="text-xs text-muted-foreground">Auto-detected</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Smart Switches</p>
+              <p className="text-2xl font-bold text-blue-600">{smartModeSwitches}</p>
+              <p className="text-xs text-muted-foreground">Manual → AI</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Batched</p>
+              <p className="text-2xl font-bold text-purple-600">{batchedMessages}</p>
+              <p className="text-xs text-muted-foreground">Rapid messages</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">AI Messages</p>
+              <p className="text-2xl font-bold">{messages?.filter(m => m.sender === 'ai').length || 0}</p>
+              <p className="text-xs text-muted-foreground">Generated</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
