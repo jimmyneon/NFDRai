@@ -133,8 +133,16 @@ export default async function DashboardPage() {
                       <p className="text-xs text-muted-foreground">
                         {conv.customers?.phone || 'No phone'}
                       </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(conv.lastMessageTime).toLocaleString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end gap-2">
                       <span className="text-xs text-muted-foreground capitalize">
                         {conv.channel}
                       </span>

@@ -53,7 +53,10 @@ export function ConversationDialog({
   // Scroll to bottom when dialog opens or messages change
   useEffect(() => {
     if (open && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+      // Use setTimeout to ensure DOM is ready
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' })
+      }, 100)
     }
   }, [open, conversation.messages])
 

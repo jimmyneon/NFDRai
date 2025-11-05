@@ -4,6 +4,7 @@ import { generateAIResponse } from '@/lib/ai/response-generator'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 import { checkRateLimit } from '@/app/lib/rate-limiter'
 import { checkMessageBatch } from '@/app/lib/message-batcher'
+import { logApiCall } from '@/app/lib/api-logger'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -17,15 +18,32 @@ import { checkMessageBatch } from '@/app/lib/message-batcher'
  * }
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  let payload: any = null
+  
   try {
-    const payload = await request.json()
+    payload = await request.json()
     const { from, message, channel, customerName } = payload
 
     if (!from || !message || !channel) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Missing required fields: from, message, channel' },
         { status: 400 }
       )
+      
+      // Log failed request
+      await logApiCall({
+        endpoint: '/api/messages/incoming',
+        method: 'POST',
+        statusCode: 400,
+        requestBody: payload,
+        responseBody: { error: 'Missing required fields' },
+        ipAddress: request.headers.get('x-forwarded-for') || undefined,
+        userAgent: request.headers.get('user-agent') || undefined,
+        startTime,
+      })
+      
+      return response
     }
 
     // Rate limiting: Max 10 messages per minute per phone number (prevents spam)
@@ -270,16 +288,45 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const responseBody = {
       success: true,
       response: aiResult.response,
       confidence: aiResult.confidence,
       fallback: aiResult.shouldFallback,
       delivered: deliveryStatus.sent,
       deliveryProvider: deliveryStatus.provider,
+    }
+
+    // Log successful request
+    await logApiCall({
+      endpoint: '/api/messages/incoming',
+      method: 'POST',
+      statusCode: 200,
+      requestBody: payload,
+      responseBody,
+      ipAddress: request.headers.get('x-forwarded-for') || undefined,
+      userAgent: request.headers.get('user-agent') || undefined,
+      startTime,
     })
+
+    return NextResponse.json(responseBody)
   } catch (error) {
     console.error('Incoming message error:', error)
+    
+    const errorMessage = error instanceof Error ? error.message : 'Failed to process message'
+    
+    // Log error
+    await logApiCall({
+      endpoint: '/api/messages/incoming',
+      method: 'POST',
+      statusCode: 500,
+      requestBody: payload,
+      error: errorMessage,
+      ipAddress: request.headers.get('x-forwarded-for') || undefined,
+      userAgent: request.headers.get('user-agent') || undefined,
+      startTime,
+    })
+    
     return NextResponse.json(
       { error: 'Failed to process message' },
       { status: 500 }
