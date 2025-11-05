@@ -6,6 +6,7 @@ import { checkRateLimit } from '@/app/lib/rate-limiter'
 import { checkMessageBatch } from '@/app/lib/message-batcher'
 import { logApiCall } from '@/app/lib/api-logger'
 import { shouldSwitchToAutoMode, getModeDecisionReason } from '@/app/lib/conversation-mode-analyzer'
+import { isAutoresponder, getAutoresponderReason } from '@/app/lib/autoresponder-detector'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -45,6 +46,74 @@ export async function POST(request: NextRequest) {
       })
       
       return response
+    }
+
+    // Check if this is an automated message (e.g., eBay, Lebara, Dominos, delivery notifications)
+    const isAutomated = isAutoresponder(message, from)
+    if (isAutomated) {
+      const reason = getAutoresponderReason(message, from)
+      console.log('[Autoresponder] Detected automated message')
+      console.log('[Autoresponder] From:', from)
+      console.log('[Autoresponder] Reason:', reason)
+      console.log('[Autoresponder] Message preview:', message.substring(0, 100))
+      
+      // Still save the message but don't respond
+      const supabase = await createClient()
+      
+      // Find or create customer for logging purposes
+      let { data: customer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('phone', from)
+        .maybeSingle()
+      
+      if (!customer) {
+        const { data: newCustomer } = await supabase
+          .from('customers')
+          .insert({ phone: from, name: 'Automated System' })
+          .select()
+          .single()
+        customer = newCustomer
+      }
+      
+      if (customer) {
+        // Find or create conversation
+        let { data: conversation } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('customer_id', customer.id)
+          .eq('channel', channel)
+          .single()
+        
+        if (!conversation) {
+          const { data: newConv } = await supabase
+            .from('conversations')
+            .insert({
+              customer_id: customer.id,
+              channel,
+              status: 'auto',
+            })
+            .select()
+            .single()
+          conversation = newConv
+        }
+        
+        if (conversation) {
+          // Save the message for record keeping
+          await supabase.from('messages').insert({
+            conversation_id: conversation.id,
+            text: message,
+            sender: 'customer',
+          })
+        }
+      }
+      
+      return NextResponse.json({
+        success: true,
+        mode: 'ignored',
+        message: 'Automated message detected - no response sent',
+        reason,
+      })
     }
 
     // Rate limiting: Max 10 messages per minute per phone number (prevents spam)
