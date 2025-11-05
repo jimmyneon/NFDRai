@@ -194,39 +194,6 @@ export async function POST(request: NextRequest) {
       text: message,
     })
 
-    // Check if this is a reply to John's confirmation message in THIS conversation
-    const { data: recentStaffMessages } = await supabase
-      .from('messages')
-      .select('text, created_at')
-      .eq('conversation_id', conversation.id)
-      .eq('sender', 'staff')
-      .order('created_at', { ascending: false })
-      .limit(1)
-    
-    const lastStaffMessage = recentStaffMessages?.[0]
-    const isReplyToConfirmation = lastStaffMessage && isConfirmationFromJohn(lastStaffMessage.text)
-    
-    if (isReplyToConfirmation) {
-      // Check if the last staff message was sent within the last 30 minutes
-      const lastMessageTime = new Date(lastStaffMessage.created_at).getTime()
-      const now = Date.now()
-      const minutesSinceConfirmation = (now - lastMessageTime) / (1000 * 60)
-      
-      if (minutesSinceConfirmation < 30) {
-        console.log('[Confirmation Reply] Customer is replying to confirmation message')
-        console.log('[Confirmation Reply] Last staff message:', lastStaffMessage.text.substring(0, 50))
-        console.log('[Confirmation Reply] Minutes since confirmation:', minutesSinceConfirmation.toFixed(1))
-        console.log('[Confirmation Reply] Customer message:', message.substring(0, 100))
-        
-        return NextResponse.json({
-          success: true,
-          mode: 'ignored',
-          message: 'Reply to confirmation message - no AI response needed',
-          reason: 'confirmation_reply',
-        })
-      }
-    }
-
     // Check if we should batch this message with others (handles rapid messages)
     const batchResult = await checkMessageBatch(
       customer.id,

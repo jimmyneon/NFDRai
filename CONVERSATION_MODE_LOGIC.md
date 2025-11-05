@@ -16,21 +16,18 @@ The system automatically manages conversation modes so you don't have to manuall
 
 The system analyzes the customer's message and decides:
 
-#### ✅ Switch to AUTO (AI responds)
+#### ✅ Switch to AUTO (AI responds) - DEFAULT BEHAVIOR
 - **Questions**: Any message with `?`
-- **Longer messages**: More than 5 words (likely needs a response)
-- **Generic queries**: 
-  - "When are you open?"
-  - "How much is...?"
-  - "Do you fix...?"
-  - "Can you help with...?"
+- **Longer messages**: More than 3 words
+- **Generic queries**: "When are you open?", "How much?", "Do you fix...?"
 - **Time-based**: If John replied 2+ hours ago
+- **Default**: AI responds to EVERYTHING unless it's a specific acknowledgment below
 
-#### ⏸️ Stay in MANUAL (AI stays silent)
+#### ⏸️ Stay in MANUAL (AI stays silent) - ONLY THESE
 - **Acknowledgments**: "ok", "thanks", "yes", "no", "bye"
 - **Personal messages**: "thanks john", "see you soon"
 - **Coming in**: "on my way", "be there soon"
-- **Short responses**: Less than 5 words (unless it's a question)
+- **Very short**: 1-3 words AND matches acknowledgment patterns
 
 ### Special Cases
 
@@ -38,8 +35,8 @@ The system analyzes the customer's message and decides:
 When you send: "Hi there Sarah, your iPhone 12 is fixed and ready for collection. Many thanks, John"
 - System extracts customer name and device
 - Updates customer record automatically
-- If customer replies within 30 minutes → AI stays silent
-- After 30 minutes → normal mode switching applies (AI can respond)
+- Customer replies are handled by normal smart mode switching
+- AI will respond to questions like "what time?" but stay silent for "thanks"
 
 ## Examples
 
@@ -76,12 +73,11 @@ Sarah: "Do you take card?"
 
 ### Time Thresholds
 - **2 hours**: Auto-switch to AI if John hasn't replied
-- **30 minutes**: Confirmation reply detection window (AI stays silent)
 - **5 minutes**: Wait time if staff recently active
 
 ### Message Length
-- **5+ words**: Likely needs AI response
-- **<5 words**: Likely acknowledgment (stay manual)
+- **3+ words**: AI responds (unless it's an acknowledgment)
+- **<3 words**: AI responds UNLESS it matches acknowledgment patterns
 
 ## Benefits
 

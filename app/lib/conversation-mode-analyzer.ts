@@ -67,14 +67,15 @@ export function shouldSwitchToAutoMode(message: string): boolean {
     return true // Switch to auto mode for questions
   }
   
-  // If message is longer than 5 words and not a simple acknowledgment, likely needs a response
+  // If message is longer than 3 words and not a simple acknowledgment, likely needs a response
   const wordCount = lowerMessage.split(/\s+/).length
-  if (wordCount > 5) {
+  if (wordCount > 3) {
     return true // Switch to auto mode for longer messages
   }
   
-  // Default: if uncertain and short, stay in manual mode to be safe
-  return false
+  // Default: switch to auto mode unless it's a very short acknowledgment
+  // This makes AI more aggressive - it will respond to most messages
+  return true
 }
 
 /**
