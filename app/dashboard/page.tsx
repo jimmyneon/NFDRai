@@ -11,10 +11,15 @@ export default async function DashboardPage() {
     .from('conversations')
     .select('*', { count: 'exact', head: true })
 
+  // Get auto responses from last 24 hours
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  
   const { count: autoResponses } = await supabase
     .from('messages')
     .select('*', { count: 'exact', head: true })
     .eq('sender', 'ai')
+    .gte('created_at', yesterday.toISOString())
 
   const { count: manualConversations } = await supabase
     .from('conversations')
@@ -26,7 +31,7 @@ export default async function DashboardPage() {
     .select('*', { count: 'exact', head: true })
     .eq('status', 'paused')
 
-  // Get recent activity with messages
+  // Get recent activity with latest message
   const { data: recentConversations } = await supabase
     .from('conversations')
     .select(`
@@ -37,7 +42,8 @@ export default async function DashboardPage() {
       ),
       messages (
         id,
-        created_at
+        created_at,
+        text
       )
     `)
     .order('updated_at', { ascending: false })
@@ -46,7 +52,11 @@ export default async function DashboardPage() {
   // Sort by most recent message timestamp
   const sortedRecentConversations = recentConversations
     ?.map(conv => {
-      const lastMessageTime = conv.messages?.[conv.messages.length - 1]?.created_at || conv.updated_at
+      // Sort messages by created_at to get the latest one
+      const sortedMessages = conv.messages?.sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+      const lastMessageTime = sortedMessages?.[0]?.created_at || conv.updated_at
       return { ...conv, lastMessageTime }
     })
     .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
@@ -60,7 +70,7 @@ export default async function DashboardPage() {
       color: 'bg-blue-500',
     },
     {
-      title: 'Auto Responses',
+      title: 'Auto Responses (24h)',
       value: autoResponses || 0,
       icon: Bot,
       color: 'bg-green-500',
