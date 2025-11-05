@@ -5,6 +5,7 @@ import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 import { checkRateLimit } from '@/app/lib/rate-limiter'
 import { checkMessageBatch } from '@/app/lib/message-batcher'
 import { logApiCall } from '@/app/lib/api-logger'
+import { shouldSwitchToAutoMode, getModeDecisionReason } from '@/app/lib/conversation-mode-analyzer'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -164,20 +165,48 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Check if conversation is in auto mode
+    // Check if conversation is in manual mode
     if (conversation.status !== 'auto') {
-      // Send alert to staff
-      await supabase.from('alerts').insert({
-        conversation_id: conversation.id,
-        type: 'manual_required',
-        notified_to: 'admin',
-      })
+      // Analyze if we should switch back to auto mode based on message content
+      const shouldAutoSwitch = shouldSwitchToAutoMode(message)
+      const reason = getModeDecisionReason(message, shouldAutoSwitch)
+      
+      console.log('[Smart Mode] Conversation in manual mode')
+      console.log('[Smart Mode] Message:', message.substring(0, 50))
+      console.log('[Smart Mode] Should switch to auto?', shouldAutoSwitch)
+      console.log('[Smart Mode] Reason:', reason)
+      
+      if (shouldAutoSwitch) {
+        // Switch back to auto mode - this is a generic question AI can handle
+        await supabase
+          .from('conversations')
+          .update({ 
+            status: 'auto',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', conversation.id)
+        
+        console.log('[Smart Mode] ✅ Switched to auto mode -', reason)
+        
+        // Continue to AI response generation below
+        // Don't return here - let the AI handle the message
+      } else {
+        // Stay in manual mode - send alert to staff
+        console.log('[Smart Mode] ⏸️  Staying in manual mode -', reason)
+        
+        await supabase.from('alerts').insert({
+          conversation_id: conversation.id,
+          type: 'manual_required',
+          notified_to: 'admin',
+        })
 
-      return NextResponse.json({
-        success: true,
-        mode: 'manual',
-        message: 'Message received - manual response required',
-      })
+        return NextResponse.json({
+          success: true,
+          mode: 'manual',
+          message: 'Message received - manual response required',
+          reason,
+        })
+      }
     }
 
     // Check if staff has recently replied
