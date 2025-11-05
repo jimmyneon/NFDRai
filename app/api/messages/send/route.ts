@@ -36,6 +36,11 @@ export async function POST(request: NextRequest) {
       sender = formData.get('sender') as string
       trackOnly = formData.get('trackOnly') === 'true'
       
+      // Trim whitespace from phone number
+      if (customerPhone) {
+        customerPhone = customerPhone.trim()
+      }
+      
       // Normalize conversation ID variants
       if (conversationId === 'look-up-byphone' || conversationId === 'lookupbyphone') {
         conversationId = 'lookup-by-phone'
@@ -120,13 +125,30 @@ export async function POST(request: NextRequest) {
       console.log('[Send Message] Looking up conversation for phone:', customerPhone)
       
       // Try multiple phone number formats to handle different formats from MacroDroid
-      const phoneVariants = [
-        customerPhone,                                    // Original: +447410381247
-        customerPhone.replace(/^\+/, ''),                // Remove +: 447410381247
-        customerPhone.replace(/^\+44/, '0'),             // UK format: 07410381247
-        customerPhone.replace(/^44/, '0'),               // 447410381247 -> 07410381247
-        customerPhone.replace(/^0/, '+44'),              // 07410381247 -> +447410381247
-      ].filter((v, i, arr) => arr.indexOf(v) === i) // Remove duplicates
+      // Generate all common UK phone formats
+      const phoneVariants = []
+      const cleanPhone = customerPhone.replace(/\s+/g, '') // Remove all spaces
+      
+      phoneVariants.push(cleanPhone) // Original
+      
+      // If starts with +44, add variants
+      if (cleanPhone.startsWith('+44')) {
+        phoneVariants.push(cleanPhone.substring(1))        // Remove +: 447410381247
+        phoneVariants.push('0' + cleanPhone.substring(3))  // UK format: 07410381247
+      }
+      // If starts with 44 (no +), add variants
+      else if (cleanPhone.startsWith('44') && !cleanPhone.startsWith('0')) {
+        phoneVariants.push('+' + cleanPhone)               // Add +: +447410381247
+        phoneVariants.push('0' + cleanPhone.substring(2))  // UK format: 07410381247
+      }
+      // If starts with 0, add variants
+      else if (cleanPhone.startsWith('0')) {
+        phoneVariants.push('+44' + cleanPhone.substring(1)) // International: +447410381247
+        phoneVariants.push('44' + cleanPhone.substring(1))  // No +: 447410381247
+      }
+      
+      // Remove duplicates
+      const uniqueVariants = [...new Set(phoneVariants)]
       
       console.log('[Send Message] Trying phone variants:', phoneVariants)
       
