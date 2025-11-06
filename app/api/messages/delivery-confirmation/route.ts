@@ -49,7 +49,12 @@ export async function POST(request: NextRequest) {
             hint: 'Change Content-Type to application/x-www-form-urlencoded in MacroDroid',
             success: false
           },
-          { status: 400 }
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+          }
         )
       }
     }
@@ -59,7 +64,12 @@ export async function POST(request: NextRequest) {
     if (!phone || !message) {
       return NextResponse.json(
         { error: 'Missing required fields: phone, message' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -80,7 +90,12 @@ export async function POST(request: NextRequest) {
       console.error('[Delivery Confirmation] Error finding message:', findError)
       return NextResponse.json(
         { error: 'Failed to find message', details: findError.message },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -95,7 +110,12 @@ export async function POST(request: NextRequest) {
           success: false,
           message: 'No matching message found (may be older than 5 minutes or text mismatch)'
         },
-        { status: 404 }
+        { 
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -138,11 +158,20 @@ export async function POST(request: NextRequest) {
           messageId,
           message: 'Message found but delivery columns not yet added. Run migration 013.',
           warning: 'Delivery tracking columns missing'
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
         })
       }
       return NextResponse.json(
         { error: 'Failed to update message', details: updateError.message },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -152,13 +181,22 @@ export async function POST(request: NextRequest) {
       success: true,
       messageId,
       message: 'Delivery confirmed'
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
     })
 
   } catch (error) {
     console.error('[Delivery Confirmation] Exception:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      }
     )
   }
 }

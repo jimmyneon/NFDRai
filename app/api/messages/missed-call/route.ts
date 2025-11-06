@@ -17,13 +17,20 @@ import { generateAIResponse } from '@/lib/ai/response-generator'
  */
 export async function POST(request: NextRequest) {
   try {
-    const payload = await request.json()
+    // Parse request body with explicit UTF-8 handling
+    const rawBody = await request.text()
+    const payload = JSON.parse(rawBody)
     const { from, channel = 'sms' } = payload
 
     if (!from) {
       return NextResponse.json(
         { error: 'Missing required field: from' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -42,7 +49,12 @@ export async function POST(request: NextRequest) {
           message: 'Please wait before calling again',
           retryAfter: rateLimit.retryAfter,
         },
-        { status: 429 }
+        { 
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -136,6 +148,10 @@ export async function POST(request: NextRequest) {
       message: response,
       delivered: deliveryStatus.sent,
       deliveryProvider: deliveryStatus.provider,
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
     })
   } catch (error) {
     console.error('Missed call handler error:', error)
@@ -143,6 +159,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: false,
       error: 'Failed to generate missed call response',
-    }, { status: 500 })
+    }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+    })
   }
 }

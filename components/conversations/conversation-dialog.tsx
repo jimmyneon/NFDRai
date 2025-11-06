@@ -55,22 +55,44 @@ export function ConversationDialog({
   const { toast } = useToast()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const initialMessageCountRef = useRef(messages.length)
+  const hasScrolledToBottomRef = useRef(false)
 
   // Update local state when conversation prop changes
   useEffect(() => {
     setMessages(conversation.messages || [])
     setConversationStatus(conversation.status)
+    initialMessageCountRef.current = conversation.messages?.length || 0
+    hasScrolledToBottomRef.current = false
   }, [conversation])
 
   // Scroll to bottom when dialog opens or messages change
   useEffect(() => {
-    if (open && messagesContainerRef.current) {
-      // Use setTimeout to ensure DOM has rendered
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-        }
-      }, 100)
+    if (open && messagesEndRef.current) {
+      // Determine if this is initial open or new message
+      const isInitialOpen = !hasScrolledToBottomRef.current
+      const isNewMessage = messages.length > initialMessageCountRef.current
+      
+      const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+        messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+      }
+      
+      if (isInitialOpen) {
+        // On initial open, scroll instantly and aggressively
+        scrollToBottom('auto')
+        setTimeout(() => scrollToBottom('auto'), 0)
+        setTimeout(() => scrollToBottom('auto'), 50)
+        setTimeout(() => scrollToBottom('auto'), 100)
+        setTimeout(() => scrollToBottom('auto'), 200)
+        setTimeout(() => {
+          scrollToBottom('auto')
+          hasScrolledToBottomRef.current = true
+        }, 400)
+      } else if (isNewMessage) {
+        // For new messages, use smooth scroll
+        scrollToBottom('smooth')
+        initialMessageCountRef.current = messages.length
+      }
     }
   }, [open, messages])
 

@@ -25,7 +25,9 @@ export async function sendMessageViaProvider({
     try {
       const response = await fetch(macrodroidWebhook, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json; charset=utf-8',
+        },
         body: JSON.stringify({
           phone: to,
           message: text,
@@ -112,7 +114,9 @@ export async function sendMessageViaProvider({
         `https://graph.facebook.com/v18.0/me/messages?access_token=${process.env.META_PAGE_ACCESS_TOKEN}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json; charset=utf-8',
+          },
           body: JSON.stringify({
             recipient: { id: to },
             message: { text },

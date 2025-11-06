@@ -26,13 +26,20 @@ export async function POST(request: NextRequest) {
   let payload: any = null
   
   try {
-    payload = await request.json()
+    // Parse request body with explicit UTF-8 handling
+    const rawBody = await request.text()
+    payload = JSON.parse(rawBody)
     const { from, message, channel, customerName } = payload
 
     if (!from || !message || !channel) {
       const response = NextResponse.json(
         { error: 'Missing required fields: from, message, channel' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
       
       // Log failed request
@@ -115,6 +122,10 @@ export async function POST(request: NextRequest) {
         mode: 'ignored',
         message: 'Automated message detected - no response sent',
         reason,
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
       })
     }
 
@@ -131,7 +142,12 @@ export async function POST(request: NextRequest) {
           success: false,
           error: 'Too many messages. Please slow down.',
         },
-        { status: 429 }
+        { 
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -156,7 +172,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!customer) {
-      return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to create customer' },
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
+      )
     }
 
     // Find or create conversation
@@ -184,7 +208,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!conversation) {
-      return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to create conversation' },
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
+      )
     }
 
     // Insert customer message
@@ -231,6 +263,10 @@ export async function POST(request: NextRequest) {
         success: true,
         mode: 'manual',
         message: 'Message received - AI automation is disabled',
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
       })
     }
 
@@ -319,6 +355,10 @@ export async function POST(request: NextRequest) {
             mode: 'manual',
             message: 'Message received - manual response required',
             reason,
+          }, {
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+            },
           })
         }
       } else {
@@ -335,6 +375,10 @@ export async function POST(request: NextRequest) {
           success: true,
           mode: 'manual',
           message: 'Message received - manual response required (no staff reply yet)',
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
         })
       }
     }
@@ -369,6 +413,10 @@ export async function POST(request: NextRequest) {
           success: true,
           mode: 'waiting',
           message: 'Staff recently active - waiting for staff response',
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
         })
       }
       
@@ -468,7 +516,11 @@ export async function POST(request: NextRequest) {
       startTime,
     })
 
-    return NextResponse.json(responseBody)
+    return NextResponse.json(responseBody, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+    })
   } catch (error) {
     console.error('Incoming message error:', error)
     
@@ -488,7 +540,12 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(
       { error: 'Failed to process message' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      }
     )
   }
 }

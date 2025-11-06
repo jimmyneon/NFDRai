@@ -82,12 +82,25 @@ export function ConversationList({ conversations: initialConversations }: { conv
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        async () => {
+          const { data } = await supabase
+            .from('conversations')
+            .select('*, customer:customers(*), messages(*)')
+            .order('updated_at', { ascending: false })
+          if (data) {
+            setConversations(sortByLastMessage(data))
+          }
+        }
+      )
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [supabase])
 
   const getStatusColor = (status: string) => {
     switch (status) {

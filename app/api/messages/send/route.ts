@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     let conversationId, text, sendVia, customerPhone, sender, trackOnly
     
     if (contentType.includes('application/x-www-form-urlencoded')) {
-      // Parse form data
+      // Parse form data with UTF-8 encoding
       const formData = await request.formData()
       // Handle both camelCase and lowercase parameter names from MacroDroid
       conversationId = (formData.get('conversationId') || formData.get('conversationid')) as string
@@ -69,7 +69,12 @@ export async function POST(request: NextRequest) {
             hint: 'Change Content-Type to application/x-www-form-urlencoded in MacroDroid',
             success: false
           },
-          { status: 400 }
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+          }
         )
       }
     }
@@ -77,7 +82,12 @@ export async function POST(request: NextRequest) {
     if (!text) {
       return NextResponse.json(
         { error: 'Missing required field: text' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -111,6 +121,10 @@ export async function POST(request: NextRequest) {
             message: 'Skipped - already tracked',
             duplicate: true,
             originalSender: recentMessages[0].sender
+          }, {
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+            },
           })
         }
       } catch (err) {
@@ -235,7 +249,12 @@ export async function POST(request: NextRequest) {
           error: 'Failed to find or create conversation',
           hint: 'Could not create conversation record for this phone number.'
         },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -252,7 +271,12 @@ export async function POST(request: NextRequest) {
     if (convError || !conversation) {
       return NextResponse.json(
         { error: 'Conversation not found' },
-        { status: 404 }
+        { 
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -313,7 +337,12 @@ export async function POST(request: NextRequest) {
     if (messageError) {
       return NextResponse.json(
         { error: 'Failed to save message' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
       )
     }
 
@@ -356,12 +385,21 @@ export async function POST(request: NextRequest) {
       success: true,
       message,
       deliveryStatus,
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+      },
     })
   } catch (error) {
     console.error('Send message error:', error)
     return NextResponse.json(
       { error: 'Failed to send message' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      }
     )
   }
 }
