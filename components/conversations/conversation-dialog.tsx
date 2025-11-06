@@ -65,6 +65,13 @@ export function ConversationDialog({
     initialMessageCountRef.current = conversation.messages?.length || 0
     hasScrolledToBottomRef.current = false
   }, [conversation])
+  
+  // Reset scroll flag when dialog closes
+  useEffect(() => {
+    if (!open) {
+      hasScrolledToBottomRef.current = false
+    }
+  }, [open])
 
   // Scroll to bottom when dialog opens or messages change
   useEffect(() => {
