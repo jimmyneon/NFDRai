@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 import { extractConfirmationData } from '@/app/lib/confirmation-extractor'
+import { getCorrectSender } from '@/app/lib/sender-detector'
 
 /**
  * POST /api/messages/send
@@ -323,12 +324,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Detect the correct sender based on message content
+    // AI messages are signed "many thanks, AI Steve"
+    // Staff messages are signed "many thanks, John"
+    const detectedSender = getCorrectSender(text, sender || 'staff')
+    
+    console.log('[Send Message] Sender detection:', {
+      providedSender: sender,
+      detectedSender,
+      textPreview: text.substring(0, 50)
+    })
+
     // Insert message into database
     const { data: message, error: messageError } = await supabase
       .from('messages')
       .insert({
         conversation_id: actualConversationId,
-        sender: sender || 'staff',
+        sender: detectedSender,
         text,
       })
       .select()
