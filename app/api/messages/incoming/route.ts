@@ -45,7 +45,22 @@ export async function POST(request: NextRequest) {
     } else {
       // Parse JSON with explicit UTF-8 handling
       const rawBody = await request.text()
-      payload = JSON.parse(rawBody)
+      console.log('[Incoming] Raw body length:', rawBody.length)
+      console.log('[Incoming] Raw body preview:', rawBody.substring(0, 200))
+      
+      try {
+        payload = JSON.parse(rawBody)
+      } catch (jsonError) {
+        // If JSON parsing fails, try to fix common issues like unescaped newlines
+        console.log('[Incoming] JSON parse failed, attempting to fix...')
+        const fixedBody = rawBody
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+          .replace(/\t/g, '\\t')
+        console.log('[Incoming] Fixed body preview:', fixedBody.substring(0, 200))
+        payload = JSON.parse(fixedBody)
+      }
+      
       from = payload.from
       message = payload.message
       channel = payload.channel
@@ -545,16 +560,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Incoming message error:', error)
-    
-    // If JSON parse error, log the raw body for debugging
-    if (error instanceof SyntaxError && error.message.includes('JSON')) {
-      try {
-        const rawBody = await request.text()
-        console.error('[Incoming] Failed to parse JSON. Raw body:', rawBody.substring(0, 500))
-      } catch (e) {
-        console.error('[Incoming] Could not read raw body')
-      }
-    }
     
     const errorMessage = error instanceof Error ? error.message : 'Failed to process message'
     
