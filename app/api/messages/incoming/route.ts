@@ -51,12 +51,41 @@ export async function POST(request: NextRequest) {
       try {
         payload = JSON.parse(rawBody)
       } catch (jsonError) {
-        // If JSON parsing fails, try to fix common issues like unescaped newlines
+        // If JSON parsing fails, the issue is likely unescaped newlines within string values
+        // We need to escape newlines ONLY within quoted strings, not the JSON structure itself
         console.log('[Incoming] JSON parse failed, attempting to fix...')
-        const fixedBody = rawBody
-          .replace(/\n/g, '\\n')
-          .replace(/\r/g, '\\r')
-          .replace(/\t/g, '\\t')
+        
+        // More robust approach: escape control chars only within string values
+        let inString = false
+        let escaped = false
+        let fixedBody = ''
+        
+        for (let i = 0; i < rawBody.length; i++) {
+          const char = rawBody[i]
+          
+          if (char === '"' && !escaped) {
+            inString = !inString
+            fixedBody += char
+          } else if (inString && !escaped) {
+            // Inside a string value - escape control characters
+            if (char === '\n') {
+              fixedBody += '\\n'
+            } else if (char === '\r') {
+              fixedBody += '\\r'
+            } else if (char === '\t') {
+              fixedBody += '\\t'
+            } else if (char === '\\') {
+              fixedBody += '\\\\'
+              escaped = true
+            } else {
+              fixedBody += char
+            }
+          } else {
+            fixedBody += char
+            escaped = false
+          }
+        }
+        
         console.log('[Incoming] Fixed body preview:', fixedBody.substring(0, 200))
         payload = JSON.parse(fixedBody)
       }
