@@ -75,34 +75,43 @@ export function ConversationDialog({
 
   // Scroll to bottom when dialog opens or messages change
   useEffect(() => {
-    if (open && messagesContainerRef.current) {
-      // Determine if this is initial open or new message
-      const isInitialOpen = !hasScrolledToBottomRef.current
-      const isNewMessage = messages.length > initialMessageCountRef.current
-      
-      const scrollToBottom = () => {
-        if (messagesContainerRef.current) {
-          // Force scroll to bottom using scrollTop
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-        }
+    if (!open) return
+    
+    const scrollToBottom = () => {
+      const container = messagesContainerRef.current
+      if (container) {
+        // Force scroll to bottom using scrollTop
+        container.scrollTop = container.scrollHeight
+        console.log('[Scroll] Scrolled to:', container.scrollTop, 'of', container.scrollHeight)
+      } else {
+        console.log('[Scroll] Container ref not available')
       }
-      
-      if (isInitialOpen) {
-        // On initial open, scroll instantly and aggressively
+    }
+    
+    // Determine if this is initial open or new message
+    const isInitialOpen = !hasScrolledToBottomRef.current
+    const isNewMessage = messages.length > initialMessageCountRef.current
+    
+    console.log('[Scroll] Effect triggered:', { open, isInitialOpen, isNewMessage, messageCount: messages.length })
+    
+    if (isInitialOpen) {
+      // On initial open, scroll instantly and aggressively with more retries
+      scrollToBottom()
+      setTimeout(scrollToBottom, 0)
+      setTimeout(scrollToBottom, 10)
+      setTimeout(scrollToBottom, 50)
+      setTimeout(scrollToBottom, 100)
+      setTimeout(scrollToBottom, 200)
+      setTimeout(scrollToBottom, 300)
+      setTimeout(() => {
         scrollToBottom()
-        setTimeout(scrollToBottom, 0)
-        setTimeout(scrollToBottom, 50)
-        setTimeout(scrollToBottom, 100)
-        setTimeout(scrollToBottom, 200)
-        setTimeout(() => {
-          scrollToBottom()
-          hasScrolledToBottomRef.current = true
-        }, 500)
-      } else if (isNewMessage) {
-        // For new messages, also force scroll
-        scrollToBottom()
-        initialMessageCountRef.current = messages.length
-      }
+        hasScrolledToBottomRef.current = true
+      }, 500)
+    } else if (isNewMessage) {
+      // For new messages, also force scroll
+      scrollToBottom()
+      setTimeout(scrollToBottom, 50)
+      initialMessageCountRef.current = messages.length
     }
   }, [open, messages])
 
