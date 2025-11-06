@@ -24,12 +24,34 @@ import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   let payload: any = null
+  let from: string
+  let message: string
+  let channel: string
+  let customerName: string | undefined
   
   try {
-    // Parse request body with explicit UTF-8 handling
-    const rawBody = await request.text()
-    payload = JSON.parse(rawBody)
-    const { from, message, channel, customerName } = payload
+    // Check content type to determine how to parse
+    const contentType = request.headers.get('content-type') || ''
+    
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      // Parse form data
+      const formData = await request.formData()
+      from = formData.get('from') as string
+      message = formData.get('message') as string
+      channel = formData.get('channel') as string
+      customerName = formData.get('customerName') as string | undefined
+      payload = { from, message, channel, customerName }
+      console.log('[Incoming] Parsed form data')
+    } else {
+      // Parse JSON with explicit UTF-8 handling
+      const rawBody = await request.text()
+      payload = JSON.parse(rawBody)
+      from = payload.from
+      message = payload.message
+      channel = payload.channel
+      customerName = payload.customerName
+      console.log('[Incoming] Parsed JSON')
+    }
 
     if (!from || !message || !channel) {
       const response = NextResponse.json(
@@ -523,6 +545,16 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Incoming message error:', error)
+    
+    // If JSON parse error, log the raw body for debugging
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      try {
+        const rawBody = await request.text()
+        console.error('[Incoming] Failed to parse JSON. Raw body:', rawBody.substring(0, 500))
+      } catch (e) {
+        console.error('[Incoming] Could not read raw body')
+      }
+    }
     
     const errorMessage = error instanceof Error ? error.message : 'Failed to process message'
     
