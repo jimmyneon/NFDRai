@@ -75,29 +75,32 @@ export function ConversationDialog({
 
   // Scroll to bottom when dialog opens or messages change
   useEffect(() => {
-    if (open && messagesEndRef.current) {
+    if (open && messagesContainerRef.current) {
       // Determine if this is initial open or new message
       const isInitialOpen = !hasScrolledToBottomRef.current
       const isNewMessage = messages.length > initialMessageCountRef.current
       
-      const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-        messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+      const scrollToBottom = () => {
+        if (messagesContainerRef.current) {
+          // Force scroll to bottom using scrollTop
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+        }
       }
       
       if (isInitialOpen) {
         // On initial open, scroll instantly and aggressively
-        scrollToBottom('auto')
-        setTimeout(() => scrollToBottom('auto'), 0)
-        setTimeout(() => scrollToBottom('auto'), 50)
-        setTimeout(() => scrollToBottom('auto'), 100)
-        setTimeout(() => scrollToBottom('auto'), 200)
+        scrollToBottom()
+        setTimeout(scrollToBottom, 0)
+        setTimeout(scrollToBottom, 50)
+        setTimeout(scrollToBottom, 100)
+        setTimeout(scrollToBottom, 200)
         setTimeout(() => {
-          scrollToBottom('auto')
+          scrollToBottom()
           hasScrolledToBottomRef.current = true
-        }, 400)
+        }, 500)
       } else if (isNewMessage) {
-        // For new messages, use smooth scroll
-        scrollToBottom('smooth')
+        // For new messages, also force scroll
+        scrollToBottom()
         initialMessageCountRef.current = messages.length
       }
     }
