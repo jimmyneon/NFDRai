@@ -9,6 +9,7 @@ import { shouldSwitchToAutoMode, getModeDecisionReason } from '@/app/lib/convers
 import { isAutoresponder, getAutoresponderReason } from '@/app/lib/autoresponder-detector'
 import { sendAlertNotification, shouldSendNotification } from '@/app/lib/alert-notifier'
 import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
+import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-extractor'
 
 /**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
@@ -283,6 +284,29 @@ export async function POST(request: NextRequest) {
           },
         }
       )
+    }
+
+    // Extract customer name from message if they introduce themselves
+    const nameData = extractCustomerName(message)
+    
+    if (nameData.customerName && isLikelyValidName(nameData.customerName)) {
+      console.log('[Name Extraction] Detected customer name:', nameData.customerName, 'confidence:', nameData.confidence)
+      
+      // Only update if customer doesn't already have a name, or if this is high confidence
+      if (!customer.name || nameData.confidence === 'high') {
+        const { error: updateError } = await supabase
+          .from('customers')
+          .update({ name: nameData.customerName })
+          .eq('id', customer.id)
+        
+        if (updateError) {
+          console.error('[Name Extraction] Failed to update customer name:', updateError)
+        } else {
+          console.log('[Name Extraction] Updated customer name to:', nameData.customerName)
+          // Update local customer object so AI can use it immediately
+          customer.name = nameData.customerName
+        }
+      }
     }
 
     // Insert customer message
