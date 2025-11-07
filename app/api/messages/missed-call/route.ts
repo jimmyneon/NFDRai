@@ -118,36 +118,46 @@ export async function POST(request: NextRequest) {
       conversationId: conversation?.id || '',
     })
 
-    const response = aiResponse.response
+    console.log(`[Missed Call] Generated ${aiResponse.responses.length} message(s) for ${from}`)
 
-    // Log the AI response
+    // Handle multiple messages (split by |||)
     if (conversation) {
-      await supabase.from('messages').insert({
-        conversation_id: conversation.id,
-        sender: 'ai',
-        text: response,
-        ai_provider: aiResponse.provider,
-        ai_model: aiResponse.model,
-        ai_confidence: aiResponse.confidence,
-      })
+      for (let i = 0; i < aiResponse.responses.length; i++) {
+        const messageText = aiResponse.responses[i]
+        
+        // Log the AI response
+        await supabase.from('messages').insert({
+          conversation_id: conversation.id,
+          sender: 'ai',
+          text: messageText,
+          ai_provider: aiResponse.provider,
+          ai_model: aiResponse.model,
+          ai_confidence: aiResponse.confidence,
+        })
+
+        // Send via MacroDroid webhook
+        await sendMessageViaProvider({
+          channel: 'sms',
+          to: from,
+          text: messageText,
+        })
+
+        // Add 2-second delay between messages (except after last one)
+        if (i < aiResponse.responses.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
     }
 
-    console.log(`[Missed Call] Generated response for ${from}`)
-
-    // Send via MacroDroid webhook
-    const deliveryStatus = await sendMessageViaProvider({
-      channel: 'sms',
-      to: from,
-      text: response,
-    })
-
-    console.log(`[Missed Call] Delivery status:`, deliveryStatus)
+    console.log(`[Missed Call] All messages sent successfully`)
 
     return NextResponse.json({
       success: true,
-      message: response,
-      delivered: deliveryStatus.sent,
-      deliveryProvider: deliveryStatus.provider,
+      message: aiResponse.response,
+      messages: aiResponse.responses,
+      messageCount: aiResponse.responses.length,
+      delivered: true,
+      deliveryProvider: 'macrodroid',
     }, {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',

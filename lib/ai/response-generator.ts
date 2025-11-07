@@ -7,6 +7,7 @@ export async function generateAIResponse(params: {
   conversationId: string
 }): Promise<{
   response: string
+  responses: string[]  // Array of messages if split by |||
   confidence: number
   provider: string
   model: string
@@ -185,9 +186,16 @@ GENERAL RULES:
   })
 
   const shouldFallback = result.confidence < settings.confidence_threshold
+  const finalResponse = shouldFallback ? settings.fallback_message : result.response
+
+  // Split response by ||| delimiter for multiple messages
+  const responses = finalResponse.includes('|||') 
+    ? finalResponse.split('|||').map((msg: string) => msg.trim())
+    : [finalResponse]
 
   return {
-    response: shouldFallback ? settings.fallback_message : result.response,
+    response: finalResponse,  // Keep original for backward compatibility
+    responses,  // Array of messages
     confidence: result.confidence,
     provider: settings.provider,
     model: settings.model_name,

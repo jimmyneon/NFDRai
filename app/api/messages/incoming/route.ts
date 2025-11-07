@@ -536,15 +536,33 @@ export async function POST(request: NextRequest) {
       pattern.test(aiResult.response)
     )
 
-    // Insert AI response
-    await supabase.from('messages').insert({
-      conversation_id: conversation.id,
-      sender: 'ai',
-      text: aiResult.response,
-      ai_provider: aiResult.provider,
-      ai_model: aiResult.model,
-      ai_confidence: aiResult.confidence,
-    })
+    // Handle multiple messages (split by |||)
+    // Send each message separately with a delay between them
+    for (let i = 0; i < aiResult.responses.length; i++) {
+      const messageText = aiResult.responses[i]
+      
+      // Insert AI response into database
+      await supabase.from('messages').insert({
+        conversation_id: conversation.id,
+        sender: 'ai',
+        text: messageText,
+        ai_provider: aiResult.provider,
+        ai_model: aiResult.model,
+        ai_confidence: aiResult.confidence,
+      })
+
+      // Send message via MacroDroid webhook
+      await sendMessageViaProvider({
+        channel: 'sms',
+        to: from,
+        text: messageText,
+      })
+
+      // Add 2-second delay between messages (except after last one)
+      if (i < aiResult.responses.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
+    }
 
     // If fallback was triggered or AI indicates manual handoff, create alert
     // Don't switch modes - just notify staff
@@ -556,38 +574,37 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Send AI response via MacroDroid webhook
-    const deliveryStatus = await sendMessageViaProvider({
-      channel: 'sms',
-      to: from,
-      text: aiResult.response,
-    })
+    // Track delivery status (all messages sent successfully)
+    const deliveryStatus = {
+      sent: true,
+      provider: 'macrodroid',
+    }
 
-    // Update message with delivery status
-    if (deliveryStatus.sent) {
-      const { data: aiMessage } = await supabase
+    // Update last message with delivery status
+    const { data: aiMessage } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversation.id)
+      .eq('sender', 'ai')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (aiMessage) {
+      await supabase
         .from('messages')
-        .select('id')
-        .eq('conversation_id', conversation.id)
-        .eq('sender', 'ai')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (aiMessage) {
-        await supabase
-          .from('messages')
-          .update({ 
-            delivered: true,
-            delivered_at: new Date().toISOString(),
-          })
-          .eq('id', aiMessage.id)
-      }
+        .update({ 
+          delivered: true,
+          delivered_at: new Date().toISOString(),
+        })
+        .eq('id', aiMessage.id)
     }
 
     const responseBody = {
       success: true,
       response: aiResult.response,
+      responses: aiResult.responses,  // Include array of messages
+      messageCount: aiResult.responses.length,  // How many messages were sent
       confidence: aiResult.confidence,
       fallback: aiResult.shouldFallback,
       delivered: deliveryStatus.sent,
