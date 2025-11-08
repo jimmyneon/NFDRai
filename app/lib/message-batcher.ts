@@ -15,8 +15,8 @@ interface PendingBatch {
 
 const pendingBatches = new Map<string, PendingBatch>()
 
-const BATCH_WINDOW_MS = 5000 // Default: Wait 5 seconds for more messages
-const BATCH_WINDOW_CORRECTION_MS = 2500 // Shorter wait for obvious corrections/typos
+const BATCH_WINDOW_MS = 3000 // Default: Wait 3 seconds for more messages (reduced from 5s)
+const BATCH_WINDOW_CORRECTION_MS = 2000 // Shorter wait for obvious corrections/typos (reduced from 2.5s)
 const MIN_MESSAGES_FOR_BATCH = 2 // Minimum messages to trigger batching
 
 /**

@@ -323,6 +323,50 @@ export async function POST(request: NextRequest) {
       text: message,
     })
 
+    // CRITICAL: Check if AI just sent a message (within last 2 seconds)
+    // BUT only skip if customer message is very short/vague (not a real answer)
+    const { data: recentAIMessages } = await supabase
+      .from('messages')
+      .select('created_at, text')
+      .eq('conversation_id', conversation.id)
+      .eq('sender', 'ai')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    
+    if (recentAIMessages && recentAIMessages.length > 0) {
+      const lastAIMessageTime = new Date(recentAIMessages[0].created_at).getTime()
+      const secondsSinceLastAI = (Date.now() - lastAIMessageTime) / 1000
+      
+      // Only skip if BOTH conditions are true:
+      // 1. AI sent message very recently (< 2 seconds)
+      // 2. Customer message is very short/vague (likely still typing or acknowledging)
+      const isVeryRecent = secondsSinceLastAI < 2
+      const messageWords = message.trim().split(/\s+/)
+      const isVagueResponse = messageWords.length <= 3 && 
+        /^(ok|okay|sure|yes|no|not sure|idk|dunno|hmm|uh|um)$/i.test(message.trim())
+      
+      if (isVeryRecent && isVagueResponse) {
+        console.log(`[Duplicate Prevention] AI sent message ${secondsSinceLastAI.toFixed(1)}s ago and customer sent vague response "${message}" - waiting`)
+        console.log(`[Duplicate Prevention] Last AI message: ${recentAIMessages[0].text.substring(0, 100)}`)
+        
+        return NextResponse.json({
+          success: true,
+          mode: 'waiting',
+          message: 'AI just responded and customer still typing - waiting',
+          secondsSinceLastAI: secondsSinceLastAI.toFixed(1)
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        })
+      }
+      
+      // If customer sent a real answer (e.g., "iPhone 15", "Screen is cracked"), process it!
+      if (!isVagueResponse) {
+        console.log(`[Duplicate Prevention] Customer sent real answer "${message}" - processing even though AI sent ${secondsSinceLastAI.toFixed(1)}s ago`)
+      }
+    }
+
     // Check if we should batch this message with others (handles rapid messages)
     const batchResult = await checkMessageBatch(
       customer.id,

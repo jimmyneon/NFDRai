@@ -308,8 +308,8 @@ export async function generateSmartResponse(
   const isFirstAIMessage = !messages.some(m => m.sender === 'ai')
   
   if (isFirstAIMessage) {
-    // Add AI disclosure to first message only
-    const disclosure = "Hi! I'm AI Steve, your automated assistant for New Forest Device Repairs. I can help with pricing, bookings, and questions. "
+    // Add AI disclosure to first message only (with line breaks for readability)
+    const disclosure = "Hi! I'm AI Steve, your automated assistant for New Forest Device Repairs.\n\nI can help with pricing, bookings, and questions.\n\n"
     
     // If response starts with a greeting, replace it; otherwise prepend
     if (finalResponse.match(/^(hi|hello|hey)/i)) {
@@ -482,6 +482,9 @@ function buildFocusedPrompt(params: {
   const needsBuybackInfo = context.intent === 'buyback' || conversationText.includes('sell') || conversationText.includes('trade') || conversationText.includes('buy') || conversationText.includes('old tech')
   const needsWarrantyInfo = conversationText.includes('warranty') || conversationText.includes('guarantee')
   const needsDiagnosticInfo = conversationText.includes('diagnostic') || conversationText.includes('check') || conversationText.includes('won\'t turn on')
+  const needsTroubleshooting = conversationText.includes('black screen') || conversationText.includes('won\'t turn on') || 
+    conversationText.includes('not working') || conversationText.includes('dead') || conversationText.includes('broken') ||
+    conversationText.includes('not responding') || conversationText.includes('display') || context.intent === 'diagnostic'
 
   // Core identity (always included)
   const coreIdentity = `You are AI Steve, friendly assistant for New Forest Device Repairs.
@@ -561,6 +564,9 @@ MULTIPLE MESSAGES:
         shouldInclude = true
       }
       if (needsDiagnosticInfo && moduleName.includes('common_scenarios')) {
+        shouldInclude = true
+      }
+      if (needsTroubleshooting && moduleName.includes('proactive_troubleshooting')) {
         shouldInclude = true
       }
       
