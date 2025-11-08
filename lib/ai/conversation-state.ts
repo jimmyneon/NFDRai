@@ -281,7 +281,9 @@ DEVICE INFO REQUIREMENTS:
   * If closed: "We're closed now - open tomorrow at [time]"
   * If near closing: "We close at [time] - if you can't make it today, we're open tomorrow"
   * If open: "Pop in anytime - we're open until [closing time]!"
-- ALWAYS mention turnaround time: "Usually takes about 1 hour"
+- TURNAROUND TIME: Only mention if customer asks "how long?" or "how fast?"
+  * If asked: "Most repairs are done quicker than our guidelines - usually [time]"
+  * If urgent: Offer express service for MacBooks/Laptops (£30 extra)
 - ALWAYS mention warranty: "All repairs come with 12-month warranty"
 - Keep it brief and helpful`,
 
