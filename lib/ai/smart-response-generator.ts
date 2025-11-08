@@ -147,19 +147,23 @@ export async function generateSmartResponse(
       })
   }
 
-  // STEP 3: Build focused prompt based on state
+  // STEP 3: Load prompt modules from database
+  const { modules: promptModules, moduleNames } = await loadPromptModules(supabase, context.intent || 'unknown')
+  
+  // STEP 4: Build focused prompt based on state
   const stateGuidance = getPromptForState(context)
   
   // Get only relevant data (not everything)
   const relevantData = await getRelevantData(supabase, context)
 
-  // STEP 4: Build compact, focused prompt
+  // STEP 5: Build compact, focused prompt (with database modules)
   const focusedPrompt = buildFocusedPrompt({
     context,
     stateGuidance,
     relevantData,
     customerMessage: params.customerMessage,
-    recentMessages: messages.slice(-5) // Only last 5 messages
+    recentMessages: messages.slice(-5), // Only last 5 messages
+    promptModules // Pass database modules
   })
 
   // STEP 5: Build conversation messages for API
@@ -280,7 +284,7 @@ export async function generateSmartResponse(
       costUsd,
       validationPassed: validation.valid,
       validationIssues: validation.issues,
-      promptModulesUsed: [] // Will be populated when we add modular prompts
+      promptModulesUsed: moduleNames
     }
   }
 }
@@ -368,8 +372,9 @@ function buildFocusedPrompt(params: {
   relevantData: any
   customerMessage: string
   recentMessages: any[]
+  promptModules?: Array<{ module_name: string; prompt_text: string }>
 }) {
-  const { context, stateGuidance, relevantData, customerMessage, recentMessages } = params
+  const { context, stateGuidance, relevantData, customerMessage, recentMessages, promptModules = [] } = params
 
   // Determine what context is relevant based on conversation
   const conversationText = recentMessages.map(m => m.text.toLowerCase()).join(' ')
@@ -428,69 +433,104 @@ MULTIPLE MESSAGES:
   // Add relevant context based on conversation
   let contextualInfo = ''
 
-  if (needsScreenInfo) {
-    contextualInfo += `\n\nSCREEN REPAIRS:
+  // Try to load from database modules first
+  if (promptModules && promptModules.length > 0) {
+    console.log('[Prompt Builder] Using database modules:', promptModules.map(m => m.module_name))
+    
+    // Add relevant modules based on conversation context
+    promptModules.forEach(module => {
+      const moduleName = module.module_name.toLowerCase()
+      
+      // Always include operational modules
+      if (moduleName.includes('services_comprehensive') || 
+          moduleName.includes('operational_policies') ||
+          moduleName.includes('handoff_rules') ||
+          moduleName.includes('common_scenarios')) {
+        contextualInfo += `\n\n${module.prompt_text}`
+      }
+      
+      // Context-aware modules
+      if (needsScreenInfo && (moduleName.includes('pricing_flow') || moduleName.includes('screen'))) {
+        contextualInfo += `\n\n${module.prompt_text}`
+      }
+      if (needsWarrantyInfo && moduleName.includes('warranty')) {
+        contextualInfo += `\n\n${module.prompt_text}`
+      }
+      if (needsWaterDamageInfo && moduleName.includes('water')) {
+        contextualInfo += `\n\n${module.prompt_text}`
+      }
+      if (moduleName.includes('friendly_tone') || moduleName.includes('context_awareness')) {
+        contextualInfo += `\n\n${module.prompt_text}`
+      }
+    })
+  } else {
+    // Fallback to hardcoded modules if database not available
+    console.log('[Prompt Builder] Using fallback hardcoded modules')
+    
+    if (needsScreenInfo) {
+      contextualInfo += `\n\nSCREEN REPAIRS:
 - OLED screens: £100 (recommend first) - "very similar to genuine, 12-month warranty"
 - Genuine Apple: £150+ (needs ordering, small deposit)
 - Budget LCD: £50+ (only if they say too expensive)
 - DRIP-FED FLOW: Present options → They choose → Confirm + stock info → THEN battery upsell in 2nd message
 - ALWAYS mention battery combo AFTER they choose screen: "By the way, if your battery's not holding charge as well, we do £20 off battery replacements when done with a screen - so it'd be £30 instead of £50. Just a heads-up!"`
-  }
+    }
 
-  if (needsBatteryInfo) {
-    contextualInfo += `\n\nBATTERY REPLACEMENTS:
+    if (needsBatteryInfo) {
+      contextualInfo += `\n\nBATTERY REPLACEMENTS:
 - Most models: £50 (usually 30 minutes)
 - Combo with screen: £30 (£20 off)
 - Check battery health: Settings > Battery > Battery Health
 - Below 85%: "That definitely needs replacing!"
 - 6-month warranty on batteries`
-  }
+    }
 
-  if (needsWaterDamageInfo) {
-    contextualInfo += `\n\nWATER DAMAGE:
+    if (needsWaterDamageInfo) {
+      contextualInfo += `\n\nWATER DAMAGE:
 - Free diagnostic
 - "Water damage can be tricky and future reliability is always uncertain"
 - "The sooner the better with water damage!"
 - Sea water: "Mostly considered a data recovery job - future reliability uncertain"
 - 30-day warranty on water damage repairs (due to progressive nature)`
-  }
+    }
 
-  if (needsBuybackInfo) {
-    contextualInfo += `\n\nBUYBACK/TRADE-IN:
+    if (needsBuybackInfo) {
+      contextualInfo += `\n\nBUYBACK/TRADE-IN:
 - Ask for: model, storage, condition, any issues
 - "Send me details and I'll get you a quote ASAP" or "Pop in for instant appraisal"
 - "We offer good rates and don't mess you about like online shops"
 - Can do trade-ins towards repairs or purchases
 - DON'T pass to John - you handle this`
-  }
+    }
 
-  if (needsWarrantyInfo) {
-    contextualInfo += `\n\nWARRANTY:
+    if (needsWarrantyInfo) {
+      contextualInfo += `\n\nWARRANTY:
 - Screen replacements: 12 months
 - Batteries & standard repairs: 6 months
 - Water damage: 30 days
 - Within warranty: "Pop in and we'll sort it out no charge"
 - Just outside: "Pop in and we'll give you a discount"
 - Refurbished devices: 12 months with full replacement if needed`
-  }
+    }
 
-  if (needsDiagnosticInfo) {
-    contextualInfo += `\n\nDIAGNOSTICS:
+    if (needsDiagnosticInfo) {
+      contextualInfo += `\n\nDIAGNOSTICS:
 - Water damage: Free
 - Won't turn on: Free (suggest hard restart first: "Hold power and volume down together for 10 seconds")
 - Complex issues: £10-£20 mobiles/iPads, £40 laptops/MacBooks
 - "Usually take 15-30 minutes depending on how busy we are"`
-  }
+    }
 
-  // Add general service info if no specific context
-  if (!needsScreenInfo && !needsBatteryInfo && !needsWaterDamageInfo && !needsBuybackInfo) {
-    contextualInfo += `\n\nWHAT WE DO:
+    // Add general service info if no specific context
+    if (!needsScreenInfo && !needsBatteryInfo && !needsWaterDamageInfo && !needsBuybackInfo) {
+      contextualInfo += `\n\nWHAT WE DO:
 - REPAIRS: All devices (iPhones, iPads, Samsung, tablets, MacBooks, laptops)
 - BUY DEVICES: Good rates, instant appraisals, trade-ins
 - SELL DEVICES: Refurbished with 12-month warranty
 - ACCESSORIES: Cases, screen protectors (£10, or £5 with screen repair), chargers
 - SOFTWARE: Updates, data transfers, virus removal (£40-£70)
 - Walk-in only, phone repairs done immediately unless complex`
+    }
   }
 
   // Add relevant data only
