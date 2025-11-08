@@ -65,14 +65,27 @@ export async function generateSmartResponse(
     throw new Error('No active AI settings found')
   }
 
-  // STEP 0: Classify intent FIRST (fast and cheap)
+  // Get conversation history FIRST (needed for intent classification)
+  const { data: messagesDesc } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('conversation_id', params.conversationId)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  const messages = messagesDesc?.reverse() || []
+  
+  // STEP 0: Classify intent FIRST (fast and cheap) WITH CONTEXT
   const classificationStartTime = Date.now()
   let intentClassification: IntentClassification
   
   try {
     intentClassification = await classifyIntent({
       customerMessage: params.customerMessage,
-      conversationHistory: [], // Will add history in next step
+      conversationHistory: messages.slice(-5).map(m => ({ // Last 5 messages for context
+        sender: m.sender,
+        text: m.text
+      })),
       apiKey: settings.api_key
     })
     console.log('[Smart AI] Intent classified:', {
@@ -90,16 +103,6 @@ export async function generateSmartResponse(
   }
   
   const classificationTimeMs = Date.now() - classificationStartTime
-
-  // Get conversation history (last 10 messages - reduced from 20)
-  const { data: messagesDesc } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('conversation_id', params.conversationId)
-    .order('created_at', { ascending: false })
-    .limit(10) // Reduced to prevent information overload
-
-  const messages = messagesDesc?.reverse() || []
 
   // STEP 1: Analyze conversation state
   const context = analyzeConversationState(messages)

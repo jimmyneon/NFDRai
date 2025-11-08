@@ -33,20 +33,31 @@ export async function classifyIntent(params: {
     .map(m => `${m.sender}: ${m.text}`)
     .join('\n')
 
-  const classificationPrompt = `You are an intent classifier for a device repair shop. Analyze the customer message and classify it into ONE category.
+  const classificationPrompt = `You are an intent classifier for a device repair shop. Analyze the customer message WITH CONTEXT and classify it into ONE category.
 
 CATEGORIES:
-- screen_repair: Customer mentions broken/cracked screen
+- screen_repair: Customer mentions broken/cracked screen, display issues
 - battery_replacement: Customer mentions battery issues, draining, not charging
-- diagnostic: Device won't turn on, not working, needs diagnosis
+- diagnostic: Device won't turn on, not working, needs diagnosis, "it's broken" (vague)
 - buyback: Customer wants to sell their device to us
 - sell_device: Customer wants to buy a device from us
 - warranty_claim: Customer mentions previous repair, still not working
-- status_check: Customer asking if repair is ready/done
+- status_check: Customer asking if EXISTING repair is ready/done (ONLY if they explicitly ask "is it ready?", "is it done?", "can I pick it up?")
 - general_info: Questions about hours, location, services, pricing
 
+CRITICAL RULES FOR STATUS_CHECK:
+- ONLY use status_check if customer EXPLICITLY asks about existing repair status
+- Phrases like "Is it ready?", "Is it done?", "Can I pick it up?" = status_check
+- Phrases like "It's broken", "I want it repaired", "Can you fix it?" = diagnostic or screen_repair (NEW repair, NOT status check!)
+- When in doubt between status_check and new repair → Choose new repair (diagnostic)
+
+CONTEXT MATTERS:
+- If conversation just started → Likely NEW repair, not status check
+- If customer just told you device model → Likely NEW repair
+- If no previous repair mentioned in history → Definitely NEW repair
+
 RECENT CONVERSATION:
-${recentContext || 'No previous messages'}
+${recentContext || 'No previous messages - this is likely a NEW inquiry'}
 
 CURRENT MESSAGE:
 ${customerMessage}
