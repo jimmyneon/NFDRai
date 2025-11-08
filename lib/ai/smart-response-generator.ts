@@ -12,6 +12,7 @@ import {
   validateResponseForState,
   type ConversationContext 
 } from './conversation-state'
+import { classifyIntent, type IntentClassification } from './intent-classifier'
 
 interface SmartResponseParams {
   customerMessage: string
@@ -29,6 +30,8 @@ interface SmartResponseResult {
   analytics: {
     intent: string
     state: string
+    intentConfidence: number
+    classificationTimeMs: number
     responseTimeMs: number
     promptTokens: number
     completionTokens: number
@@ -36,6 +39,7 @@ interface SmartResponseResult {
     costUsd: number
     validationPassed: boolean
     validationIssues: string[]
+    promptModulesUsed: string[]
   }
 }
 
@@ -58,6 +62,32 @@ export async function generateSmartResponse(
   if (settingsError || !settings) {
     throw new Error('No active AI settings found')
   }
+
+  // STEP 0: Classify intent FIRST (fast and cheap)
+  const classificationStartTime = Date.now()
+  let intentClassification: IntentClassification
+  
+  try {
+    intentClassification = await classifyIntent({
+      customerMessage: params.customerMessage,
+      conversationHistory: [], // Will add history in next step
+      apiKey: settings.api_key
+    })
+    console.log('[Smart AI] Intent classified:', {
+      intent: intentClassification.intent,
+      confidence: intentClassification.confidence,
+      device: intentClassification.deviceModel || intentClassification.deviceType
+    })
+  } catch (error) {
+    console.error('[Smart AI] Classification failed, using fallback')
+    intentClassification = {
+      intent: 'general_info',
+      confidence: 0.5,
+      reasoning: 'Classification failed'
+    }
+  }
+  
+  const classificationTimeMs = Date.now() - classificationStartTime
 
   // Get conversation history (last 10 messages - reduced from 20)
   const { data: messagesDesc } = await supabase
@@ -219,13 +249,16 @@ export async function generateSmartResponse(
     analytics: {
       intent: context.intent,
       state: context.state,
+      intentConfidence: intentClassification.confidence,
+      classificationTimeMs,
       responseTimeMs,
       promptTokens,
       completionTokens,
       totalTokens,
       costUsd,
       validationPassed: validation.valid,
-      validationIssues: validation.issues
+      validationIssues: validation.issues,
+      promptModulesUsed: [] // Will be populated when we add modular prompts
     }
   }
 }
@@ -265,6 +298,43 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
   }
 
   return data
+}
+
+/**
+ * Load modular prompts from database
+ */
+async function loadPromptModules(supabase: any, intent: string): Promise<{
+  modules: Array<{ module_name: string; prompt_text: string }>
+  moduleNames: string[]
+}> {
+  try {
+    // Try to load from database first
+    const { data: modules, error } = await supabase
+      .rpc('get_prompt_modules', { p_intent: intent })
+    
+    if (!error && modules && modules.length > 0) {
+      console.log('[Prompt Modules] Loaded from database:', modules.map((m: any) => m.module_name))
+      
+      // Update usage stats for each module (async, don't wait)
+      modules.forEach((m: any) => {
+        supabase.rpc('update_prompt_usage', { p_module_name: m.module_name })
+          .catch((err: any) => console.error('[Prompt Modules] Usage update failed:', err))
+      })
+      
+      return {
+        modules,
+        moduleNames: modules.map((m: any) => m.module_name)
+      }
+    }
+  } catch (error) {
+    console.warn('[Prompt Modules] Database load failed, using fallback:', error)
+  }
+  
+  // Fallback to hardcoded modules if database not available yet
+  return {
+    modules: [],
+    moduleNames: []
+  }
 }
 
 /**
