@@ -249,6 +249,13 @@ export async function generateSmartResponse(
     }
   }
 
+  // FORCE sign-off if not present (critical for message tracking)
+  const signOff = "Many Thanks, AI Steve, New Forest Device Repairs"
+  if (!finalResponse.toLowerCase().includes('many thanks')) {
+    // Add sign-off to end of response
+    finalResponse = finalResponse.trim() + '\n\n' + signOff
+  }
+
   const responses = finalResponse.includes('|||')
     ? finalResponse.split('|||').map((msg: string) => msg.trim())
     : [finalResponse]
