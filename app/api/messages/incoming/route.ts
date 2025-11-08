@@ -18,8 +18,30 @@ import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-
  * Uses simple word overlap comparison
  */
 function calculateSimilarity(str1: string, str2: string): number {
-  const words1 = str1.toLowerCase().split(/\s+/).filter(w => w.length > 3)
-  const words2 = str2.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+  // Normalize strings - remove signature and extra whitespace
+  const normalize = (s: string) => s
+    .replace(/Many Thanks,?\s*AI Steve,?\s*New Forest Device Repairs/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+  
+  const norm1 = normalize(str1)
+  const norm2 = normalize(str2)
+  
+  // If strings are very similar after normalization, they're duplicates
+  if (norm1 === norm2) return 1.0
+  
+  // Check if one contains most of the other
+  const shorter = norm1.length < norm2.length ? norm1 : norm2
+  const longer = norm1.length < norm2.length ? norm2 : norm1
+  
+  if (longer.includes(shorter) && shorter.length > 20) {
+    return 0.95 // Very similar if one contains the other
+  }
+  
+  // Word-based similarity
+  const words1 = norm1.split(/\s+/).filter(w => w.length > 3)
+  const words2 = norm2.split(/\s+/).filter(w => w.length > 3)
   
   if (words1.length === 0 || words2.length === 0) return 0
   
@@ -653,8 +675,10 @@ export async function POST(request: NextRequest) {
       // Check if this response is substantially similar to any previous response
       for (let j = 0; j < index; j++) {
         const similarity = calculateSimilarity(response, self[j])
-        if (similarity > 0.8) {
+        if (similarity > 0.7) {  // Lowered from 0.8 to catch more duplicates
           console.log(`[Duplicate Prevention] Skipping response ${index + 1} - ${(similarity * 100).toFixed(0)}% similar to response ${j + 1}`)
+          console.log(`[Duplicate Prevention] Response ${j + 1}: "${self[j].substring(0, 80)}..."`)
+          console.log(`[Duplicate Prevention] Response ${index + 1}: "${response.substring(0, 80)}..."`)
           return false
         }
       }
