@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateAIResponse } from '@/lib/ai/response-generator'
+import { generateSmartResponse } from '@/lib/ai/smart-response-generator'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 import { checkRateLimit } from '@/app/lib/rate-limiter'
 import { checkMessageBatch } from '@/app/lib/message-batcher'
@@ -514,10 +515,19 @@ export async function POST(request: NextRequest) {
       // This lets the customer know we got their message
     }
 
-    // Generate AI response (using batched message if applicable)
-    const aiResult = await generateAIResponse({
+    // Generate AI response with smart state-aware generator (using batched message if applicable)
+    console.log('[Smart AI] Generating response with state awareness...')
+    const aiResult = await generateSmartResponse({
       customerMessage: messageToProcess,
       conversationId: conversation.id,
+    })
+    
+    console.log('[Smart AI] Response generated:', {
+      state: aiResult.context.state,
+      intent: aiResult.context.intent,
+      confidence: aiResult.confidence,
+      validationPassed: aiResult.analytics.validationPassed,
+      cost: aiResult.analytics.costUsd
     })
 
     // Check if AI response indicates manual handoff (more specific patterns)

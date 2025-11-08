@@ -1,0 +1,314 @@
+/**
+ * Conversation State Machine
+ * Tracks where we are in the conversation flow to prevent AI confusion
+ */
+
+export type ConversationState = 
+  | 'new_inquiry'           // First message from customer
+  | 'gathering_device_info' // Asked for device, waiting for answer
+  | 'gathering_issue_info'  // Asked for issue, waiting for answer
+  | 'presenting_options'    // Showed pricing options
+  | 'confirming_choice'     // Customer said yes, confirming which option
+  | 'upselling'            // Offered battery/additional service
+  | 'ready_to_visit'       // All info gathered, ready for walk-in
+  | 'follow_up'            // Customer asking about existing repair
+  | 'general_inquiry'      // Non-repair question
+  | 'handoff_required';    // Needs John
+
+export type ConversationIntent =
+  | 'screen_repair'
+  | 'battery_replacement'
+  | 'diagnostic'
+  | 'buyback'
+  | 'sell_device'
+  | 'warranty_claim'
+  | 'general_info'
+  | 'status_check'
+  | 'unknown';
+
+export interface ConversationContext {
+  state: ConversationState;
+  intent: ConversationIntent;
+  deviceType?: 'iphone' | 'ipad' | 'macbook' | 'laptop' | 'samsung' | 'other';
+  deviceModel?: string;
+  issue?: string;
+  quotedPrice?: number;
+  customerName?: string;
+  lastStateChange: Date;
+  stateHistory: Array<{ state: ConversationState; timestamp: Date }>;
+}
+
+/**
+ * Determines the current conversation state based on message history
+ */
+export function analyzeConversationState(messages: Array<{
+  sender: 'customer' | 'ai' | 'staff';
+  text: string;
+  created_at: string;
+}>): ConversationContext {
+  
+  if (messages.length === 0) {
+    return {
+      state: 'new_inquiry',
+      intent: 'unknown',
+      lastStateChange: new Date(),
+      stateHistory: [{ state: 'new_inquiry', timestamp: new Date() }]
+    };
+  }
+
+  const lastAIMessage = messages.filter(m => m.sender === 'ai').slice(-1)[0];
+  const lastCustomerMessage = messages.filter(m => m.sender === 'customer').slice(-1)[0];
+  const allText = messages.map(m => m.text.toLowerCase()).join(' ');
+
+  // Extract device info if mentioned
+  const deviceType = extractDeviceType(allText);
+  const deviceModel = extractDeviceModel(allText);
+  const customerName = extractCustomerName(messages);
+
+  // Determine intent from conversation
+  const intent = determineIntent(allText);
+
+  // Determine state based on conversation flow
+  let state: ConversationState = 'new_inquiry';
+
+  // Check if AI asked for device info and customer hasn't provided it
+  if (lastAIMessage?.text.toLowerCase().includes('what make and model') ||
+      lastAIMessage?.text.toLowerCase().includes('which device')) {
+    state = 'gathering_device_info';
+  }
+  // Check if AI asked about the issue
+  else if (lastAIMessage?.text.toLowerCase().includes('what can i help') ||
+           lastAIMessage?.text.toLowerCase().includes('what\'s wrong')) {
+    state = 'gathering_issue_info';
+  }
+  // Check if AI presented pricing options
+  else if (lastAIMessage?.text.includes('£') && 
+           (lastAIMessage?.text.includes('OLED') || lastAIMessage?.text.includes('genuine'))) {
+    state = 'presenting_options';
+  }
+  // Check if customer said yes/interested after pricing
+  else if (state === 'presenting_options' && 
+           lastCustomerMessage?.text.toLowerCase().match(/yes|yeah|ok|sure|interested|please/)) {
+    state = 'confirming_choice';
+  }
+  // Check if we're in upsell phase (mentioned battery combo)
+  else if (lastAIMessage?.text.includes('£20 off battery')) {
+    state = 'upselling';
+  }
+  // Check if ready for visit
+  else if (deviceModel && intent !== 'unknown' && lastAIMessage?.text.toLowerCase().includes('pop in')) {
+    state = 'ready_to_visit';
+  }
+  // Check if asking about existing repair
+  else if (allText.includes('ready') || allText.includes('done') || allText.includes('finished')) {
+    state = 'follow_up';
+  }
+
+  return {
+    state,
+    intent,
+    deviceType,
+    deviceModel,
+    customerName,
+    lastStateChange: new Date(),
+    stateHistory: [{ state, timestamp: new Date() }]
+  };
+}
+
+/**
+ * Extract device type from conversation text
+ */
+function extractDeviceType(text: string): ConversationContext['deviceType'] {
+  if (text.includes('iphone')) return 'iphone';
+  if (text.includes('ipad')) return 'ipad';
+  if (text.includes('macbook')) return 'macbook';
+  if (text.includes('samsung')) return 'samsung';
+  if (text.includes('laptop')) return 'laptop';
+  return undefined;
+}
+
+/**
+ * Extract specific device model
+ */
+function extractDeviceModel(text: string): string | undefined {
+  // iPhone models
+  const iphoneMatch = text.match(/iphone\s*(1[0-5]|[6-9]|x[rs]?|se|pro|plus|max)/i);
+  if (iphoneMatch) return iphoneMatch[0];
+
+  // iPad models
+  const ipadMatch = text.match(/ipad\s*(pro|air|mini)?/i);
+  if (ipadMatch) return ipadMatch[0];
+
+  // Samsung models
+  const samsungMatch = text.match(/galaxy\s*s\d+/i);
+  if (samsungMatch) return samsungMatch[0];
+
+  return undefined;
+}
+
+/**
+ * Extract customer name from messages
+ */
+function extractCustomerName(messages: Array<{ sender: string; text: string }>): string | undefined {
+  for (const msg of messages) {
+    if (msg.sender === 'customer') {
+      // Look for "I'm [name]" or "My name is [name]"
+      const match = msg.text.match(/(?:i'm|i am|my name is|this is)\s+([A-Z][a-z]+)/i);
+      if (match) return match[1];
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Determine conversation intent
+ */
+function determineIntent(text: string): ConversationIntent {
+  if (text.includes('screen') && (text.includes('crack') || text.includes('broken') || text.includes('smash'))) {
+    return 'screen_repair';
+  }
+  if (text.includes('battery') || text.includes('drain') || text.includes('charge')) {
+    return 'battery_replacement';
+  }
+  if (text.includes('won\'t turn on') || text.includes('not working') || text.includes('dead')) {
+    return 'diagnostic';
+  }
+  if (text.includes('sell') || text.includes('buy') && text.includes('my')) {
+    return 'buyback';
+  }
+  if (text.includes('warranty') || text.includes('still not working')) {
+    return 'warranty_claim';
+  }
+  if (text.includes('ready') || text.includes('done') || text.includes('finished')) {
+    return 'status_check';
+  }
+  return 'unknown';
+}
+
+/**
+ * Get the appropriate prompt module based on state and intent
+ */
+export function getPromptForState(context: ConversationContext): string {
+  const { state, intent } = context;
+
+  // State-specific guidance
+  const stateGuidance: Record<ConversationState, string> = {
+    new_inquiry: `
+🎯 STATE: New Inquiry
+- Customer just started conversation
+- FIRST: Identify device make/model
+- THEN: Ask about the issue
+- Be warm and welcoming`,
+
+    gathering_device_info: `
+🎯 STATE: Gathering Device Info
+- You ALREADY asked for device info
+- Customer should be providing it now
+- DO NOT ask again - acknowledge their answer
+- If unclear, ask for clarification only`,
+
+    gathering_issue_info: `
+🎯 STATE: Gathering Issue Info
+- You know the device: ${context.deviceModel || context.deviceType || 'unknown'}
+- Now find out what's wrong
+- Ask specific questions based on device type`,
+
+    presenting_options: `
+🎯 STATE: Presenting Options
+- You ALREADY showed pricing options
+- Wait for customer to choose
+- DO NOT repeat pricing
+- If they ask questions, answer them`,
+
+    confirming_choice: `
+🎯 STATE: Confirming Choice
+- Customer showed interest
+- CRITICAL: Confirm WHICH option they want (OLED vs Genuine)
+- Ask explicitly: "Just to confirm, is that the OLED at £X or genuine at £Y?"`,
+
+    upselling: `
+🎯 STATE: Upselling
+- You offered battery combo discount
+- Wait for their response
+- If yes: give total price
+- If no: wrap up and invite to visit`,
+
+    ready_to_visit: `
+🎯 STATE: Ready to Visit
+- All info gathered
+- Invite them to pop in
+- Mention turnaround time
+- Keep it brief`,
+
+    follow_up: `
+🎯 STATE: Follow-up
+- Customer asking about existing repair
+- Ask for name and device details
+- Say you'll check and get back ASAP`,
+
+    general_inquiry: `
+🎯 STATE: General Inquiry
+- Not a repair request
+- Answer their question directly
+- Keep it concise`,
+
+    handoff_required: `
+🎯 STATE: Handoff Required
+- This needs John's attention
+- Explain why
+- Set expectations for response time`
+  };
+
+  return stateGuidance[state];
+}
+
+/**
+ * Validate if AI response matches expected state
+ */
+export function validateResponseForState(
+  response: string,
+  context: ConversationContext
+): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+
+  // Check for state-specific violations
+  switch (context.state) {
+    case 'gathering_device_info':
+      if (response.toLowerCase().includes('what make and model')) {
+        issues.push('Asked for device info again (already asked)');
+      }
+      break;
+
+    case 'presenting_options':
+      if (response.includes('£') && response.includes('OLED')) {
+        issues.push('Repeated pricing options (already presented)');
+      }
+      break;
+
+    case 'confirming_choice':
+      if (!response.toLowerCase().includes('confirm')) {
+        issues.push('Did not explicitly confirm customer choice');
+      }
+      break;
+
+    case 'ready_to_visit':
+      if (response.split('\n').length > 10) {
+        issues.push('Response too long for ready_to_visit state');
+      }
+      break;
+  }
+
+  // Check for common mistakes
+  if (context.deviceModel && response.toLowerCase().includes('what model')) {
+    issues.push(`Already know device model: ${context.deviceModel}`);
+  }
+
+  if (context.customerName && response.toLowerCase().includes('what\'s your name')) {
+    issues.push(`Already know customer name: ${context.customerName}`);
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues
+  };
+}

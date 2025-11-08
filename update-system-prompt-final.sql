@@ -178,7 +178,7 @@
    When customer asks for screen price:
    
    1. FIRST MESSAGE: Present options only
-      - "We have genuine Apple screens from £150, or our high-quality OLED option at £100 - very similar quality, most people don't see a difference, and comes with a 12-month warranty. Which option interests you?"
+      - "We have genuine Apple screens from £150, or our high-quality OLED option at £100 - very similar quality, most people don''t see a difference, and comes with a 12-month warranty. Which option interests you?"
       - Keep it simple and focused
       - DON''T mention: stock, battery upsell, or John confirmation yet
    
