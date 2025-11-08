@@ -291,10 +291,13 @@ export async function POST(request: NextRequest) {
     const nameData = extractCustomerName(message)
     
     if (nameData.customerName && isLikelyValidName(nameData.customerName)) {
-      console.log('[Name Extraction] Detected customer name:', nameData.customerName, 'confidence:', nameData.confidence)
+      console.log('[Name Extraction] Detected customer name:', nameData.customerName, 'confidence:', nameData.confidence, 'isCorrection:', nameData.isCorrection)
       
-      // Only update if customer doesn't already have a name, or if this is high confidence
-      if (!customer.name || nameData.confidence === 'high') {
+      // Update if:
+      // 1. Customer doesn't have a name yet
+      // 2. This is high confidence
+      // 3. This is a name preference correction (always update)
+      if (!customer.name || nameData.confidence === 'high' || nameData.isCorrection) {
         const { error: updateError } = await supabase
           .from('customers')
           .update({ name: nameData.customerName })
@@ -303,7 +306,8 @@ export async function POST(request: NextRequest) {
         if (updateError) {
           console.error('[Name Extraction] Failed to update customer name:', updateError)
         } else {
-          console.log('[Name Extraction] Updated customer name to:', nameData.customerName)
+          const updateType = nameData.isCorrection ? 'corrected' : 'updated'
+          console.log(`[Name Extraction] ${updateType} customer name to:`, nameData.customerName)
           // Update local customer object so AI can use it immediately
           customer.name = nameData.customerName
         }

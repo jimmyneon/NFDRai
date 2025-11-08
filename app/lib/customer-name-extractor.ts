@@ -11,6 +11,7 @@
 export interface ExtractedNameData {
   customerName: string | null
   confidence: 'high' | 'medium' | 'low'
+  isCorrection?: boolean  // True if customer is correcting their name preference
 }
 
 /**
@@ -81,6 +82,27 @@ export function extractCustomerName(message: string): ExtractedNameData {
     return { customerName: capitalizeFirstLetter(customerName), confidence }
   }
   
+  // Pattern 7: Name preference correction - "please refer to me as {name}" or "call me {name}"
+  const pattern7 = /(?:please\s+)?(?:refer\s+to\s+me\s+as|call\s+me)\s+([a-z]+(?:\s+[a-z]+)?)/i
+  const match7 = message.match(pattern7)
+  
+  if (match7) {
+    customerName = match7[1].trim()
+    confidence = 'high'
+    return { customerName: capitalizeProperName(customerName), confidence, isCorrection: true }
+  }
+  
+  // Pattern 8: Name correction - "not {old_name}" pattern followed by new name
+  // Example: "Also please refer to me as Mr Davidson not dave"
+  const pattern8 = /(?:refer\s+to\s+me\s+as|call\s+me)\s+([a-z]+(?:\s+[a-z]+)?)\s+not\s+[a-z]+/i
+  const match8 = message.match(pattern8)
+  
+  if (match8) {
+    customerName = match8[1].trim()
+    confidence = 'high'
+    return { customerName: capitalizeProperName(customerName), confidence, isCorrection: true }
+  }
+  
   return { customerName: null, confidence: 'low' }
 }
 
@@ -89,6 +111,16 @@ export function extractCustomerName(message: string): ExtractedNameData {
  */
 function capitalizeFirstLetter(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
+}
+
+/**
+ * Capitalize proper names (handles titles like "Mr Davidson")
+ */
+function capitalizeProperName(name: string): string {
+  return name
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 }
 
 /**
