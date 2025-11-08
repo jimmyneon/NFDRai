@@ -53,6 +53,11 @@ echo "   • Uses conversation history for status checks"
 echo "   • References known devices instead of asking again"
 echo "   • Handles multiple devices intelligently"
 echo ""
+echo "8️⃣  PHONE SETUP TO BUYBACK CROSS-SELL"
+echo "   • Mentions buyback when customer asks about setup"
+echo "   • Natural, not pushy approach"
+echo "   • Can trade old phone towards setup cost"
+echo ""
 
 read -p "🤔 Deploy all fixes? (y/N): " -n 1 -r
 echo ""
@@ -68,7 +73,7 @@ echo "────────────────────────�
 
 # Counter for successful migrations
 SUCCESS_COUNT=0
-TOTAL_COUNT=7
+TOTAL_COUNT=8
 
 # Migration 020 - Battery guidance
 echo ""
@@ -140,6 +145,16 @@ else
     echo "⚠️  Status check context already applied or error"
 fi
 
+# Migration 027 - Phone setup cross-sell
+echo ""
+echo "8️⃣  Applying phone setup to buyback cross-sell..."
+if psql "$DATABASE_URL" -f supabase/migrations/027_add_setup_to_buyback_crosssell.sql > /dev/null 2>&1; then
+    echo "✅ Phone setup cross-sell applied"
+    ((SUCCESS_COUNT++))
+else
+    echo "⚠️  Phone setup cross-sell already applied or error"
+fi
+
 echo "────────────────────────────────────────────────────────────────────────────────"
 echo "✅ Deployment complete! ($SUCCESS_COUNT/$TOTAL_COUNT migrations applied)"
 echo ""
@@ -197,6 +212,10 @@ echo "   • Setup: Earlier mentioned 'iPhone 15'"
 echo "   • Send: 'Check up on my repair please'"
 echo "   • Expected: 'I can see you brought in an iPhone 15. I'll pass this to John...'"
 echo ""
+echo "✅ Phone Setup Cross-Sell:"
+echo "   • Send: 'Can you set up my new iPhone?'"
+echo "   • Expected: Confirms setup + mentions buying old phone"
+echo ""
 echo "════════════════════════════════════════════════════════════════════════════════"
 echo "  DOCUMENTATION"
 echo "════════════════════════════════════════════════════════════════════════════════"
@@ -210,6 +229,7 @@ echo "   • CONTEXT_SWITCHING_FIX.md"
 echo "   • LAPTOP_DIAGNOSTICS_FIX.md"
 echo "   • NAME_PREFERENCE_FIX.md"
 echo "   • STATUS_CHECK_IMPROVEMENT.md"
+echo "   • PHONE_SETUP_CROSSSELL.md"
 echo ""
 echo "════════════════════════════════════════════════════════════════════════════════"
 echo "✨ All fixes deployed! Monitor conversations for improved customer experience."
