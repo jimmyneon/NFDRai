@@ -266,11 +266,24 @@ export async function POST(request: NextRequest) {
       .eq('phone', from)
       .single()
 
+    // Compute a safe initial name from payload or message
+    const initialNameCandidate = (customerName && typeof customerName === 'string') ? customerName : ''
+    const firstWord = initialNameCandidate.trim().split(/\s+/)[0] || ''
+    let safeName: string | null = null
+    if (firstWord && isLikelyValidName(firstWord)) {
+      safeName = firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase()
+    } else {
+      const extracted = extractCustomerName(message)
+      if (extracted.customerName && isLikelyValidName(extracted.customerName)) {
+        safeName = extracted.customerName
+      }
+    }
+
     if (!customer) {
       const { data: newCustomer } = await supabase
         .from('customers')
         .insert({
-          name: customerName || null,
+          name: safeName,
           phone: from,
         })
         .select()
@@ -475,6 +488,20 @@ export async function POST(request: NextRequest) {
 
     if (batchResult.shouldBatch) {
       console.log(`[Batching] Combined ${batchResult.allMessages.length} rapid messages from ${from}`)
+    }
+
+    // Only the first resolver should proceed to generate and send the AI response
+    if (!batchResult.shouldRespond) {
+      console.log('[Batching] Another request will handle the AI response; returning early')
+      return NextResponse.json({
+        success: true,
+        mode: 'batched_wait',
+        message: 'Another request elected to respond; this one exits',
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
     }
 
     // Check global kill switch

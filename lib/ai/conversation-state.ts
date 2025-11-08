@@ -2,6 +2,7 @@
  * Conversation State Machine
  * Tracks where we are in the conversation flow to prevent AI confusion
  */
+import { extractCustomerName as extractNameFromText, isLikelyValidName } from '@/app/lib/customer-name-extractor'
 
 export type ConversationState = 
   | 'new_inquiry'           // First message from customer
@@ -79,19 +80,30 @@ export function analyzeConversationState(messages: Array<{
   
   const allText = recentMessages.map(m => m.text.toLowerCase()).join(' ');
 
+  // Detect topic switch / clarification in last customer message
+  const lastText = (lastCustomerMessage?.text || '').toLowerCase();
+  const topicSwitch = /\b(i mean|actually|instead|no,? i want|i meant)\b/.test(lastText);
+
   // Extract device info if mentioned (only from recent context)
   const deviceType = extractDeviceType(allText);
   const deviceModel = extractDeviceModel(allText);
-  const customerName = extractCustomerName(recentMessages);
+  const customerName = extractNameFromRecent(recentMessages);
 
   // Determine intent from conversation (only recent messages)
-  const intent = determineIntent(allText);
+  let intent = determineIntent(allText);
+  // If topic switch indicates moving to repair, downrank status_check
+  if (topicSwitch) {
+    const repairCue = /(fix|repair|screen|broken|crack|diagnos|battery)/.test(allText);
+    if (repairCue && intent === 'status_check') {
+      intent = 'diagnostic';
+    }
+  }
 
   // Determine state based on conversation flow
   let state: ConversationState = 'new_inquiry';
 
   // Check if asking about existing repair
-  if (allText.includes('ready') || allText.includes('done') || allText.includes('finished')) {
+  if (!topicSwitch && (allText.includes('ready') || allText.includes('done') || allText.includes('finished'))) {
     state = 'follow_up';
   }
   // Check if ready for visit
@@ -181,15 +193,16 @@ function extractDeviceModel(text: string): string | undefined {
 /**
  * Extract customer name from messages
  */
-function extractCustomerName(messages: Array<{ sender: string; text: string }>): string | undefined {
+function extractNameFromRecent(messages: Array<{ sender: string; text: string }>): string | undefined {
   for (const msg of messages) {
     if (msg.sender === 'customer') {
-      // Look for "I'm [name]" or "My name is [name]"
-      const match = msg.text.match(/(?:i'm|i am|my name is|this is)\s+([A-Z][a-z]+)/i);
-      if (match) return match[1];
+      const result = extractNameFromText(msg.text)
+      if (result.customerName && isLikelyValidName(result.customerName)) {
+        return result.customerName
+      }
     }
   }
-  return undefined;
+  return undefined
 }
 
 /**
@@ -229,14 +242,14 @@ export function getPromptForState(context: ConversationContext): string {
 🎯 STATE: New Inquiry
 - Customer just started conversation OR context is stale (>4 hours)
 - DO NOT assume you know what they want - even if you spoke yesterday
-- ALWAYS start fresh: "Hi! What can I help you with today?"
-- Let THEM tell you what they need
+- ALWAYS start fresh and concise
+- Combined ask to reduce back-and-forth: "What seems to be the problem, and which model is it?"
 - If they mention previous conversation, acknowledge it but re-qualify their current need
-- Example: "Hi! Are you looking to bring in that iPhone we discussed, or is there something else I can help with?"
+- Example: "Are you looking to bring in that iPhone we discussed, or is there something else I can help with?"
 
 DEVICE INFO REQUIREMENTS:
 - You MUST get SPECIFIC model (e.g., "iPhone 12", not just "iPhone")
-- If customer says just "iPhone" or "iPad", ask "What model is it?"
+- If customer says just "iPhone" or "iPad", include model in your combined ask
 - Don't proceed with pricing until you have the specific model`,
 
     gathering_device_info: `

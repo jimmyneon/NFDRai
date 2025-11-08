@@ -22,8 +22,8 @@ export function extractCustomerName(message: string): ExtractedNameData {
   let customerName: string | null = null
   let confidence: 'high' | 'medium' | 'low' = 'low'
   
-  // Pattern 1: "Hi, I'm {name}" or "Hello, I'm {name}"
-  const pattern1 = /(?:hi|hello|hey),?\s+i'?m\s+([a-z]+)/i
+  // Pattern 1: "Hi, I'm {name}" or "Hello, I'm {name}" (avoid articles like "an", "a", "the")
+  const pattern1 = /(?:hi|hello|hey),?\s+i'?m\s+(?!an\b|a\b|the\b)([a-z]+)/i
   const match1 = message.match(pattern1)
   
   if (match1) {
@@ -52,8 +52,8 @@ export function extractCustomerName(message: string): ExtractedNameData {
     return { customerName: capitalizeFirstLetter(customerName), confidence }
   }
   
-  // Pattern 4: "It's {name} here" or "It's {name}"
-  const pattern4 = /it'?s\s+([a-z]+)(?:\s+here)?/i
+  // Pattern 4: "It's {name} here" or "It's {name}" (avoid articles)
+  const pattern4 = /it'?s\s+(?!an\b|a\b|the\b)([a-z]+)(?:\s+here)?/i
   const match4 = message.match(pattern4)
   
   if (match4) {
@@ -73,7 +73,7 @@ export function extractCustomerName(message: string): ExtractedNameData {
   }
   
   // Pattern 6: "I am {name}"
-  const pattern6 = /i\s+am\s+([a-z]+)/i
+  const pattern6 = /i\s+am\s+(?!an\b|a\b|the\b)([a-z]+)/i
   const match6 = message.match(pattern6)
   
   if (match6) {
@@ -131,13 +131,14 @@ export function isLikelyValidName(name: string): boolean {
   
   // Common words that are NOT names
   const commonWords = [
-    'the', 'and', 'but', 'for', 'not', 'yes', 'sure', 'okay', 'ok',
+    'the', 'a', 'an', 'and', 'but', 'for', 'not', 'yes', 'sure', 'okay', 'ok',
     'thanks', 'thank', 'please', 'sorry', 'hello', 'hi', 'hey',
     'good', 'bad', 'great', 'fine', 'well', 'very', 'much', 'more',
     'just', 'only', 'also', 'even', 'still', 'back', 'here', 'there',
     'this', 'that', 'these', 'those', 'what', 'when', 'where', 'which',
     'who', 'why', 'how', 'can', 'could', 'would', 'should', 'will',
-    'phone', 'screen', 'battery', 'repair', 'fix', 'broken', 'cracked'
+    'phone', 'screen', 'battery', 'repair', 'fix', 'broken', 'cracked',
+    'lol'
   ]
   
   // Name should be at least 2 characters

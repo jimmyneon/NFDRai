@@ -10,13 +10,13 @@ interface PendingBatch {
   messages: string[]
   timestamps: number[]
   timer: NodeJS.Timeout
-  resolvers: Array<(value: { shouldBatch: boolean; allMessages: string[] }) => void>
+  resolvers: Array<(value: { shouldBatch: boolean; allMessages: string[]; shouldRespond: boolean }) => void>
 }
 
 const pendingBatches = new Map<string, PendingBatch>()
 
-const BATCH_WINDOW_MS = 3000 // Default: Wait 3 seconds for more messages (reduced from 5s)
-const BATCH_WINDOW_CORRECTION_MS = 2000 // Shorter wait for obvious corrections/typos (reduced from 2.5s)
+const BATCH_WINDOW_MS = 4500 // Wait a bit longer to catch multi-part messages (was 3000)
+const BATCH_WINDOW_CORRECTION_MS = 2500 // Slightly longer than before to catch quick clarifications
 const MIN_MESSAGES_FOR_BATCH = 2 // Minimum messages to trigger batching
 
 /**
@@ -116,7 +116,7 @@ export async function checkMessageBatch(
   customerId: string,
   conversationId: string,
   message: string
-): Promise<{ shouldBatch: boolean; allMessages: string[] }> {
+): Promise<{ shouldBatch: boolean; allMessages: string[]; shouldRespond: boolean }> {
   const batchKey = `${customerId}:${conversationId}`
   
   const now = Date.now()
@@ -140,12 +140,12 @@ export async function checkMessageBatch(
         const batch = pendingBatches.get(batchKey)
         if (batch) {
           const shouldBatch = batch.messages.length >= MIN_MESSAGES_FOR_BATCH
-          const result = {
+          // Resolve all pending promises, but only FIRST resolver should respond
+          batch.resolvers.forEach((resolve, idx) => resolve({
             shouldBatch,
             allMessages: batch.messages,
-          }
-          // Resolve all pending promises
-          batch.resolvers.forEach(resolve => resolve(result))
+            shouldRespond: idx === 0
+          }))
           pendingBatches.delete(batchKey)
         }
       }, BATCH_WINDOW_CORRECTION_MS)
@@ -168,11 +168,11 @@ export async function checkMessageBatch(
         console.log(`[Batching] Batch window expired - ${batch.messages.length} messages collected`)
         
         // Resolve all promises with batch info
-        const result = {
+        batch.resolvers.forEach((resolve, idx) => resolve({
           shouldBatch,
           allMessages: batch.messages,
-        }
-        batch.resolvers.forEach(resolve => resolve(result))
+          shouldRespond: idx === 0 // Only first caller should proceed to respond
+        }))
         
         // Clean up
         pendingBatches.delete(batchKey)
@@ -199,7 +199,7 @@ export function cancelBatch(customerId: string, conversationId: string): void {
   
   if (batch) {
     clearTimeout(batch.timer)
-    const result = { shouldBatch: false, allMessages: batch.messages }
+    const result = { shouldBatch: false, allMessages: batch.messages, shouldRespond: false }
     batch.resolvers.forEach(resolve => resolve(result))
     pendingBatches.delete(batchKey)
   }

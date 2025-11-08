@@ -238,25 +238,18 @@ export async function generateSmartResponse(
   
   if (!validation.valid) {
     console.warn('[Smart AI] Validation issues:', validation.issues)
-    
-    // Check for critical validation failures that should trigger regeneration
-    const criticalIssues = validation.issues.filter(issue => 
-      issue.includes('Already know device model') ||
-      issue.includes('Already know customer name') ||
-      issue.includes('Attempted to quote price without knowing specific model')
-    )
-    
-    if (criticalIssues.length > 0) {
-      console.error('[Smart AI] CRITICAL validation failures - response may confuse customer:', criticalIssues)
-      // Log for monitoring but don't block (regeneration would be expensive)
-      // In production, could trigger alert or fallback to simpler response
-    }
+  }
+
+  // Apply lightweight auto-fixes to invalid responses BEFORE disclosure/sign-off
+  let adjustedResponse = result.response
+  if (!validation.valid) {
+    adjustedResponse = applyResponseFixes(result.response, context, validation.issues)
   }
 
   // STEP 8: Calculate costs and metrics
   const responseTimeMs = Date.now() - startTime
   const promptTokens = Math.ceil(focusedPrompt.length / 4) // Rough estimate
-  const completionTokens = Math.ceil(result.response.length / 4)
+  const completionTokens = Math.ceil(adjustedResponse.length / 4)
   const totalTokens = promptTokens + completionTokens
   
   // Cost calculation (GPT-4o pricing)
@@ -302,7 +295,7 @@ export async function generateSmartResponse(
   }
 
   const shouldFallback = result.confidence < settings.confidence_threshold
-  let finalResponse = shouldFallback ? settings.fallback_message : result.response
+  let finalResponse = shouldFallback ? settings.fallback_message : adjustedResponse
 
   // Check if this is the first AI message to this customer
   // IMPORTANT: Check ALL messages in the conversation, not just recent ones
@@ -486,7 +479,7 @@ function buildFocusedPrompt(params: {
   relevantData: any
   customerMessage: string
   recentMessages: any[]
-  promptModules?: Array<{ module_name: string; prompt_text: string }>
+  promptModules?: Array<{ module_name: string; prompt_text: string; priority: number }>
   customerHistory?: any
 }) {
   const { context, stateGuidance, relevantData, customerMessage, recentMessages, promptModules = [], customerHistory } = params
@@ -502,6 +495,7 @@ function buildFocusedPrompt(params: {
   const needsTroubleshooting = conversationText.includes('black screen') || conversationText.includes('won\'t turn on') || 
     conversationText.includes('not working') || conversationText.includes('dead') || conversationText.includes('broken') ||
     conversationText.includes('not responding') || conversationText.includes('display') || context.intent === 'diagnostic'
+  const needsDifferenceInfo = /what'?s the difference|difference between|what is the difference/i.test(conversationText)
 
   // Core identity (always included)
   const coreIdentity = `You are AI Steve, friendly assistant for New Forest Device Repairs.
@@ -572,6 +566,9 @@ MULTIPLE MESSAGES:
       
       // Context-specific modules (only when relevant)
       if (needsScreenInfo && (moduleName.includes('pricing_flow') || moduleName.includes('screen'))) {
+        shouldInclude = true
+      }
+      if (needsDifferenceInfo && (moduleName.includes('genuine') || moduleName.includes('aftermarket') || moduleName.includes('difference'))) {
         shouldInclude = true
       }
       if (needsBatteryInfo && moduleName.includes('battery')) {
@@ -681,6 +678,34 @@ function buildConversationMessages(params: {
   conversationMessages.push({ role: 'user', content: currentMessage })
 
   return conversationMessages
+}
+
+function applyResponseFixes(response: string, context: ConversationContext, issues: string[]): string {
+  let out = response
+
+  const hasModel = !!context.deviceModel
+  const hasName = !!context.customerName
+
+  if (issues.some(i => i.toLowerCase().includes('quote price without knowing specific model'))) {
+    const lines = out.split('\n').filter(l => !l.match(/£|price|cost/i))
+    const ask = 'What seems to be the problem, and which model is it?'
+    if (!hasModel) lines.push(ask)
+    out = lines.join('\n')
+  }
+
+  if (hasModel && /what\s+model|which\s+model|what\s+make\s+and\s+model/i.test(out)) {
+    out = out.replace(/.*(what\s+model|which\s+model|what\s+make\s+and\s+model).*\n?/gi, '')
+  }
+
+  if (hasName && /what'?s\s+your\s+name|your\s+name\??/i.test(out)) {
+    out = out.replace(/.*(what'?s\s+your\s+name|your\s+name\??).*\n?/gi, '')
+  }
+
+  out = out.replace(/\n{3,}/g, '\n\n').trim()
+  if (!out) {
+    out = hasModel ? 'What seems to be the problem with it?' : 'What seems to be the problem, and which model is it?'
+  }
+  return out
 }
 
 /**
