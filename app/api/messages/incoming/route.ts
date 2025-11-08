@@ -14,6 +14,22 @@ import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-extractor'
 
 /**
+ * Calculate similarity between two strings (0 = completely different, 1 = identical)
+ * Uses simple word overlap comparison
+ */
+function calculateSimilarity(str1: string, str2: string): number {
+  const words1 = str1.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+  const words2 = str2.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+  
+  if (words1.length === 0 || words2.length === 0) return 0
+  
+  const commonWords = words1.filter(w => words2.includes(w))
+  const similarity = (commonWords.length * 2) / (words1.length + words2.length)
+  
+  return similarity
+}
+
+/**
  * Webhook endpoint for incoming messages from SMS/WhatsApp/Messenger
  * 
  * Expected payload:
@@ -631,10 +647,26 @@ export async function POST(request: NextRequest) {
     console.log(`[AI Response] Generated ${aiResult.responses.length} message(s)`)
     console.log(`[AI Response] Messages:`, aiResult.responses.map((r, i) => `${i + 1}. ${r.substring(0, 50)}...`))
     
-    for (let i = 0; i < aiResult.responses.length; i++) {
-      const messageText = aiResult.responses[i]
+    // CRITICAL: Remove duplicate messages from responses array
+    // Sometimes AI generates similar responses - only send unique ones
+    const uniqueResponses = aiResult.responses.filter((response, index, self) => {
+      // Check if this response is substantially similar to any previous response
+      for (let j = 0; j < index; j++) {
+        const similarity = calculateSimilarity(response, self[j])
+        if (similarity > 0.8) {
+          console.log(`[Duplicate Prevention] Skipping response ${index + 1} - ${(similarity * 100).toFixed(0)}% similar to response ${j + 1}`)
+          return false
+        }
+      }
+      return true
+    })
+    
+    console.log(`[AI Response] After deduplication: ${uniqueResponses.length} unique message(s)`)
+    
+    for (let i = 0; i < uniqueResponses.length; i++) {
+      const messageText = uniqueResponses[i]
       
-      console.log(`[AI Response] Sending message ${i + 1}/${aiResult.responses.length}`)
+      console.log(`[AI Response] Sending message ${i + 1}/${uniqueResponses.length}`)
       
       // Insert AI response into database
       await supabase.from('messages').insert({
