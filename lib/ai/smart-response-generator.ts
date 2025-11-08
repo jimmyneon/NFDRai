@@ -421,7 +421,7 @@ function buildFocusedPrompt(params: {
   const needsScreenInfo = context.intent === 'screen_repair' || conversationText.includes('screen')
   const needsBatteryInfo = context.intent === 'battery_replacement' || conversationText.includes('battery')
   const needsWaterDamageInfo = conversationText.includes('water') || conversationText.includes('wet') || conversationText.includes('sea')
-  const needsBuybackInfo = conversationText.includes('sell') || conversationText.includes('trade')
+  const needsBuybackInfo = context.intent === 'buyback' || conversationText.includes('sell') || conversationText.includes('trade') || conversationText.includes('buy') || conversationText.includes('old tech')
   const needsWarrantyInfo = conversationText.includes('warranty') || conversationText.includes('guarantee')
   const needsDiagnosticInfo = conversationText.includes('diagnostic') || conversationText.includes('check') || conversationText.includes('won\'t turn on')
 
@@ -499,7 +499,7 @@ MULTIPLE MESSAGES:
       if (needsWaterDamageInfo && (moduleName.includes('water') || moduleName.includes('common_scenarios'))) {
         shouldInclude = true
       }
-      if (needsBuybackInfo && moduleName.includes('common_scenarios')) {
+      if (needsBuybackInfo && (moduleName.includes('buyback') || moduleName.includes('common_scenarios'))) {
         shouldInclude = true
       }
       if (needsDiagnosticInfo && moduleName.includes('common_scenarios')) {
