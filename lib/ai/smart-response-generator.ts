@@ -335,31 +335,43 @@ async function loadPromptModules(supabase: any, intent: string): Promise<{
 }> {
   try {
     // Try to load from database first
+    console.log('[Prompt Modules] Calling get_prompt_modules with intent:', intent)
     const { data: modules, error } = await supabase
       .rpc('get_prompt_modules', { p_intent: intent })
     
-    if (!error && modules && modules.length > 0) {
-      console.log('[Prompt Modules] Loaded from database:', modules.map((m: any) => m.module_name))
-      
-      // Update usage stats for each module (async, don't wait)
-      modules.forEach((m: any) => {
-        supabase.rpc('update_prompt_usage', { p_module_name: m.module_name })
-          .catch((err: any) => console.error('[Prompt Modules] Usage update failed:', err))
-      })
-      
-      return {
-        modules,
-        moduleNames: modules.map((m: any) => m.module_name)
-      }
+    console.log('[Prompt Modules] RPC response:', { 
+      hasError: !!error, 
+      error: error?.message,
+      modulesCount: modules?.length,
+      modules: modules?.map((m: any) => m.module_name)
+    })
+    
+    if (error) {
+      console.error('[Prompt Modules] RPC error:', error)
+      throw new Error(`RPC call failed: ${error.message}`)
+    }
+    
+    if (!modules || modules.length === 0) {
+      console.error('[Prompt Modules] No modules returned from RPC')
+      throw new Error('No modules returned from get_prompt_modules RPC')
+    }
+    
+    console.log('[Prompt Modules] Loaded from database:', modules.map((m: any) => m.module_name))
+    
+    // Update usage stats for each module (async, don't wait)
+    modules.forEach((m: any) => {
+      supabase.rpc('update_prompt_usage', { p_module_name: m.module_name })
+        .catch((err: any) => console.error('[Prompt Modules] Usage update failed:', err))
+    })
+    
+    return {
+      modules,
+      moduleNames: modules.map((m: any) => m.module_name)
     }
   } catch (error) {
     console.error('[Prompt Modules] Database load FAILED:', error)
-    throw new Error(`Failed to load prompt modules from database: ${error}`)
+    throw error
   }
-  
-  // No fallback - if database fails, we need to know about it!
-  console.error('[Prompt Modules] No modules loaded - this should never happen!')
-  throw new Error('No prompt modules loaded from database - check RLS policies')
 }
 
 /**
