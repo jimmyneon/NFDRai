@@ -68,14 +68,14 @@ export function analyzeConversationState(messages: Array<{
   const isGenericGreeting = lastCustomerMessage?.text.toLowerCase().match(/^(hi|hello|hey|good morning|good afternoon)$/);
   const shouldResetContext = isStaleContext || isGenericGreeting;
   
-  // Only use recent messages for context (last 5 messages OR messages from last 4 hours)
+  // Only use recent messages for context (last 10 messages OR messages from last 4 hours)
   const recentMessages = shouldResetContext 
     ? [lastCustomerMessage].filter(Boolean) // Only current message if context is stale
     : messages.filter(m => {
         const msgTime = new Date(m.created_at);
         const hoursAgo = (Date.now() - msgTime.getTime()) / (1000 * 60 * 60);
         return hoursAgo <= 4;
-      }).slice(-5); // Last 5 messages within 4 hours
+      }).slice(-10); // Last 10 messages within 4 hours (increased from 5)
   
   const allText = recentMessages.map(m => m.text.toLowerCase()).join(' ');
 

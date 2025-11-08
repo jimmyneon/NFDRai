@@ -165,7 +165,7 @@ export async function generateSmartResponse(
   // STEP 5: Build conversation messages for API
   const conversationMessages = buildConversationMessages({
     systemPrompt: focusedPrompt,
-    messages: messages.slice(-5), // Only last 5 messages
+    messages: messages.slice(-15), // Last 15 messages for better context (increased from 5)
     currentMessage: params.customerMessage
   })
 
