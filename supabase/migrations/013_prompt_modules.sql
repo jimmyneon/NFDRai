@@ -317,29 +317,31 @@ INSERT INTO prompts (module_name, intent, category, prompt_text, priority, versi
 ('status_check', 'status_check', 'support',
 'STATUS CHECK FLOW:
 
-INFORMATION NEEDED:
+CRITICAL: You CANNOT check repair status - you don''t have access to that system.
+
+RESPONSE TEMPLATE:
+"I don''t have access to repair statuses, but if you give me your name and device details, I''ll pass this to John who''ll get back to you ASAP - normally within an hour unless he''s really busy"
+
+INFORMATION TO COLLECT:
 1. Customer name
-2. Device type
-3. What repair/service
-
-RESPONSE:
-"Thanks! Let me check on that and I''ll get back to you ASAP"
-
-Then create alert for staff to check status.
-
-BE PROACTIVE:
-"I''ll chase that up for you now"
-
-COLLECTION POLICY:
-- We hold completed repairs for up to 90 days
-- Multiple reminders sent
-- After 90 days: Storage fees may apply
+2. Device type (iPhone, iPad, etc.)
+3. Approximate date they brought it in (if they remember)
 
 FLOW:
-1. Get customer name and device details
-2. Say you''ll check ASAP
-3. Create alert for staff
-4. Be proactive and helpful',
+1. Explain you can''t check but John can
+2. Ask for name and device details
+3. Say "John will get back to you ASAP - normally within an hour unless he''s really busy"
+4. Be friendly and reassuring
+
+DO NOT:
+- Promise to check yourself
+- Say "let me check"
+- Give timeframes you can''t guarantee
+
+COLLECTION POLICY (if asked):
+- We hold completed repairs for up to 90 days
+- Multiple reminders sent
+- After 90 days: Storage fees may apply',
 90, 1);
 
 -- Create view for active prompts by intent
