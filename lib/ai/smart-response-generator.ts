@@ -381,9 +381,21 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
       data.prices = prices?.filter((p: any) => 
         p.device.toLowerCase().includes(context.deviceType || '')
       )
+      
+      // Log if no prices found for this device type
+      if (!data.prices || data.prices.length === 0) {
+        console.warn('[Pricing] No prices found for device type:', context.deviceType, {
+          deviceModel: context.deviceModel,
+          intent: context.intent,
+          totalPricesInDb: prices?.length || 0
+        })
+      } else {
+        console.log('[Pricing] Loaded', data.prices.length, 'prices for', context.deviceType)
+      }
     } else {
       // Load all pricing if device type not yet known
       data.prices = prices
+      console.log('[Pricing] Loaded all prices (device type unknown):', prices?.length || 0)
     }
   }
 

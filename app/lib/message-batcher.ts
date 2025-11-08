@@ -10,7 +10,7 @@ interface PendingBatch {
   messages: string[]
   timestamps: number[]
   timer: NodeJS.Timeout
-  resolve: (value: { shouldBatch: boolean; allMessages: string[] }) => void
+  resolvers: Array<(value: { shouldBatch: boolean; allMessages: string[] }) => void>
 }
 
 const pendingBatches = new Map<string, PendingBatch>()
@@ -140,10 +140,12 @@ export async function checkMessageBatch(
         const batch = pendingBatches.get(batchKey)
         if (batch) {
           const shouldBatch = batch.messages.length >= MIN_MESSAGES_FOR_BATCH
-          batch.resolve({
+          const result = {
             shouldBatch,
             allMessages: batch.messages,
-          })
+          }
+          // Resolve all pending promises
+          batch.resolvers.forEach(resolve => resolve(result))
           pendingBatches.delete(batchKey)
         }
       }, BATCH_WINDOW_CORRECTION_MS)
@@ -151,8 +153,8 @@ export async function checkMessageBatch(
     
     // Return a promise that will be resolved when the timer expires
     return new Promise((resolve) => {
-      // Update the resolve function to the latest one
-      existingBatch.resolve = resolve
+      // Add this resolve to the array of resolvers
+      existingBatch.resolvers.push(resolve)
     })
   }
   
@@ -165,11 +167,12 @@ export async function checkMessageBatch(
         
         console.log(`[Batching] Batch window expired - ${batch.messages.length} messages collected`)
         
-        // Resolve the promise with batch info
-        batch.resolve({
+        // Resolve all promises with batch info
+        const result = {
           shouldBatch,
           allMessages: batch.messages,
-        })
+        }
+        batch.resolvers.forEach(resolve => resolve(result))
         
         // Clean up
         pendingBatches.delete(batchKey)
@@ -182,7 +185,7 @@ export async function checkMessageBatch(
       messages: [message],
       timestamps: [now],
       timer,
-      resolve,
+      resolvers: [resolve],
     })
   })
 }
@@ -196,7 +199,8 @@ export function cancelBatch(customerId: string, conversationId: string): void {
   
   if (batch) {
     clearTimeout(batch.timer)
-    batch.resolve({ shouldBatch: false, allMessages: batch.messages })
+    const result = { shouldBatch: false, allMessages: batch.messages }
+    batch.resolvers.forEach(resolve => resolve(result))
     pendingBatches.delete(batchKey)
   }
 }
