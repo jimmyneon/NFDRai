@@ -13,10 +13,12 @@ import {
   type ConversationContext 
 } from './conversation-state'
 import { classifyIntent, type IntentClassification } from './intent-classifier'
+import { getCustomerHistory, updateCustomerHistory } from './smart-handoff'
 
 interface SmartResponseParams {
   customerMessage: string
   conversationId: string
+  customerPhone?: string
 }
 
 interface SmartResponseResult {
@@ -109,6 +111,21 @@ export async function generateSmartResponse(
     customerName: context.customerName
   })
 
+  // STEP 1.5: Load customer history for personalization
+  let customerHistory = null
+  if (params.customerPhone) {
+    try {
+      customerHistory = await getCustomerHistory(params.customerPhone)
+      console.log('[Customer History]', {
+        isReturning: customerHistory.isReturning,
+        totalConversations: customerHistory.totalConversations,
+        customerType: customerHistory.customerType
+      })
+    } catch (error) {
+      console.log('[Customer History] Not found or error:', error)
+    }
+  }
+
   // STEP 2: Get or create conversation context in DB
   const { data: existingContext } = await supabase
     .from('conversation_context')
@@ -156,14 +173,15 @@ export async function generateSmartResponse(
   // Get only relevant data (not everything)
   const relevantData = await getRelevantData(supabase, context)
 
-  // STEP 5: Build compact, focused prompt (with database modules)
+  // STEP 5: Build compact, focused prompt (with database modules and customer history)
   const focusedPrompt = buildFocusedPrompt({
     context,
     stateGuidance,
     relevantData,
     customerMessage: params.customerMessage,
     recentMessages: messages.slice(-5), // Only last 5 messages
-    promptModules // Pass database modules
+    promptModules, // Pass database modules
+    customerHistory // Pass customer history for personalization
   })
 
   // STEP 5: Build conversation messages for API
@@ -234,6 +252,15 @@ export async function generateSmartResponse(
   // STEP 10: Learn from patterns (async, don't wait)
   learnFromInteraction(supabase, params.conversationId, context, result.response)
     .catch(err => console.error('[Learning] Error:', err))
+
+  // STEP 10.5: Update customer history (async, don't wait)
+  if (params.customerPhone) {
+    updateCustomerHistory({
+      phone: params.customerPhone,
+      name: context.customerName,
+      device: context.deviceModel
+    }).catch(err => console.error('[Customer History] Update error:', err))
+  }
 
   const shouldFallback = result.confidence < settings.confidence_threshold
   let finalResponse = shouldFallback ? settings.fallback_message : result.response
@@ -385,8 +412,9 @@ function buildFocusedPrompt(params: {
   customerMessage: string
   recentMessages: any[]
   promptModules?: Array<{ module_name: string; prompt_text: string }>
+  customerHistory?: any
 }) {
-  const { context, stateGuidance, relevantData, customerMessage, recentMessages, promptModules = [] } = params
+  const { context, stateGuidance, relevantData, customerMessage, recentMessages, promptModules = [], customerHistory } = params
 
   // Determine what context is relevant based on conversation
   const conversationText = recentMessages.map(m => m.text.toLowerCase()).join(' ')
@@ -403,6 +431,8 @@ function buildFocusedPrompt(params: {
 WHAT YOU KNOW ABOUT THIS CONVERSATION:
 ${context.customerName ? `- Customer name: ${context.customerName}` : ''}
 ${context.deviceModel ? `- Device: ${context.deviceModel}` : context.deviceType ? `- Device type: ${context.deviceType}` : ''}
+${customerHistory?.isReturning ? `- RETURNING CUSTOMER (${customerHistory.totalConversations} previous conversations) - Greet warmly: "Good to hear from you again!"` : ''}
+${customerHistory?.name && !context.customerName ? `- Customer name from history: ${customerHistory.name}` : ''}
 
 CRITICAL: REMEMBER THE CONVERSATION
 - ALWAYS check what you already know from previous messages

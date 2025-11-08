@@ -520,6 +520,7 @@ export async function POST(request: NextRequest) {
     const aiResult = await generateSmartResponse({
       customerMessage: messageToProcess,
       conversationId: conversation.id,
+      customerPhone: from, // Pass customer phone for history lookup
     })
     
     console.log('[Smart AI] Response generated:', {
