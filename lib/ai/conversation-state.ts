@@ -277,9 +277,13 @@ DEVICE INFO REQUIREMENTS:
     ready_to_visit: `
 🎯 STATE: Ready to Visit
 - All info gathered
-- Invite them to pop in
-- Mention turnaround time
-- Keep it brief`,
+- CHECK BUSINESS HOURS and respond accordingly:
+  * If closed: "We're closed now - open tomorrow at [time]"
+  * If near closing: "We close at [time] - if you can't make it today, we're open tomorrow"
+  * If open: "Pop in anytime - we're open until [closing time]!"
+- ALWAYS mention turnaround time: "Usually takes about 1 hour"
+- ALWAYS mention warranty: "All repairs come with 12-month warranty"
+- Keep it brief and helpful`,
 
     follow_up: `
 🎯 STATE: Follow-up / Status Check
