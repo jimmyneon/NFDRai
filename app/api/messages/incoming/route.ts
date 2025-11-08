@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { generateAIResponse } from '@/lib/ai/response-generator'
 import { generateSmartResponse } from '@/lib/ai/smart-response-generator'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
+    const supabaseService = createServiceClient() // For operations that bypass RLS (alerts, etc.)
 
     // Check if this is an automated message (e.g., eBay, Lebara, Dominos, delivery notifications)
     const isAutomated = isAutoresponder(message, from)
@@ -348,7 +350,7 @@ export async function POST(request: NextRequest) {
     console.log('Settings error:', settingsError)
 
     if (!globalSettings?.automation_enabled) {
-      await supabase.from('alerts').insert({
+      await supabaseService.from('alerts').insert({
         conversation_id: conversation.id,
         type: 'manual_required',
         notified_to: 'admin',
@@ -439,7 +441,7 @@ export async function POST(request: NextRequest) {
             })
           }
           
-          await supabase.from('alerts').insert({
+          await supabaseService.from('alerts').insert({
             conversation_id: conversation.id,
             type: 'manual_required',
             notified_to: 'admin',
@@ -460,7 +462,7 @@ export async function POST(request: NextRequest) {
         // No staff reply yet - just stay in manual mode
         console.log('[Smart Mode] No staff reply yet - staying in manual mode')
         
-        await supabase.from('alerts').insert({
+        await supabaseService.from('alerts').insert({
           conversation_id: conversation.id,
           type: 'manual_required',
           notified_to: 'admin',
@@ -498,7 +500,7 @@ export async function POST(request: NextRequest) {
       // If staff replied within last 5 minutes, wait and let staff handle it
       if (minutesSinceStaffMessage < 5) {
         // Send alert to notify staff of new message
-        await supabase.from('alerts').insert({
+        await supabaseService.from('alerts').insert({
           conversation_id: conversation.id,
           type: 'manual_required',
           notified_to: 'admin',
@@ -582,7 +584,7 @@ export async function POST(request: NextRequest) {
     // If fallback was triggered or AI indicates manual handoff, create alert
     // Don't switch modes - just notify staff
     if (aiResult.shouldFallback || indicatesHandoff) {
-      await supabase.from('alerts').insert({
+      await supabaseService.from('alerts').insert({
         conversation_id: conversation.id,
         type: indicatesHandoff ? 'manual_required' : 'low_confidence',
         notified_to: 'admin',
