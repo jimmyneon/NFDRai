@@ -43,6 +43,11 @@ echo "   • Brand name is enough for diagnostics"
 echo "   • Prevents duplicate messages"
 echo "   • Chromebook detection"
 echo ""
+echo "6️⃣  NAME PREFERENCE CORRECTIONS"
+echo "   • Updates database when customer corrects name"
+echo "   • Handles 'refer to me as Mr Davidson not Dave'"
+echo "   • Polite acknowledgment"
+echo ""
 
 read -p "🤔 Deploy all fixes? (y/N): " -n 1 -r
 echo ""
@@ -58,7 +63,7 @@ echo "────────────────────────�
 
 # Counter for successful migrations
 SUCCESS_COUNT=0
-TOTAL_COUNT=5
+TOTAL_COUNT=6
 
 # Migration 020 - Battery guidance
 echo ""
@@ -110,6 +115,16 @@ else
     echo "⚠️  Laptop diagnostics already applied or error"
 fi
 
+# Migration 025 - Name preference
+echo ""
+echo "6️⃣  Applying name preference correction handling..."
+if psql "$DATABASE_URL" -f supabase/migrations/025_name_preference_handling.sql > /dev/null 2>&1; then
+    echo "✅ Name preference handling applied"
+    ((SUCCESS_COUNT++))
+else
+    echo "⚠️  Name preference handling already applied or error"
+fi
+
 echo "────────────────────────────────────────────────────────────────────────────────"
 echo "✅ Deployment complete! ($SUCCESS_COUNT/$TOTAL_COUNT migrations applied)"
 echo ""
@@ -158,6 +173,10 @@ echo "✅ Laptop Diagnostics:"
 echo "   • Send: 'HP' then 'Blue screen'"
 echo "   • Expected: Diagnostic offer, NO model request, NO duplicates"
 echo ""
+echo "✅ Name Preference:"
+echo "   • Send: 'Please refer to me as Mr Davidson not Dave'"
+echo "   • Expected: Database updated, AI acknowledges politely"
+echo ""
 echo "════════════════════════════════════════════════════════════════════════════════"
 echo "  DOCUMENTATION"
 echo "════════════════════════════════════════════════════════════════════════════════"
@@ -169,6 +188,7 @@ echo "   • TOMORROW_HOURS_CHECK_FIX.md"
 echo "   • BUYBACK_FIX.md"
 echo "   • CONTEXT_SWITCHING_FIX.md"
 echo "   • LAPTOP_DIAGNOSTICS_FIX.md"
+echo "   • NAME_PREFERENCE_FIX.md"
 echo ""
 echo "════════════════════════════════════════════════════════════════════════════════"
 echo "✨ All fixes deployed! Monitor conversations for improved customer experience."
