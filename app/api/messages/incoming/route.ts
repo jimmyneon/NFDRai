@@ -356,6 +356,9 @@ export async function POST(request: NextRequest) {
 
     // CRITICAL: Check if this exact message was already received recently (within 5 seconds)
     // This prevents duplicate processing if MacroDroid sends the webhook twice
+    // Use a unique constraint check to prevent race conditions
+    const messageHash = `${conversation.id}-${message}-${Date.now().toString().slice(0, -3)}` // Same second
+    
     const { data: recentCustomerMessages } = await supabase
       .from('messages')
       .select('created_at, text')
@@ -371,10 +374,12 @@ export async function POST(request: NextRequest) {
       // If same message text within 5 seconds, it's a duplicate webhook call
       if (lastMessage.text === message && timeSinceLastMessage < 5) {
         console.log(`[Duplicate Webhook] Same message "${message}" received ${timeSinceLastMessage.toFixed(1)}s ago - ignoring`)
+        console.log(`[Duplicate Webhook] This is webhook call #2 for the same message - returning early`)
         return NextResponse.json({
           success: true,
           mode: 'duplicate_ignored',
           message: 'Duplicate webhook call detected - message already processed',
+          timeSinceLastMessage: timeSinceLastMessage.toFixed(1)
         }, {
           headers: {
             'Content-Type': 'application/json; charset=utf-8',
@@ -383,12 +388,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log(`[Message Processing] Inserting customer message: "${message.substring(0, 50)}..."`)
+    
     // Insert customer message
-    await supabase.from('messages').insert({
+    const { error: insertError } = await supabase.from('messages').insert({
       conversation_id: conversation.id,
       sender: 'customer',
       text: message,
     })
+    
+    if (insertError) {
+      console.error('[Message Processing] Failed to insert customer message:', insertError)
+      // If insert fails due to duplicate, just return success (message already processed)
+      if (insertError.message?.includes('duplicate') || insertError.code === '23505') {
+        console.log('[Duplicate Webhook] Insert failed due to duplicate - message already being processed')
+        return NextResponse.json({
+          success: true,
+          mode: 'duplicate_ignored',
+          message: 'Message already being processed by another request',
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        })
+      }
+      throw insertError
+    }
+    
+    console.log(`[Message Processing] Customer message inserted successfully`)
 
     // CRITICAL: Check if AI just sent a message (within last 2 seconds)
     // BUT only skip if customer message is very short/vague (not a real answer)
