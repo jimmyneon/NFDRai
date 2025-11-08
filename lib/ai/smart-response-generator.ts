@@ -305,11 +305,28 @@ export async function generateSmartResponse(
   let finalResponse = shouldFallback ? settings.fallback_message : result.response
 
   // Check if this is the first AI message to this customer
-  const isFirstAIMessage = !messages.some(m => m.sender === 'ai')
+  // IMPORTANT: Check ALL messages in the conversation, not just recent ones
+  const { data: allMessages } = await supabase
+    .from('messages')
+    .select('sender')
+    .eq('conversation_id', params.conversationId)
+    .eq('sender', 'ai')
+    .limit(1)
+  
+  const isFirstAIMessage = !allMessages || allMessages.length === 0
+  
+  console.log('[AI Disclosure] First AI message check:', {
+    isFirstAIMessage,
+    conversationId: params.conversationId,
+    recentMessagesCount: messages.length,
+    hasAIInRecent: messages.some(m => m.sender === 'ai')
+  })
   
   if (isFirstAIMessage) {
     // Add AI disclosure to first message only (with line breaks for readability)
     const disclosure = "Hi! I'm AI Steve, your automated assistant for New Forest Device Repairs.\n\nI can help with pricing, bookings, and questions.\n\n"
+    
+    console.log('[AI Disclosure] Adding disclosure to first message')
     
     // If response starts with a greeting, replace it; otherwise prepend
     if (finalResponse.match(/^(hi|hello|hey)/i)) {
