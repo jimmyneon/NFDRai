@@ -324,19 +324,26 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
     businessHours: await getBusinessHoursStatus().then(formatBusinessHoursMessage)
   }
 
-  // Only fetch pricing if intent is repair-related
-  if (['screen_repair', 'battery_replacement', 'diagnostic'].includes(context.intent)) {
+  // ALWAYS fetch pricing for repair conversations (don't rely on intent classification)
+  // Intent classifier might miss repair intent, so load pricing if device is mentioned
+  const shouldLoadPricing = 
+    ['screen_repair', 'battery_replacement', 'diagnostic', 'unknown'].includes(context.intent) ||
+    context.deviceType || // If device mentioned, likely repair
+    context.deviceModel   // If model mentioned, likely repair
+  
+  if (shouldLoadPricing) {
     const { data: prices } = await supabase
       .from('prices')
       .select('*')
       .or(`expiry.is.null,expiry.gt.${new Date().toISOString()}`)
     
-    // Filter to relevant device type
+    // Filter to relevant device type if known
     if (context.deviceType) {
       data.prices = prices?.filter((p: any) => 
         p.device.toLowerCase().includes(context.deviceType || '')
       )
     } else {
+      // Load all pricing if device type not yet known
       data.prices = prices
     }
   }
