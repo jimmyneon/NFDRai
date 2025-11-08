@@ -29,7 +29,7 @@ export type ConversationIntent =
 export interface ConversationContext {
   state: ConversationState;
   intent: ConversationIntent;
-  deviceType?: 'iphone' | 'ipad' | 'macbook' | 'laptop' | 'samsung' | 'other';
+  deviceType?: 'iphone' | 'ipad' | 'macbook' | 'laptop' | 'samsung' | 'phone' | 'tablet' | 'watch' | 'other';
   deviceModel?: string;
   issue?: string;
   quotedPrice?: number;
@@ -139,11 +139,15 @@ export function analyzeConversationState(messages: Array<{
  * Extract device type from conversation text
  */
 function extractDeviceType(text: string): ConversationContext['deviceType'] {
-  if (text.includes('iphone')) return 'iphone';
-  if (text.includes('ipad')) return 'ipad';
-  if (text.includes('macbook')) return 'macbook';
-  if (text.includes('samsung')) return 'samsung';
-  if (text.includes('laptop')) return 'laptop';
+  const lowerText = text.toLowerCase();
+  if (lowerText.includes('iphone')) return 'iphone';
+  if (lowerText.includes('ipad')) return 'ipad';
+  if (lowerText.includes('macbook') || lowerText.includes('mac book')) return 'macbook';
+  if (lowerText.includes('samsung') || lowerText.includes('galaxy')) return 'samsung';
+  if (lowerText.includes('laptop') || lowerText.includes('notebook')) return 'laptop';
+  if (lowerText.includes('phone') || lowerText.includes('mobile')) return 'phone';
+  if (lowerText.includes('tablet')) return 'tablet';
+  if (lowerText.includes('watch') || lowerText.includes('apple watch')) return 'watch';
   return undefined;
 }
 
@@ -151,18 +155,26 @@ function extractDeviceType(text: string): ConversationContext['deviceType'] {
  * Extract specific device model
  */
 function extractDeviceModel(text: string): string | undefined {
-  // iPhone models
-  const iphoneMatch = text.match(/iphone\s*(1[0-5]|[6-9]|x[rs]?|se|pro|plus|max)/i);
+  const lowerText = text.toLowerCase();
+  
+  // iPhone models - must have number or specific identifier
+  const iphoneMatch = text.match(/iphone\s*(1[0-5]|[6-9]|x[rs]?|se|pro\s*max|plus|mini)/i);
   if (iphoneMatch) return iphoneMatch[0];
 
-  // iPad models
-  const ipadMatch = text.match(/ipad\s*(pro|air|mini)?/i);
+  // iPad models - only if specific model mentioned
+  const ipadMatch = text.match(/ipad\s+(pro|air|mini|\d)/i);
   if (ipadMatch) return ipadMatch[0];
 
-  // Samsung models
-  const samsungMatch = text.match(/galaxy\s*s\d+/i);
+  // Samsung Galaxy models - broader detection
+  const samsungMatch = text.match(/galaxy\s*([san]\d+|s\d+\s*(ultra|plus|fe)?|note\s*\d+|fold\s*\d*|flip\s*\d*)/i);
   if (samsungMatch) return samsungMatch[0];
 
+  // MacBook models
+  const macbookMatch = text.match(/macbook\s*(pro|air)?(\s*(13|14|15|16))?/i);
+  if (macbookMatch && (macbookMatch[1] || macbookMatch[2])) return macbookMatch[0];
+
+  // Generic "just iPad" or "just iPhone" should NOT match - we need specifics
+  // This ensures Steve asks for the model
   return undefined;
 }
 
