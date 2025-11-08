@@ -415,7 +415,7 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
  * Load modular prompts from database
  */
 async function loadPromptModules(supabase: any, intent: string): Promise<{
-  modules: Array<{ module_name: string; prompt_text: string }>
+  modules: Array<{ module_name: string; prompt_text: string; priority: number }>
   moduleNames: string[]
 }> {
   try {
@@ -546,6 +546,12 @@ MULTIPLE MESSAGES:
     promptModules.forEach(module => {
       const moduleName = module.module_name.toLowerCase()
       let shouldInclude = false
+      
+      // CRITICAL: Always include high-priority modules (priority >= 99)
+      if (module.priority >= 99) {
+        shouldInclude = true
+        console.log(`[Prompt Builder] Including high-priority module: ${moduleName} (priority ${module.priority})`)
+      }
       
       // Context-specific modules (only when relevant)
       if (needsScreenInfo && (moduleName.includes('pricing_flow') || moduleName.includes('screen'))) {
