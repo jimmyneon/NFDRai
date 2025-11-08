@@ -13,7 +13,7 @@ interface PendingBatch {
 
 const pendingBatches = new Map<string, PendingBatch>()
 
-const BATCH_WINDOW_MS = 3000 // Wait 3 seconds for more messages
+const BATCH_WINDOW_MS = 5000 // Wait 5 seconds for more messages (increased to catch rapid typing)
 const MIN_MESSAGES_FOR_BATCH = 2 // Minimum messages to trigger batching
 
 /**
