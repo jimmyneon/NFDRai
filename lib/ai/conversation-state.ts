@@ -58,14 +58,33 @@ export function analyzeConversationState(messages: Array<{
 
   const lastAIMessage = messages.filter(m => m.sender === 'ai').slice(-1)[0];
   const lastCustomerMessage = messages.filter(m => m.sender === 'customer').slice(-1)[0];
-  const allText = messages.map(m => m.text.toLowerCase()).join(' ');
+  
+  // CHECK TIME DECAY: If last message was >4 hours ago, treat as NEW conversation
+  const lastMessageTime = lastCustomerMessage ? new Date(lastCustomerMessage.created_at) : new Date();
+  const hoursSinceLastMessage = (Date.now() - lastMessageTime.getTime()) / (1000 * 60 * 60);
+  const isStaleContext = hoursSinceLastMessage > 4;
+  
+  // If context is stale OR customer says generic greeting, reset context
+  const isGenericGreeting = lastCustomerMessage?.text.toLowerCase().match(/^(hi|hello|hey|good morning|good afternoon)$/);
+  const shouldResetContext = isStaleContext || isGenericGreeting;
+  
+  // Only use recent messages for context (last 5 messages OR messages from last 4 hours)
+  const recentMessages = shouldResetContext 
+    ? [lastCustomerMessage].filter(Boolean) // Only current message if context is stale
+    : messages.filter(m => {
+        const msgTime = new Date(m.created_at);
+        const hoursAgo = (Date.now() - msgTime.getTime()) / (1000 * 60 * 60);
+        return hoursAgo <= 4;
+      }).slice(-5); // Last 5 messages within 4 hours
+  
+  const allText = recentMessages.map(m => m.text.toLowerCase()).join(' ');
 
-  // Extract device info if mentioned
+  // Extract device info if mentioned (only from recent context)
   const deviceType = extractDeviceType(allText);
   const deviceModel = extractDeviceModel(allText);
-  const customerName = extractCustomerName(messages);
+  const customerName = extractCustomerName(recentMessages);
 
-  // Determine intent from conversation
+  // Determine intent from conversation (only recent messages)
   const intent = determineIntent(allText);
 
   // Determine state based on conversation flow
@@ -196,10 +215,12 @@ export function getPromptForState(context: ConversationContext): string {
   const stateGuidance: Record<ConversationState, string> = {
     new_inquiry: `
 🎯 STATE: New Inquiry
-- Customer just started conversation
-- FIRST: Identify device make/model
-- THEN: Ask about the issue
-- Be warm and welcoming`,
+- Customer just started conversation OR context is stale (>4 hours)
+- DO NOT assume you know what they want - even if you spoke yesterday
+- ALWAYS start fresh: "Hi! What can I help you with today?"
+- Let THEM tell you what they need
+- If they mention previous conversation, acknowledge it but re-qualify their current need
+- Example: "Hi! Are you looking to bring in that iPhone we discussed, or is there something else I can help with?"`,
 
     gathering_device_info: `
 🎯 STATE: Gathering Device Info
@@ -242,10 +263,13 @@ export function getPromptForState(context: ConversationContext): string {
 - Keep it brief`,
 
     follow_up: `
-🎯 STATE: Follow-up
-- Customer asking about existing repair
-- Ask for name and device details
-- Say you'll check and get back ASAP`,
+🎯 STATE: Follow-up / Status Check
+- Customer asking about existing repair status
+- CRITICAL: You CANNOT check repair status - you don't have access
+- DO NOT say "I'll check on your repair" - you can't
+- INSTEAD: Ask for their name and device, then say "I'll pass this to John who can check the status for you"
+- Be honest about your limitations
+- Example: "I don't have access to repair statuses, but if you give me your name and device, I'll get John to check for you ASAP"`,
 
     general_inquiry: `
 🎯 STATE: General Inquiry
@@ -274,6 +298,14 @@ export function validateResponseForState(
 
   // Check for state-specific violations
   switch (context.state) {
+    case 'new_inquiry':
+      // Don't assume old context - should ask what they need
+      if (response.toLowerCase().includes('check on your repair') || 
+          response.toLowerCase().includes('existing repair')) {
+        issues.push('Assumed customer wants status check without asking');
+      }
+      break;
+
     case 'gathering_device_info':
       if (response.toLowerCase().includes('what make and model')) {
         issues.push('Asked for device info again (already asked)');
@@ -295,6 +327,14 @@ export function validateResponseForState(
     case 'ready_to_visit':
       if (response.split('\n').length > 10) {
         issues.push('Response too long for ready_to_visit state');
+      }
+      break;
+      
+    case 'follow_up':
+      // Steve cannot check repair status
+      if (response.toLowerCase().includes("i'll check") || 
+          response.toLowerCase().includes("let me check")) {
+        issues.push('Promised to check status but Steve has no access - should handoff to John');
       }
       break;
   }
