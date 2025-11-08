@@ -71,37 +71,38 @@ export function analyzeConversationState(messages: Array<{
   // Determine state based on conversation flow
   let state: ConversationState = 'new_inquiry';
 
-  // Check if AI asked for device info and customer hasn't provided it
-  if (lastAIMessage?.text.toLowerCase().includes('what make and model') ||
-      lastAIMessage?.text.toLowerCase().includes('which device')) {
-    state = 'gathering_device_info';
+  // Check if asking about existing repair
+  if (allText.includes('ready') || allText.includes('done') || allText.includes('finished')) {
+    state = 'follow_up';
+  }
+  // Check if ready for visit
+  else if (deviceModel && intent !== 'unknown' && lastAIMessage?.text.toLowerCase().includes('pop in')) {
+    state = 'ready_to_visit';
+  }
+  // Check if we're in upsell phase (mentioned battery combo)
+  else if (lastAIMessage?.text.includes('£20 off battery')) {
+    state = 'upselling';
+  }
+  // Check if AI presented pricing options and customer responded positively
+  else if (lastAIMessage?.text.includes('£') && 
+           (lastAIMessage?.text.includes('OLED') || lastAIMessage?.text.includes('genuine')) &&
+           lastCustomerMessage?.text.toLowerCase().match(/yes|yeah|ok|sure|interested|please/)) {
+    state = 'confirming_choice';
+  }
+  // Check if AI presented pricing options (waiting for response)
+  else if (lastAIMessage?.text.includes('£') && 
+           (lastAIMessage?.text.includes('OLED') || lastAIMessage?.text.includes('genuine'))) {
+    state = 'presenting_options';
   }
   // Check if AI asked about the issue
   else if (lastAIMessage?.text.toLowerCase().includes('what can i help') ||
            lastAIMessage?.text.toLowerCase().includes('what\'s wrong')) {
     state = 'gathering_issue_info';
   }
-  // Check if AI presented pricing options
-  else if (lastAIMessage?.text.includes('£') && 
-           (lastAIMessage?.text.includes('OLED') || lastAIMessage?.text.includes('genuine'))) {
-    state = 'presenting_options';
-  }
-  // Check if customer said yes/interested after pricing
-  else if (state === 'presenting_options' && 
-           lastCustomerMessage?.text.toLowerCase().match(/yes|yeah|ok|sure|interested|please/)) {
-    state = 'confirming_choice';
-  }
-  // Check if we're in upsell phase (mentioned battery combo)
-  else if (lastAIMessage?.text.includes('£20 off battery')) {
-    state = 'upselling';
-  }
-  // Check if ready for visit
-  else if (deviceModel && intent !== 'unknown' && lastAIMessage?.text.toLowerCase().includes('pop in')) {
-    state = 'ready_to_visit';
-  }
-  // Check if asking about existing repair
-  else if (allText.includes('ready') || allText.includes('done') || allText.includes('finished')) {
-    state = 'follow_up';
+  // Check if AI asked for device info and customer hasn't provided it
+  else if (lastAIMessage?.text.toLowerCase().includes('what make and model') ||
+      lastAIMessage?.text.toLowerCase().includes('which device')) {
+    state = 'gathering_device_info';
   }
 
   return {
