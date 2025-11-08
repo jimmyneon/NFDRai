@@ -93,21 +93,6 @@ You need to get **4 credentials** and paste them into `.env.local`
 
 ### 5️⃣ Get OpenAI API Key (3 minutes)
 
-**Action**: Open https://platform.openai.com in your browser
-
-1. Sign up or log in
-2. Click your **profile icon** (top right)
-3. Click **"View API keys"** or go to https://platform.openai.com/api-keys
-4. Click **"Create new secret key"**
-5. Name it: `NFD AI Responder`
-6. Click **"Create secret key"**
-7. 📋 **COPY THE KEY** - starts with `sk-proj-` or `sk-`
-8. ⚠️ **SAVE IT!** You won't see it again
-
-**Note**: You may need to add a payment method. OpenAI charges per use (very cheap for testing - usually <$1/day)
-
----
-
 ### 6️⃣ Update .env.local File (2 minutes)
 
 **In VS Code**:
