@@ -131,12 +131,14 @@ WHERE module_name = 'core_identity';
 -- Create new prompt module for time-aware responses
 INSERT INTO prompts (
   module_name,
+  intent,
   category,
   prompt_text,
   active,
   version
 ) VALUES (
   'time_awareness',
+  NULL,
   'operational',
   'TIME-AWARE RESPONSE GUIDELINES:
 
