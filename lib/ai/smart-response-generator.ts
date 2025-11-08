@@ -558,6 +558,15 @@ MULTIPLE MESSAGES:
 - SOFTWARE: Updates, data transfers, virus removal (£40-£70)
 - Walk-in only, phone repairs done immediately unless complex`
     }
+    
+    // CRITICAL: Device model detection guidance (fallback)
+    contextualInfo += `\n\nDEVICE MODEL DETECTION (CRITICAL):
+- If customer doesn't know their model, HELP THEM FIND IT FIRST
+- iPhone/iPad: "On your iPhone, go to Settings > General > About and look for 'Model Name'"
+- Android: "On your phone, go to Settings > About Phone and look for the model number"
+- DO NOT say "bring it in" until they've tried to find the model themselves
+- Only suggest bringing it in if they tried and still can't find it
+- Example: "No worries! On your iPhone, go to Settings > General > About and look for 'Model Name' - it'll say something like iPhone 12 or iPhone 13. What does yours say?"`
   }
 
   // Add relevant data only
