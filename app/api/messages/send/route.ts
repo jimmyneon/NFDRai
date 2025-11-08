@@ -336,8 +336,17 @@ export async function POST(request: NextRequest) {
     console.log('[Send Message] Sender detection:', {
       providedSender: sender,
       detectedSender,
-      textPreview: text.substring(0, 50)
+      textPreview: text.substring(0, 50),
+      hasAISteve: text.toLowerCase().includes('ai steve'),
+      hasJohn: text.toLowerCase().includes('john') && !text.toLowerCase().includes('john will')
     })
+    
+    // If this is an AI Steve message coming through send endpoint, it's a duplicate/confirmation
+    // The AI already sent it, this is just MacroDroid confirming delivery
+    if (detectedSender === 'ai' && isTrackingOnly) {
+      console.log('[Send Message] AI message detected in tracking - this is a delivery confirmation')
+      // Still insert it so we know it was delivered, but mark it clearly
+    }
 
     // Insert message into database
     const { data: message, error: messageError } = await supabase
