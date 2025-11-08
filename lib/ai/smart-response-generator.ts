@@ -361,6 +361,7 @@ async function loadPromptModules(supabase: any, intent: string): Promise<{
     // Update usage stats for each module (async, don't wait)
     modules.forEach((m: any) => {
       supabase.rpc('update_prompt_usage', { p_module_name: m.module_name })
+        .then(() => {})
         .catch((err: any) => console.error('[Prompt Modules] Usage update failed:', err))
     })
     
