@@ -381,11 +381,15 @@ export function validateResponseForState(
       issues.push(`Attempted to quote price without knowing specific model - only know device type: ${context.deviceType}`);
     }
     
-    // Check if Steve is asking about the issue before getting model
-    if (response.toLowerCase().includes('what\'s wrong') || 
-        response.toLowerCase().includes('what can i help') ||
-        response.toLowerCase().includes('pop in')) {
-      issues.push(`Skipped asking for device model - only know device type: ${context.deviceType}, need specific model (e.g., iPhone 12)`);
+    // Check if Steve is suggesting "bring it in" without first helping them find the model
+    const bringItInPhrases = ['bring it in', 'bring the', 'pop in', 'come by', 'drop in'];
+    const hasHelpedFindModel = response.toLowerCase().includes('settings') || 
+                               response.toLowerCase().includes('about phone') ||
+                               response.toLowerCase().includes('general > about') ||
+                               response.toLowerCase().includes('check the logo');
+    
+    if (bringItInPhrases.some(phrase => response.toLowerCase().includes(phrase)) && !hasHelpedFindModel) {
+      issues.push(`Suggested "bring it in" without first helping customer find their device model - should guide them to Settings > General > About (iPhone) or Settings > About Phone (Android)`);
     }
   }
 
