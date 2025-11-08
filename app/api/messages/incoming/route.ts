@@ -316,6 +316,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // CRITICAL: Check if this exact message was already received recently (within 5 seconds)
+    // This prevents duplicate processing if MacroDroid sends the webhook twice
+    const { data: recentCustomerMessages } = await supabase
+      .from('messages')
+      .select('created_at, text')
+      .eq('conversation_id', conversation.id)
+      .eq('sender', 'customer')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    
+    if (recentCustomerMessages && recentCustomerMessages.length > 0) {
+      const lastMessage = recentCustomerMessages[0]
+      const timeSinceLastMessage = (Date.now() - new Date(lastMessage.created_at).getTime()) / 1000
+      
+      // If same message text within 5 seconds, it's a duplicate webhook call
+      if (lastMessage.text === message && timeSinceLastMessage < 5) {
+        console.log(`[Duplicate Webhook] Same message "${message}" received ${timeSinceLastMessage.toFixed(1)}s ago - ignoring`)
+        return NextResponse.json({
+          success: true,
+          mode: 'duplicate_ignored',
+          message: 'Duplicate webhook call detected - message already processed',
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        })
+      }
+    }
+
     // Insert customer message
     await supabase.from('messages').insert({
       conversation_id: conversation.id,
@@ -599,8 +628,13 @@ export async function POST(request: NextRequest) {
 
     // Handle multiple messages (split by |||)
     // Send each message separately with a delay between them
+    console.log(`[AI Response] Generated ${aiResult.responses.length} message(s)`)
+    console.log(`[AI Response] Messages:`, aiResult.responses.map((r, i) => `${i + 1}. ${r.substring(0, 50)}...`))
+    
     for (let i = 0; i < aiResult.responses.length; i++) {
       const messageText = aiResult.responses[i]
+      
+      console.log(`[AI Response] Sending message ${i + 1}/${aiResult.responses.length}`)
       
       // Insert AI response into database
       await supabase.from('messages').insert({
