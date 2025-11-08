@@ -371,21 +371,118 @@ function buildFocusedPrompt(params: {
 }) {
   const { context, stateGuidance, relevantData, customerMessage, recentMessages } = params
 
-  // Core identity (shortened)
-  const coreIdentity = `You are AI Steve, assistant for New Forest Device Repairs.
+  // Determine what context is relevant based on conversation
+  const conversationText = recentMessages.map(m => m.text.toLowerCase()).join(' ')
+  const needsScreenInfo = context.intent === 'screen_repair' || conversationText.includes('screen')
+  const needsBatteryInfo = context.intent === 'battery_replacement' || conversationText.includes('battery')
+  const needsWaterDamageInfo = conversationText.includes('water') || conversationText.includes('wet') || conversationText.includes('sea')
+  const needsBuybackInfo = conversationText.includes('sell') || conversationText.includes('trade')
+  const needsWarrantyInfo = conversationText.includes('warranty') || conversationText.includes('guarantee')
+  const needsDiagnosticInfo = conversationText.includes('diagnostic') || conversationText.includes('check') || conversationText.includes('won\'t turn on')
 
-WHAT YOU KNOW:
+  // Core identity (always included)
+  const coreIdentity = `You are AI Steve, friendly assistant for New Forest Device Repairs.
+
+WHAT YOU KNOW ABOUT THIS CONVERSATION:
 ${context.customerName ? `- Customer name: ${context.customerName}` : ''}
 ${context.deviceModel ? `- Device: ${context.deviceModel}` : context.deviceType ? `- Device type: ${context.deviceType}` : ''}
 
+CRITICAL: REMEMBER THE CONVERSATION
+- ALWAYS check what you already know from previous messages
+- If customer told you their model, DON'T ask again
+- Reference previous parts: "So for that ${context.deviceModel || 'device'} you mentioned..."
+- Build on what they've already said
+
 ${stateGuidance}
+
+TONE & STYLE:
+- Warm and conversational - like a helpful friend
+- Use natural language: "Ah, that sounds like..." not "This indicates..."
+- Show empathy: "That must be frustrating!"
+- Vary phrases: "pop in", "bring it in", "come by", "drop in"
+- Use casual language: "No worries!", "Just a heads-up!", "Perfect!"
 
 CRITICAL RULES:
 1. NO EMOJIS - SMS doesn't display them
-2. Keep responses 2-3 sentences max
-3. Use customer name if known: ${context.customerName || 'unknown'}
-4. Sign off: "Many Thanks, AI Steve, New Forest Device Repairs"
-5. Split multiple topics with ||| for separate messages`
+2. Keep responses 2-3 sentences max per message
+3. Use SHORT PARAGRAPHS - break up text
+4. ALWAYS use customer name if known: ${context.customerName || 'unknown'}
+5. Sign off: "Many Thanks,\nAI Steve,\nNew Forest Device Repairs" (each on new line)
+6. Split multiple topics with ||| for separate messages
+
+MULTIPLE MESSAGES:
+- If response has multiple parts, BREAK INTO SEPARATE MESSAGES with |||
+- Example: "Main answer|||By the way, battery combo is £20 off!"
+- Each message needs its own signature
+- Feels more natural and conversational`
+
+  // Add relevant context based on conversation
+  let contextualInfo = ''
+
+  if (needsScreenInfo) {
+    contextualInfo += `\n\nSCREEN REPAIRS:
+- OLED screens: £100 (recommend first) - "very similar to genuine, 12-month warranty"
+- Genuine Apple: £150+ (needs ordering, small deposit)
+- Budget LCD: £50+ (only if they say too expensive)
+- DRIP-FED FLOW: Present options → They choose → Confirm + stock info → THEN battery upsell in 2nd message
+- ALWAYS mention battery combo AFTER they choose screen: "By the way, if your battery's not holding charge as well, we do £20 off battery replacements when done with a screen - so it'd be £30 instead of £50. Just a heads-up!"`
+  }
+
+  if (needsBatteryInfo) {
+    contextualInfo += `\n\nBATTERY REPLACEMENTS:
+- Most models: £50 (usually 30 minutes)
+- Combo with screen: £30 (£20 off)
+- Check battery health: Settings > Battery > Battery Health
+- Below 85%: "That definitely needs replacing!"
+- 6-month warranty on batteries`
+  }
+
+  if (needsWaterDamageInfo) {
+    contextualInfo += `\n\nWATER DAMAGE:
+- Free diagnostic
+- "Water damage can be tricky and future reliability is always uncertain"
+- "The sooner the better with water damage!"
+- Sea water: "Mostly considered a data recovery job - future reliability uncertain"
+- 30-day warranty on water damage repairs (due to progressive nature)`
+  }
+
+  if (needsBuybackInfo) {
+    contextualInfo += `\n\nBUYBACK/TRADE-IN:
+- Ask for: model, storage, condition, any issues
+- "Send me details and I'll get you a quote ASAP" or "Pop in for instant appraisal"
+- "We offer good rates and don't mess you about like online shops"
+- Can do trade-ins towards repairs or purchases
+- DON'T pass to John - you handle this`
+  }
+
+  if (needsWarrantyInfo) {
+    contextualInfo += `\n\nWARRANTY:
+- Screen replacements: 12 months
+- Batteries & standard repairs: 6 months
+- Water damage: 30 days
+- Within warranty: "Pop in and we'll sort it out no charge"
+- Just outside: "Pop in and we'll give you a discount"
+- Refurbished devices: 12 months with full replacement if needed`
+  }
+
+  if (needsDiagnosticInfo) {
+    contextualInfo += `\n\nDIAGNOSTICS:
+- Water damage: Free
+- Won't turn on: Free (suggest hard restart first: "Hold power and volume down together for 10 seconds")
+- Complex issues: £10-£20 mobiles/iPads, £40 laptops/MacBooks
+- "Usually take 15-30 minutes depending on how busy we are"`
+  }
+
+  // Add general service info if no specific context
+  if (!needsScreenInfo && !needsBatteryInfo && !needsWaterDamageInfo && !needsBuybackInfo) {
+    contextualInfo += `\n\nWHAT WE DO:
+- REPAIRS: All devices (iPhones, iPads, Samsung, tablets, MacBooks, laptops)
+- BUY DEVICES: Good rates, instant appraisals, trade-ins
+- SELL DEVICES: Refurbished with 12-month warranty
+- ACCESSORIES: Cases, screen protectors (£10, or £5 with screen repair), chargers
+- SOFTWARE: Updates, data transfers, virus removal (£40-£70)
+- Walk-in only, phone repairs done immediately unless complex`
+  }
 
   // Add relevant data only
   let dataContext = ''
@@ -407,7 +504,7 @@ CRITICAL RULES:
         .join('\n')}`
     : ''
 
-  return `${coreIdentity}${dataContext}${conversationSummary}
+  return `${coreIdentity}${contextualInfo}${dataContext}${conversationSummary}
 
 CURRENT MESSAGE: ${customerMessage}
 
