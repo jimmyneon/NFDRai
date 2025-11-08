@@ -104,14 +104,38 @@ export async function generateSmartResponse(
   
   const classificationTimeMs = Date.now() - classificationStartTime
 
+  // Check confidence threshold - if too low, default to unknown
+  if (intentClassification.confidence < 0.7) {
+    console.warn('[Smart AI] Low confidence classification:', intentClassification.confidence, '- defaulting to unknown')
+    intentClassification.intent = 'unknown'
+  }
+
   // STEP 1: Analyze conversation state
   const context = analyzeConversationState(messages)
+  
+  // STEP 1.5: Merge intent classifier results with state analysis
+  // Intent classifier is more accurate for device detection
+  if (intentClassification.deviceType && !context.deviceType) {
+    context.deviceType = intentClassification.deviceType
+    console.log('[Smart AI] Using classifier device type:', intentClassification.deviceType)
+  }
+  if (intentClassification.deviceModel && !context.deviceModel) {
+    context.deviceModel = intentClassification.deviceModel
+    console.log('[Smart AI] Using classifier device model:', intentClassification.deviceModel)
+  }
+  
+  // Use classifier intent if state analyzer returned 'unknown'
+  if (context.intent === 'unknown' && intentClassification.intent !== 'unknown') {
+    context.intent = intentClassification.intent
+    console.log('[Smart AI] Using classifier intent:', intentClassification.intent)
+  }
   
   console.log('[Smart AI] Conversation State:', {
     state: context.state,
     intent: context.intent,
     device: context.deviceModel || context.deviceType,
-    customerName: context.customerName
+    customerName: context.customerName,
+    classifierConfidence: intentClassification.confidence
   })
 
   // STEP 1.5: Load customer history for personalization
@@ -214,7 +238,19 @@ export async function generateSmartResponse(
   
   if (!validation.valid) {
     console.warn('[Smart AI] Validation issues:', validation.issues)
-    // Could auto-correct here or regenerate
+    
+    // Check for critical validation failures that should trigger regeneration
+    const criticalIssues = validation.issues.filter(issue => 
+      issue.includes('Already know device model') ||
+      issue.includes('Already know customer name') ||
+      issue.includes('Attempted to quote price without knowing specific model')
+    )
+    
+    if (criticalIssues.length > 0) {
+      console.error('[Smart AI] CRITICAL validation failures - response may confuse customer:', criticalIssues)
+      // Log for monitoring but don't block (regeneration would be expensive)
+      // In production, could trigger alert or fallback to simpler response
+    }
   }
 
   // STEP 8: Calculate costs and metrics

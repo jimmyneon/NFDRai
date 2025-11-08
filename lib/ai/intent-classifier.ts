@@ -188,12 +188,22 @@ function fallbackClassification(
     }
   }
 
-  // Status check patterns
-  if (lowerMessage.match(/ready|done|finished|pick.*up|status/)) {
+  // Status check patterns - BE VERY SPECIFIC
+  // Only match if explicitly asking about existing repair
+  if (lowerMessage.match(/is\s+(it|my|the).*(ready|done|finished)|can\s+i\s+pick.*up|repair\s+status|when\s+will.*be\s+(ready|done)/)) {
     return {
       intent: 'status_check',
       confidence: 0.85,
-      reasoning: 'Detected status check keywords'
+      reasoning: 'Detected explicit status check question'
+    }
+  }
+  
+  // "I'm ready" or "ready to bring it in" = NOT status check
+  if (lowerMessage.match(/i'?m\s+ready|ready\s+to/)) {
+    return {
+      intent: 'diagnostic',
+      confidence: 0.75,
+      reasoning: 'Customer ready to proceed with repair'
     }
   }
 
