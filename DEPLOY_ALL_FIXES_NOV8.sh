@@ -48,6 +48,11 @@ echo "   • Updates database when customer corrects name"
 echo "   • Handles 'refer to me as Mr Davidson not Dave'"
 echo "   • Polite acknowledgment"
 echo ""
+echo "7️⃣  STATUS CHECK CONTEXT AWARENESS"
+echo "   • Uses conversation history for status checks"
+echo "   • References known devices instead of asking again"
+echo "   • Handles multiple devices intelligently"
+echo ""
 
 read -p "🤔 Deploy all fixes? (y/N): " -n 1 -r
 echo ""
@@ -63,7 +68,7 @@ echo "────────────────────────�
 
 # Counter for successful migrations
 SUCCESS_COUNT=0
-TOTAL_COUNT=6
+TOTAL_COUNT=7
 
 # Migration 020 - Battery guidance
 echo ""
@@ -125,6 +130,16 @@ else
     echo "⚠️  Name preference handling already applied or error"
 fi
 
+# Migration 026 - Status check context
+echo ""
+echo "7️⃣  Applying status check context awareness..."
+if psql "$DATABASE_URL" -f supabase/migrations/026_improve_status_check_context.sql > /dev/null 2>&1; then
+    echo "✅ Status check context applied"
+    ((SUCCESS_COUNT++))
+else
+    echo "⚠️  Status check context already applied or error"
+fi
+
 echo "────────────────────────────────────────────────────────────────────────────────"
 echo "✅ Deployment complete! ($SUCCESS_COUNT/$TOTAL_COUNT migrations applied)"
 echo ""
@@ -177,6 +192,11 @@ echo "✅ Name Preference:"
 echo "   • Send: 'Please refer to me as Mr Davidson not Dave'"
 echo "   • Expected: Database updated, AI acknowledges politely"
 echo ""
+echo "✅ Status Check Context:"
+echo "   • Setup: Earlier mentioned 'iPhone 15'"
+echo "   • Send: 'Check up on my repair please'"
+echo "   • Expected: 'I can see you brought in an iPhone 15. I'll pass this to John...'"
+echo ""
 echo "════════════════════════════════════════════════════════════════════════════════"
 echo "  DOCUMENTATION"
 echo "════════════════════════════════════════════════════════════════════════════════"
@@ -189,6 +209,7 @@ echo "   • BUYBACK_FIX.md"
 echo "   • CONTEXT_SWITCHING_FIX.md"
 echo "   • LAPTOP_DIAGNOSTICS_FIX.md"
 echo "   • NAME_PREFERENCE_FIX.md"
+echo "   • STATUS_CHECK_IMPROVEMENT.md"
 echo ""
 echo "════════════════════════════════════════════════════════════════════════════════"
 echo "✨ All fixes deployed! Monitor conversations for improved customer experience."
