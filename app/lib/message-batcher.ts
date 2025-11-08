@@ -42,8 +42,14 @@ function isLikelyCorrection(firstMsg: string, secondMsg: string): boolean {
   }
   
   // Single word that looks like device/model (likely clarification)
-  const deviceWords = ['iphone', 'samsung', 'ipad', 'macbook', 'laptop', 'phone', 'tablet']
-  if (deviceWords.some(word => second.includes(word)) && second.split(/\s+/).length <= 2) {
+  const deviceWords = ['iphone', 'samsung', 'ipad', 'macbook', 'laptop', 'phone', 'tablet', 'apple', 'appl']
+  if (deviceWords.some(word => second.includes(word)) && second.split(/\s+/).length <= 3) {
+    return true
+  }
+  
+  // Incomplete words that are clearly corrections (typos mid-typing)
+  const incompleteWords = /^(with an? |its? |the |my )/i
+  if (incompleteWords.test(second) && second.length < 20) {
     return true
   }
   
