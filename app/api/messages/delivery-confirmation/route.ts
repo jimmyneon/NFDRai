@@ -17,36 +17,40 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createServiceClient()
     
-    // Check content type and parse accordingly
-    const contentType = request.headers.get('content-type') || ''
+    // Get raw body first to detect format
+    const rawBody = await request.text()
+    console.log('[Delivery Confirmation] Raw body (first 100):', rawBody.substring(0, 100))
+    
     let phone, message, status, timestamp
     
-    if (contentType.includes('application/x-www-form-urlencoded')) {
-      // Parse form data
-      const formData = await request.formData()
-      phone = formData.get('phone') as string
-      message = formData.get('message') as string
-      status = formData.get('status') as string
-      timestamp = formData.get('timestamp') as string
-      console.log('[Delivery Confirmation] Parsed form data')
+    // Detect if it's form-encoded data (contains = and &)
+    if (rawBody.includes('=') && (rawBody.includes('&') || !rawBody.includes('{'))) {
+      console.log('[Delivery Confirmation] Detected form-encoded data')
+      // Parse URL-encoded form data manually
+      const params = new URLSearchParams(rawBody)
+      
+      phone = params.get('phone') || ''
+      message = params.get('message') || ''
+      status = params.get('status') || ''
+      timestamp = params.get('timestamp') || ''
+      
+      console.log('[Delivery Confirmation] Parsed form data:', { phone, messageLength: message?.length, status })
     } else {
       // Try to parse as JSON
       try {
-        const rawBody = await request.text()
-        console.log('[Delivery Confirmation] Raw body (first 100):', rawBody.substring(0, 100))
-        
-        // Simple approach: just try to parse, if it fails return helpful error
         const body = JSON.parse(rawBody)
         phone = body.phone
         message = body.message
         status = body.status
         timestamp = body.timestamp
+        
+        console.log('[Delivery Confirmation] Parsed JSON:', { phone, messageLength: message?.length, status })
       } catch (parseError: any) {
         console.error('[Delivery Confirmation] JSON parse error:', parseError.message)
         return NextResponse.json(
           { 
-            error: 'Invalid JSON. Use form-encoded data instead',
-            hint: 'Change Content-Type to application/x-www-form-urlencoded in MacroDroid',
+            error: 'Invalid request format',
+            hint: 'Send as JSON or form-encoded data',
             success: false
           },
           { 

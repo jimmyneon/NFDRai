@@ -23,20 +23,25 @@ export async function POST(request: NextRequest) {
     // This endpoint is used for tracking sent SMS from MacroDroid
     // which cannot authenticate
 
-    // Check content type and parse accordingly
-    const contentType = request.headers.get('content-type') || ''
+    // Get raw body first to detect format
+    const rawBody = await request.text()
+    console.log('[Send Message] Raw body (first 100):', rawBody.substring(0, 100))
+    
     let conversationId, text, sendVia, customerPhone, sender, trackOnly
     
-    if (contentType.includes('application/x-www-form-urlencoded')) {
-      // Parse form data with UTF-8 encoding
-      const formData = await request.formData()
-      // Handle both camelCase and lowercase parameter names from MacroDroid
-      conversationId = (formData.get('conversationId') || formData.get('conversationid')) as string
-      text = formData.get('text') as string
-      sendVia = formData.get('sendVia') as string
-      customerPhone = (formData.get('customerPhone') || formData.get('customerphone')) as string
-      sender = formData.get('sender') as string
-      trackOnly = formData.get('trackOnly') === 'true'
+    // Detect if it's form-encoded data (contains = and &)
+    if (rawBody.includes('=') && (rawBody.includes('&') || !rawBody.includes('{'))) {
+      console.log('[Send Message] Detected form-encoded data')
+      // Parse URL-encoded form data manually
+      const params = new URLSearchParams(rawBody)
+      
+      // Handle both camelCase and lowercase parameter names
+      conversationId = params.get('conversationId') || params.get('conversationid') || ''
+      text = params.get('text') || ''
+      sendVia = params.get('sendVia') || params.get('sendvia') || ''
+      customerPhone = params.get('customerPhone') || params.get('customerphone') || ''
+      sender = params.get('sender') || ''
+      trackOnly = params.get('trackOnly') === 'true' || params.get('trackonly') === 'true'
       
       // Trim whitespace from phone number
       if (customerPhone) {
@@ -48,13 +53,10 @@ export async function POST(request: NextRequest) {
         conversationId = 'lookup-by-phone'
       }
       
-      console.log('[Send Message] Parsed form data:', { conversationId, customerPhone, text: text?.substring(0, 30) })
+      console.log('[Send Message] Parsed form data:', { conversationId, customerPhone, text: text?.substring(0, 30), sender })
     } else {
       // Try to parse as JSON
       try {
-        const rawBody = await request.text()
-        console.log('[Send Message] Raw body (first 100):', rawBody.substring(0, 100))
-        
         const body = JSON.parse(rawBody)
         conversationId = body.conversationId
         text = body.text
@@ -62,12 +64,14 @@ export async function POST(request: NextRequest) {
         customerPhone = body.customerPhone
         sender = body.sender
         trackOnly = body.trackOnly
+        
+        console.log('[Send Message] Parsed JSON:', { conversationId, customerPhone, text: text?.substring(0, 30), sender })
       } catch (parseError: any) {
         console.error('[Send Message] JSON parse error:', parseError.message)
         return NextResponse.json(
           { 
-            error: 'Invalid JSON. Use form-encoded data instead',
-            hint: 'Change Content-Type to application/x-www-form-urlencoded in MacroDroid',
+            error: 'Invalid request format',
+            hint: 'Send as JSON or form-encoded data',
             success: false
           },
           { 
