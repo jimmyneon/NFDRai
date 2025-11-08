@@ -250,9 +250,9 @@ export async function generateSmartResponse(
   }
 
   // FORCE sign-off if not present (critical for message tracking)
-  const signOff = "Many Thanks, AI Steve, New Forest Device Repairs"
+  const signOff = "Many Thanks,\nAI Steve,\nNew Forest Device Repairs"
   if (!finalResponse.toLowerCase().includes('many thanks')) {
-    // Add sign-off to end of response
+    // Add sign-off to end of response with proper spacing
     finalResponse = finalResponse.trim() + '\n\n' + signOff
   }
 
