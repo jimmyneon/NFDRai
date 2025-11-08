@@ -435,34 +435,61 @@ MULTIPLE MESSAGES:
 
   // Try to load from database modules first
   if (promptModules && promptModules.length > 0) {
-    console.log('[Prompt Builder] Using database modules:', promptModules.map(m => m.module_name))
+    console.log('[Prompt Builder] Database modules available:', promptModules.map(m => m.module_name))
     
-    // Add relevant modules based on conversation context
+    const modulesUsed: string[] = []
+    
+    // Add relevant modules based on conversation context (SELECTIVE)
     promptModules.forEach(module => {
       const moduleName = module.module_name.toLowerCase()
+      let shouldInclude = false
       
-      // Always include operational modules
-      if (moduleName.includes('services_comprehensive') || 
-          moduleName.includes('operational_policies') ||
-          moduleName.includes('handoff_rules') ||
-          moduleName.includes('common_scenarios')) {
-        contextualInfo += `\n\n${module.prompt_text}`
-      }
-      
-      // Context-aware modules
+      // Context-specific modules (only when relevant)
       if (needsScreenInfo && (moduleName.includes('pricing_flow') || moduleName.includes('screen'))) {
-        contextualInfo += `\n\n${module.prompt_text}`
+        shouldInclude = true
+      }
+      if (needsBatteryInfo && moduleName.includes('battery')) {
+        shouldInclude = true
       }
       if (needsWarrantyInfo && moduleName.includes('warranty')) {
-        contextualInfo += `\n\n${module.prompt_text}`
+        shouldInclude = true
       }
-      if (needsWaterDamageInfo && moduleName.includes('water')) {
-        contextualInfo += `\n\n${module.prompt_text}`
+      if (needsWaterDamageInfo && (moduleName.includes('water') || moduleName.includes('common_scenarios'))) {
+        shouldInclude = true
       }
+      if (needsBuybackInfo && moduleName.includes('common_scenarios')) {
+        shouldInclude = true
+      }
+      if (needsDiagnosticInfo && moduleName.includes('common_scenarios')) {
+        shouldInclude = true
+      }
+      
+      // Tone modules (always include for consistency)
       if (moduleName.includes('friendly_tone') || moduleName.includes('context_awareness')) {
+        shouldInclude = true
+      }
+      
+      // Handoff rules (only if conversation is getting complex or customer asking for John)
+      if (conversationText.includes('john') || conversationText.includes('owner') || conversationText.includes('manager')) {
+        if (moduleName.includes('handoff_rules')) {
+          shouldInclude = true
+        }
+      }
+      
+      // Services info (only if general inquiry or no specific intent)
+      if (!needsScreenInfo && !needsBatteryInfo && !needsWaterDamageInfo && !needsBuybackInfo) {
+        if (moduleName.includes('services_comprehensive')) {
+          shouldInclude = true
+        }
+      }
+      
+      if (shouldInclude) {
         contextualInfo += `\n\n${module.prompt_text}`
+        modulesUsed.push(moduleName)
       }
     })
+    
+    console.log('[Prompt Builder] Context-aware modules used:', modulesUsed)
   } else {
     // Fallback to hardcoded modules if database not available
     console.log('[Prompt Builder] Using fallback hardcoded modules')
