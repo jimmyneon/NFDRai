@@ -232,7 +232,22 @@ export async function generateSmartResponse(
     .catch(err => console.error('[Learning] Error:', err))
 
   const shouldFallback = result.confidence < settings.confidence_threshold
-  const finalResponse = shouldFallback ? settings.fallback_message : result.response
+  let finalResponse = shouldFallback ? settings.fallback_message : result.response
+
+  // Check if this is the first AI message to this customer
+  const isFirstAIMessage = !messages.some(m => m.sender === 'ai')
+  
+  if (isFirstAIMessage) {
+    // Add AI disclosure to first message only
+    const disclosure = "Hi! I'm AI Steve, your automated assistant for New Forest Device Repairs. I can help with pricing, bookings, and questions. "
+    
+    // If response starts with a greeting, replace it; otherwise prepend
+    if (finalResponse.match(/^(hi|hello|hey)/i)) {
+      finalResponse = disclosure + finalResponse.replace(/^(hi|hello|hey)[!,.\s]*/i, '')
+    } else {
+      finalResponse = disclosure + finalResponse
+    }
+  }
 
   const responses = finalResponse.includes('|||')
     ? finalResponse.split('|||').map((msg: string) => msg.trim())
