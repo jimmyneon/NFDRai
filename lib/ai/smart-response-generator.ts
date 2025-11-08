@@ -353,14 +353,13 @@ async function loadPromptModules(supabase: any, intent: string): Promise<{
       }
     }
   } catch (error) {
-    console.warn('[Prompt Modules] Database load failed, using fallback:', error)
+    console.error('[Prompt Modules] Database load FAILED:', error)
+    throw new Error(`Failed to load prompt modules from database: ${error}`)
   }
   
-  // Fallback to hardcoded modules if database not available yet
-  return {
-    modules: [],
-    moduleNames: []
-  }
+  // No fallback - if database fails, we need to know about it!
+  console.error('[Prompt Modules] No modules loaded - this should never happen!')
+  throw new Error('No prompt modules loaded from database - check RLS policies')
 }
 
 /**
@@ -491,82 +490,9 @@ MULTIPLE MESSAGES:
     
     console.log('[Prompt Builder] Context-aware modules used:', modulesUsed)
   } else {
-    // Fallback to hardcoded modules if database not available
-    console.log('[Prompt Builder] Using fallback hardcoded modules')
-    
-    if (needsScreenInfo) {
-      contextualInfo += `\n\nSCREEN REPAIRS:
-- OLED screens: £100 (recommend first) - "very similar to genuine, 12-month warranty"
-- Genuine Apple: £150+ (needs ordering, small deposit)
-- Budget LCD: £50+ (only if they say too expensive)
-- DRIP-FED FLOW: Present options → They choose → Confirm + stock info → THEN battery upsell in 2nd message
-- ALWAYS mention battery combo AFTER they choose screen: "By the way, if your battery's not holding charge as well, we do £20 off battery replacements when done with a screen - so it'd be £30 instead of £50. Just a heads-up!"`
-    }
-
-    if (needsBatteryInfo) {
-      contextualInfo += `\n\nBATTERY REPLACEMENTS:
-- Most models: £50 (usually 30 minutes)
-- Combo with screen: £30 (£20 off)
-- Check battery health: Settings > Battery > Battery Health
-- Below 85%: "That definitely needs replacing!"
-- 6-month warranty on batteries`
-    }
-
-    if (needsWaterDamageInfo) {
-      contextualInfo += `\n\nWATER DAMAGE:
-- Free diagnostic
-- "Water damage can be tricky and future reliability is always uncertain"
-- "The sooner the better with water damage!"
-- Sea water: "Mostly considered a data recovery job - future reliability uncertain"
-- 30-day warranty on water damage repairs (due to progressive nature)`
-    }
-
-    if (needsBuybackInfo) {
-      contextualInfo += `\n\nBUYBACK/TRADE-IN:
-- Ask for: model, storage, condition, any issues
-- "Send me details and I'll get you a quote ASAP" or "Pop in for instant appraisal"
-- "We offer good rates and don't mess you about like online shops"
-- Can do trade-ins towards repairs or purchases
-- DON'T pass to John - you handle this`
-    }
-
-    if (needsWarrantyInfo) {
-      contextualInfo += `\n\nWARRANTY:
-- Screen replacements: 12 months
-- Batteries & standard repairs: 6 months
-- Water damage: 30 days
-- Within warranty: "Pop in and we'll sort it out no charge"
-- Just outside: "Pop in and we'll give you a discount"
-- Refurbished devices: 12 months with full replacement if needed`
-    }
-
-    if (needsDiagnosticInfo) {
-      contextualInfo += `\n\nDIAGNOSTICS:
-- Water damage: Free
-- Won't turn on: Free (suggest hard restart first: "Hold power and volume down together for 10 seconds")
-- Complex issues: £10-£20 mobiles/iPads, £40 laptops/MacBooks
-- "Usually take 15-30 minutes depending on how busy we are"`
-    }
-
-    // Add general service info if no specific context
-    if (!needsScreenInfo && !needsBatteryInfo && !needsWaterDamageInfo && !needsBuybackInfo) {
-      contextualInfo += `\n\nWHAT WE DO:
-- REPAIRS: All devices (iPhones, iPads, Samsung, tablets, MacBooks, laptops)
-- BUY DEVICES: Good rates, instant appraisals, trade-ins
-- SELL DEVICES: Refurbished with 12-month warranty
-- ACCESSORIES: Cases, screen protectors (£10, or £5 with screen repair), chargers
-- SOFTWARE: Updates, data transfers, virus removal (£40-£70)
-- Walk-in only, phone repairs done immediately unless complex`
-    }
-    
-    // CRITICAL: Device model detection guidance (fallback)
-    contextualInfo += `\n\nDEVICE MODEL DETECTION (CRITICAL):
-- If customer doesn't know their model, HELP THEM FIND IT FIRST
-- iPhone/iPad: "On your iPhone, go to Settings > General > About and look for 'Model Name'"
-- Android: "On your phone, go to Settings > About Phone and look for the model number"
-- DO NOT say "bring it in" until they've tried to find the model themselves
-- Only suggest bringing it in if they tried and still can't find it
-- Example: "No worries! On your iPhone, go to Settings > General > About and look for 'Model Name' - it'll say something like iPhone 12 or iPhone 13. What does yours say?"`
+    // NO FALLBACK - Database must work!
+    console.error('[Prompt Builder] No database modules provided - this is a critical error!')
+    throw new Error('Database prompt modules not loaded - check RLS policies and database connection')
   }
 
   // Add relevant data only
