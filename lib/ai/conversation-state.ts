@@ -220,7 +220,12 @@ export function getPromptForState(context: ConversationContext): string {
 - ALWAYS start fresh: "Hi! What can I help you with today?"
 - Let THEM tell you what they need
 - If they mention previous conversation, acknowledge it but re-qualify their current need
-- Example: "Hi! Are you looking to bring in that iPhone we discussed, or is there something else I can help with?"`,
+- Example: "Hi! Are you looking to bring in that iPhone we discussed, or is there something else I can help with?"
+
+DEVICE INFO REQUIREMENTS:
+- You MUST get SPECIFIC model (e.g., "iPhone 12", not just "iPhone")
+- If customer says just "iPhone" or "iPad", ask "What model is it?"
+- Don't proceed with pricing until you have the specific model`,
 
     gathering_device_info: `
 🎯 STATE: Gathering Device Info
@@ -231,9 +236,11 @@ export function getPromptForState(context: ConversationContext): string {
 
     gathering_issue_info: `
 🎯 STATE: Gathering Issue Info
-- You know the device: ${context.deviceModel || context.deviceType || 'unknown'}
-- Now find out what's wrong
-- Ask specific questions based on device type`,
+- Device type: ${context.deviceType || 'unknown'}
+- Device model: ${context.deviceModel || 'NOT YET PROVIDED'}
+- CRITICAL: If device model is "NOT YET PROVIDED", you MUST ask "What model ${context.deviceType || 'device'} is it?" BEFORE asking about the issue
+- Only after you have the SPECIFIC MODEL (e.g., iPhone 12, iPad Pro) can you ask what's wrong
+- DO NOT skip the model question - it's required for pricing`,
 
     presenting_options: `
 🎯 STATE: Presenting Options
@@ -348,8 +355,24 @@ export function validateResponseForState(
     issues.push(`Already know customer name: ${context.customerName}`);
   }
 
+  // CRITICAL: Check if Steve is giving pricing without knowing the model
+  if (!context.deviceModel && context.deviceType) {
+    // Has device type (iPhone, iPad) but not specific model
+    if (response.includes('£') || response.toLowerCase().includes('price') || 
+        response.toLowerCase().includes('cost')) {
+      issues.push(`Attempted to quote price without knowing specific model - only know device type: ${context.deviceType}`);
+    }
+    
+    // Check if Steve is asking about the issue before getting model
+    if (response.toLowerCase().includes('what\'s wrong') || 
+        response.toLowerCase().includes('what can i help') ||
+        response.toLowerCase().includes('pop in')) {
+      issues.push(`Skipped asking for device model - only know device type: ${context.deviceType}, need specific model (e.g., iPhone 12)`);
+    }
+  }
+
   return {
     valid: issues.length === 0,
-    issues
+    issues,
   };
 }
