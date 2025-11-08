@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 import { checkRateLimit } from '@/app/lib/rate-limiter'
-import { generateAIResponse } from '@/lib/ai/response-generator'
 
 /**
  * POST /api/messages/missed-call
@@ -112,50 +111,47 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Generate AI response using the normal AI system with all guardrails
-    const aiResponse = await generateAIResponse({
-      customerMessage: 'You just missed my call. What can you help me with?',
-      conversationId: conversation?.id || '',
-    })
+    // Compose a friendly, concise missed-call message (no creepy personalization)
+    const apologyMessage = [
+      'Sorry we missed your call. I can help right now with:',
+      '- Repair pricing',
+      '- Booking you in',
+      '- Parts & warranty questions',
+      '- Today\'s opening hours',
+      '',
+      'Just reply with what you need and I\'ll sort it.',
+      '',
+      'Many Thanks,',
+      'AI Steve,',
+      'New Forest Device Repairs'
+    ].join('\n')
 
-    console.log(`[Missed Call] Generated ${aiResponse.responses.length} message(s) for ${from}`)
-
-    // Handle multiple messages (split by |||)
     if (conversation) {
-      for (let i = 0; i < aiResponse.responses.length; i++) {
-        const messageText = aiResponse.responses[i]
-        
-        // Log the AI response
-        await supabase.from('messages').insert({
-          conversation_id: conversation.id,
-          sender: 'ai',
-          text: messageText,
-          ai_provider: aiResponse.provider,
-          ai_model: aiResponse.model,
-          ai_confidence: aiResponse.confidence,
-        })
+      // Log the AI response
+      await supabase.from('messages').insert({
+        conversation_id: conversation.id,
+        sender: 'ai',
+        text: apologyMessage,
+        ai_provider: 'system',
+        ai_model: 'missed-call-template',
+        ai_confidence: 1.0,
+      })
 
-        // Send via MacroDroid webhook
-        await sendMessageViaProvider({
-          channel: 'sms',
-          to: from,
-          text: messageText,
-        })
-
-        // Add 2-second delay between messages (except after last one)
-        if (i < aiResponse.responses.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 2000))
-        }
-      }
+      // Send via MacroDroid webhook
+      await sendMessageViaProvider({
+        channel: 'sms',
+        to: from,
+        text: apologyMessage,
+      })
     }
 
-    console.log(`[Missed Call] All messages sent successfully`)
+    console.log(`[Missed Call] Missed-call template sent successfully`)
 
     return NextResponse.json({
       success: true,
-      message: aiResponse.response,
-      messages: aiResponse.responses,
-      messageCount: aiResponse.responses.length,
+      message: apologyMessage,
+      messages: [apologyMessage],
+      messageCount: 1,
       delivered: true,
       deliveryProvider: 'macrodroid',
     }, {
