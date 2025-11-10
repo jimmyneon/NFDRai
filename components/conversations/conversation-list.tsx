@@ -36,13 +36,23 @@ export function ConversationList({ conversations: initialConversations }: { conv
   // Helper function to sort conversations by last message time
   const sortByLastMessage = (convos: any[]) => {
     return convos.sort((a, b) => {
-      // Get the last message timestamp for each conversation
-      const aLastMsg = a.messages?.[a.messages.length - 1]?.created_at
-      const bLastMsg = b.messages?.[b.messages.length - 1]?.created_at
+      // Find the ACTUAL latest message by sorting messages by created_at
+      // Don't assume last item in array is newest!
+      const aLatestMsg = a.messages?.length > 0
+        ? a.messages.reduce((latest: any, msg: any) => {
+            return new Date(msg.created_at) > new Date(latest.created_at) ? msg : latest
+          })
+        : null
       
-      // If no messages, use conversation updated_at
-      const aTime = aLastMsg || a.updated_at
-      const bTime = bLastMsg || b.updated_at
+      const bLatestMsg = b.messages?.length > 0
+        ? b.messages.reduce((latest: any, msg: any) => {
+            return new Date(msg.created_at) > new Date(latest.created_at) ? msg : latest
+          })
+        : null
+      
+      // Use latest message time, or fall back to conversation updated_at
+      const aTime = aLatestMsg?.created_at || a.updated_at
+      const bTime = bLatestMsg?.created_at || b.updated_at
       
       // Sort descending (most recent first)
       return new Date(bTime).getTime() - new Date(aTime).getTime()

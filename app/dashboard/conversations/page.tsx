@@ -12,7 +12,7 @@ export default async function ConversationsPage() {
     .select(`
       *,
       customer:customers(*),
-      messages(*)
+      messages(id, text, sender, created_at)
     `)
     .order('updated_at', { ascending: false })
 
