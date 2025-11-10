@@ -244,18 +244,17 @@ export function generateHolidayGreeting(holidayStatus: HolidayStatus): string {
     return ''
   }
   
-  let greeting = `🎄 **HOLIDAY NOTICE** 🎄\n\n`
+  let greeting = `*** HOLIDAY NOTICE ***\n\n`
   greeting += `${holidayStatus.holidayMessage}\n\n`
   
   if (holidayStatus.returnDate) {
     greeting += `We'll be back ${holidayStatus.returnDate}.\n\n`
   }
   
-  greeting += `**In the meantime:**\n`
+  greeting += `In the meantime:\n`
   greeting += `- I can provide repair quotes and information\n`
   greeting += `- I can help with general questions\n`
   greeting += `- John will confirm all quotes and bookings when he returns\n\n`
-  greeting += `What can I help you with today?\n\n`
   
   return greeting
 }
@@ -268,7 +267,7 @@ export function generateHolidayReminder(holidayStatus: HolidayStatus): string {
     return ''
   }
   
-  let reminder = `\n\n**Please note:** ${holidayStatus.holidayMessage}`
+  let reminder = `\n\nPlease note: ${holidayStatus.holidayMessage}`
   
   if (holidayStatus.returnDate) {
     reminder += ` We'll be back ${holidayStatus.returnDate}.`
@@ -288,21 +287,23 @@ export function getHolidaySystemPrompt(holidayStatus: HolidayStatus): string {
   }
   
   return `
-🚨 CRITICAL - HOLIDAY CLOSURE:
+*** CRITICAL - HOLIDAY CLOSURE ***
 ${holidayStatus.holidayMessage}
 
 IMPORTANT INSTRUCTIONS:
-1. START EVERY RESPONSE with the holiday notice (use the greeting provided)
+1. START EVERY RESPONSE with the holiday notice
 2. Be helpful but SET EXPECTATIONS: John will confirm when he returns
 3. For quotes: Provide estimate but say "John will confirm this quote when he returns"
 4. For bookings: Say "I can note your interest, John will confirm availability when he returns"
 5. For repairs: Say "John will assess and confirm when he returns"
 6. Be friendly and helpful, but always remind them about the holiday closure
+7. NO EMOJIS - SMS doesn't support them (this includes the holiday notice!)
 
 EXAMPLE RESPONSES:
 
 Customer: "How much for iPhone screen?"
-You: "🎄 HOLIDAY NOTICE: ${holidayStatus.holidayMessage}
+You: "*** HOLIDAY NOTICE ***
+${holidayStatus.holidayMessage}
 
 For an iPhone screen repair, it's typically around £80-120 depending on the model. 
 
@@ -311,7 +312,8 @@ However, John will confirm the exact quote when he returns${holidayStatus.return
 Can you tell me which iPhone model you have so I can give you a more accurate estimate?"
 
 Customer: "Can I book in for tomorrow?"
-You: "🎄 HOLIDAY NOTICE: ${holidayStatus.holidayMessage}
+You: "*** HOLIDAY NOTICE ***
+${holidayStatus.holidayMessage}
 
 I'd love to help, but we're currently closed for the holiday. 
 

@@ -350,10 +350,13 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <strong>Preview:</strong> AI will lead with this message when the dates are active:
-                <div className="mt-2 p-2 bg-muted rounded text-sm">
-                  🎄 HOLIDAY NOTICE 🎄<br />
+                <div className="mt-2 p-2 bg-muted rounded text-sm font-mono">
+                  *** HOLIDAY NOTICE ***<br />
                   {formData.special_hours_note}
                 </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  (No emojis - SMS doesn&apos;t support them)
+                </p>
               </AlertDescription>
             </Alert>
           )}
