@@ -374,10 +374,10 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
   const hoursStatus = await getBusinessHoursStatus()
   const businessHoursMessage = formatBusinessHoursMessage(hoursStatus)
   
-  // Check if on holiday
+  // Check if on holiday and get price ranges
   const { data: businessInfo } = await supabase
     .from('business_info')
-    .select('special_hours_note')
+    .select('special_hours_note, price_ranges')
     .single()
   
   const holidayStatus = detectHolidayMode(businessInfo?.special_hours_note)
@@ -385,7 +385,8 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
   const data: any = {
     businessHours: businessHoursMessage,
     holidayStatus,
-    holidayGreeting: holidayStatus.isOnHoliday ? generateHolidayGreeting(holidayStatus) : null
+    holidayGreeting: holidayStatus.isOnHoliday ? generateHolidayGreeting(holidayStatus) : null,
+    priceRanges: businessInfo?.price_ranges || []
   }
 
   // ALWAYS fetch pricing for repair conversations (don't rely on intent classification)
@@ -557,17 +558,17 @@ CRITICAL RULES:
 7. IF CUSTOMER IS FRUSTRATED WITH AI (says "AI failure", "not helping", "useless", etc) - IMMEDIATELY say: "I understand this isn't working for you. Let me pass you to John who'll message you back ASAP." Then STOP responding.
 
 PRICING POLICY (CRITICAL):
-- ALWAYS give PRICE RANGES, never exact prices from database
-- Common ranges to use:
-  * iPhone screen repairs: £80-120 (depending on model)
-  * Android screen repairs: £60-100 (depending on model)
-  * Battery replacements: £50-80 (depending on device)
-  * Laptop screen repairs: £100-200 (depending on size/model)
-  * Diagnostics: Usually free or £20-30
+- ALWAYS give PRICE RANGES, never exact prices
+- Use the price ranges from the data context below
 - ALWAYS say: "John will confirm the exact price when he assesses it"
 - NEVER quote exact prices like "£89" - always use ranges
 - Example: "For an iPhone screen repair, it's typically around £80-120 depending on the model. John will confirm the exact price when he sees it."
 - Be helpful with estimates but make it clear John confirms final price
+
+${relevantData.priceRanges && relevantData.priceRanges.length > 0 ? `
+AVAILABLE PRICE RANGES:
+${relevantData.priceRanges.map((r: any) => `- ${r.category}: £${r.min}-${r.max} ${r.description}`).join('\n')}
+` : ''}
 
 BUDGET CONSTRAINTS (CRITICAL):
 - If customer mentions a budget or says price is too high:

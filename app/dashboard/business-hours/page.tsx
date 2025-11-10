@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { BusinessHoursForm } from '@/components/settings/business-hours-form'
+import { PriceRangesForm } from '@/components/settings/price-ranges-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock, Info } from 'lucide-react'
 
@@ -14,15 +15,16 @@ export default async function BusinessHoursPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Business Hours</h1>
+        <h1 className="text-3xl font-bold">Business Hours & Pricing</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your opening hours and location information
+          Manage your opening hours, location, and AI price estimates
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
           <BusinessHoursForm businessInfo={businessInfo} />
+          <PriceRangesForm businessInfo={businessInfo} />
         </div>
 
         <div className="space-y-4">
