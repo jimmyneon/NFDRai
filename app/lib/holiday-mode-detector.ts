@@ -1,6 +1,7 @@
 /**
  * Holiday Mode Detector
  * Detects if business is on holiday/closed and adjusts AI behavior
+ * NOW WITH DATE CHECKING - only activates on actual holiday dates!
  */
 
 export interface HolidayStatus {
@@ -12,6 +13,7 @@ export interface HolidayStatus {
 
 /**
  * Detect if business is currently on holiday based on special hours note
+ * Checks if TODAY is within the holiday date range
  */
 export function detectHolidayMode(specialHoursNote: string | null): HolidayStatus {
   if (!specialHoursNote) {
@@ -44,9 +46,9 @@ export function detectHolidayMode(specialHoursNote: string | null): HolidayStatu
   ]
   
   // Check if any holiday keyword is present
-  const isOnHoliday = holidayKeywords.some(keyword => lowerNote.includes(keyword))
+  const hasHolidayKeyword = holidayKeywords.some(keyword => lowerNote.includes(keyword))
   
-  if (!isOnHoliday) {
+  if (!hasHolidayKeyword) {
     return {
       isOnHoliday: false,
       holidayMessage: null,
@@ -55,14 +57,159 @@ export function detectHolidayMode(specialHoursNote: string | null): HolidayStatu
     }
   }
   
+  // Extract dates from the message
+  const dateRange = extractDateRange(specialHoursNote)
+  
+  // Check if TODAY is within the holiday date range
+  const today = new Date()
+  today.setHours(0, 0, 0, 0) // Reset time to midnight for date comparison
+  
+  let isOnHoliday = false
+  
+  if (dateRange.startDate && dateRange.endDate) {
+    // We have both start and end dates - check if today is in range
+    isOnHoliday = today >= dateRange.startDate && today <= dateRange.endDate
+    console.log('[Holiday Mode] Date range check:', {
+      today: today.toDateString(),
+      start: dateRange.startDate.toDateString(),
+      end: dateRange.endDate.toDateString(),
+      isOnHoliday
+    })
+  } else if (dateRange.startDate) {
+    // Only start date - assume closed from that date onwards
+    isOnHoliday = today >= dateRange.startDate
+    console.log('[Holiday Mode] Start date only:', {
+      today: today.toDateString(),
+      start: dateRange.startDate.toDateString(),
+      isOnHoliday
+    })
+  } else {
+    // No dates found - activate immediately (old behavior)
+    isOnHoliday = true
+    console.log('[Holiday Mode] No dates found - activating immediately')
+  }
+  
   // Extract return date if mentioned
   const returnDate = extractReturnDate(specialHoursNote)
   
   return {
-    isOnHoliday: true,
+    isOnHoliday,
     holidayMessage: specialHoursNote,
-    shouldLeadWithClosure: true,
+    shouldLeadWithClosure: isOnHoliday,
     returnDate
+  }
+}
+
+/**
+ * Extract date range from holiday message
+ * Supports formats like:
+ * - "December 25-26"
+ * - "Dec 25-26"
+ * - "25-26 December"
+ * - "December 23 - January 2"
+ * - "Closed until January 5"
+ */
+function extractDateRange(message: string): { startDate: Date | null; endDate: Date | null } {
+  const currentYear = new Date().getFullYear()
+  const nextYear = currentYear + 1
+  
+  // Month names mapping
+  const months: { [key: string]: number } = {
+    'jan': 0, 'january': 0,
+    'feb': 1, 'february': 1,
+    'mar': 2, 'march': 2,
+    'apr': 3, 'april': 3,
+    'may': 4,
+    'jun': 5, 'june': 5,
+    'jul': 6, 'july': 6,
+    'aug': 7, 'august': 7,
+    'sep': 8, 'sept': 8, 'september': 8,
+    'oct': 9, 'october': 9,
+    'nov': 10, 'november': 10,
+    'dec': 11, 'december': 11
+  }
+  
+  const lowerMessage = message.toLowerCase()
+  
+  // Pattern 1: "December 25-26" or "Dec 25-26"
+  const pattern1 = /(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(\d{1,2})\s*-\s*(\d{1,2})/i
+  const match1 = lowerMessage.match(pattern1)
+  
+  if (match1) {
+    const month = months[match1[1].toLowerCase()]
+    const startDay = parseInt(match1[2])
+    const endDay = parseInt(match1[3])
+    
+    // Determine year (if month is in past, use next year)
+    const today = new Date()
+    let year = currentYear
+    if (month < today.getMonth() || (month === today.getMonth() && startDay < today.getDate())) {
+      year = nextYear
+    }
+    
+    return {
+      startDate: new Date(year, month, startDay),
+      endDate: new Date(year, month, endDay)
+    }
+  }
+  
+  // Pattern 2: "December 23 - January 2" (spanning months)
+  const pattern2 = /(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(\d{1,2})\s*-\s*(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(\d{1,2})/i
+  const match2 = lowerMessage.match(pattern2)
+  
+  if (match2) {
+    const startMonth = months[match2[1].toLowerCase()]
+    const startDay = parseInt(match2[2])
+    const endMonth = months[match2[3].toLowerCase()]
+    const endDay = parseInt(match2[4])
+    
+    // Determine years
+    const today = new Date()
+    let startYear = currentYear
+    let endYear = currentYear
+    
+    // If start month is in past, use next year
+    if (startMonth < today.getMonth() || (startMonth === today.getMonth() && startDay < today.getDate())) {
+      startYear = nextYear
+      endYear = nextYear
+    }
+    
+    // If end month is before start month, it spans to next year
+    if (endMonth < startMonth) {
+      endYear = startYear + 1
+    }
+    
+    return {
+      startDate: new Date(startYear, startMonth, startDay),
+      endDate: new Date(endYear, endMonth, endDay)
+    }
+  }
+  
+  // Pattern 3: "Closed until January 5"
+  const pattern3 = /until\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(\d{1,2})/i
+  const match3 = lowerMessage.match(pattern3)
+  
+  if (match3) {
+    const month = months[match3[1].toLowerCase()]
+    const day = parseInt(match3[2])
+    
+    // Determine year
+    const today = new Date()
+    let year = currentYear
+    if (month < today.getMonth() || (month === today.getMonth() && day < today.getDate())) {
+      year = nextYear
+    }
+    
+    return {
+      startDate: new Date(), // Start from today
+      endDate: new Date(year, month, day)
+    }
+  }
+  
+  // No dates found
+  return {
+    startDate: null,
+    endDate: null
   }
 }
 
