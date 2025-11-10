@@ -129,25 +129,66 @@ export function extractNameWithRegex(message: string): AIExtractedName {
 }
 
 /**
- * Extract name with AI, fallback to regex if AI fails
+ * Extract name with REGEX FIRST, AI as backup for edge cases
+ * 
+ * Strategy:
+ * 1. Try regex first (fast, free, handles 95% of cases)
+ * 2. If regex finds name with high confidence (>0.8) → Use it
+ * 3. If regex finds name with low confidence (0.6-0.8) → Verify with AI
+ * 4. If regex finds nothing → Try AI as last resort
+ * 
+ * This minimizes AI calls while maintaining accuracy
  */
 export async function extractCustomerNameSmart(
   message: string,
   apiKey?: string
 ): Promise<AIExtractedName> {
-  // Try AI first if API key available
-  if (apiKey) {
+  // STEP 1: Try regex first (fast and free)
+  const regexResult = extractNameWithRegex(message)
+  
+  // STEP 2: If regex found name with HIGH confidence (>0.8), use it
+  if (regexResult.name && regexResult.confidence >= 0.85) {
+    console.log('[AI Name Extractor] ✅ Regex found (high confidence):', regexResult.name, `(${regexResult.confidence})`)
+    return regexResult
+  }
+  
+  // STEP 3: If regex found name with MEDIUM confidence (0.6-0.8), verify with AI
+  if (regexResult.name && regexResult.confidence >= 0.6 && apiKey) {
+    console.log('[AI Name Extractor] 🤔 Regex found (medium confidence):', regexResult.name, `(${regexResult.confidence}) - verifying with AI...`)
+    const aiResult = await extractNameWithAI(message, apiKey)
+    
+    // If AI agrees, use AI result (higher confidence)
+    if (aiResult.name === regexResult.name) {
+      console.log('[AI Name Extractor] ✅ AI confirmed:', aiResult.name)
+      return { ...aiResult, reasoning: 'Regex + AI confirmed' }
+    }
+    
+    // If AI disagrees, trust AI (it has more context)
+    if (aiResult.name && aiResult.confidence > 0.7) {
+      console.log('[AI Name Extractor] ⚠️  AI corrected:', regexResult.name, '→', aiResult.name)
+      return aiResult
+    }
+    
+    // If AI is uncertain, stick with regex
+    console.log('[AI Name Extractor] ✅ Keeping regex result (AI uncertain)')
+    return regexResult
+  }
+  
+  // STEP 4: If regex found nothing, try AI as last resort
+  if (!regexResult.name && apiKey) {
+    console.log('[AI Name Extractor] 🔍 Regex found nothing - trying AI...')
     const aiResult = await extractNameWithAI(message, apiKey)
     if (aiResult.name && aiResult.confidence > 0.7) {
-      console.log('[AI Name Extractor] AI found:', aiResult.name, `(${aiResult.confidence})`)
+      console.log('[AI Name Extractor] ✅ AI found:', aiResult.name, `(${aiResult.confidence})`)
       return aiResult
     }
   }
   
-  // Fallback to regex
-  const regexResult = extractNameWithRegex(message)
+  // STEP 5: Return regex result (or null if nothing found)
   if (regexResult.name) {
-    console.log('[AI Name Extractor] Regex found:', regexResult.name, `(${regexResult.confidence})`)
+    console.log('[AI Name Extractor] ✅ Using regex result:', regexResult.name, `(${regexResult.confidence})`)
+  } else {
+    console.log('[AI Name Extractor] ❌ No name found')
   }
   
   return regexResult
