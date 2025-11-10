@@ -14,6 +14,7 @@ import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-extractor'
 import { shouldAIRespond } from '@/app/lib/simple-query-detector'
 import { analyzeSentimentSmart } from '@/app/lib/sentiment-analyzer'
+import { checkContextConfidence } from '@/app/lib/context-confidence-checker'
 
 /**
  * Calculate similarity between two strings (0 = completely different, 1 = identical)
@@ -699,6 +700,54 @@ export async function POST(request: NextRequest) {
       // AI can respond - either it's been 30+ minutes or it's a simple query
       console.log('[Staff Activity Check] ✅ AI will respond:', aiResponseDecision.reason)
     }
+
+    // CONTEXT CONFIDENCE CHECK: Does this message make sense to respond to?
+    console.log('[Context Check] Checking if message makes sense in context...')
+    const { data: contextMessages } = await supabase
+      .from('messages')
+      .select('sender, text')
+      .eq('conversation_id', conversation.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+    
+    // Get API key for AI context check
+    const { data: aiSettings } = await supabase
+      .from('ai_settings')
+      .select('api_key')
+      .eq('active', true)
+      .single()
+    
+    const contextCheck = await checkContextConfidence(
+      messageToProcess,
+      contextMessages || [],
+      aiSettings?.api_key
+    )
+    
+    if (!contextCheck.shouldRespond) {
+      console.log('[Context Check] ❌ Should NOT respond:', contextCheck.reasoning)
+      console.log('[Context Check] Creating alert for manual attention...')
+      
+      // Create alert for staff to handle
+      await supabaseService.from('alerts').insert({
+        conversation_id: conversation.id,
+        type: 'manual_required',
+        notified_to: 'admin',
+        message: `Context unclear: ${contextCheck.reasoning}`,
+      })
+      
+      return NextResponse.json({
+        success: true,
+        mode: 'context_unclear',
+        message: contextCheck.reasoning,
+        confidence: contextCheck.confidence,
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    }
+    
+    console.log('[Context Check] ✅ Context OK, proceeding with AI response')
 
     // Generate AI response with smart state-aware generator (using batched message if applicable)
     console.log('[Smart AI] Generating response with state awareness...')
