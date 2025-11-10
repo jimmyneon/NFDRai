@@ -14,6 +14,7 @@ import {
 } from './conversation-state'
 import { classifyIntent, type IntentClassification } from './intent-classifier'
 import { getCustomerHistory, updateCustomerHistory } from './smart-handoff'
+import { detectHolidayMode, generateHolidayGreeting, getHolidaySystemPrompt } from '@/app/lib/holiday-mode-detector'
 
 interface SmartResponseParams {
   customerMessage: string
@@ -369,8 +370,22 @@ export async function generateSmartResponse(
  * Get only relevant data based on conversation context
  */
 async function getRelevantData(supabase: any, context: ConversationContext) {
+  // Get business hours and check for holiday mode
+  const hoursStatus = await getBusinessHoursStatus()
+  const businessHoursMessage = formatBusinessHoursMessage(hoursStatus)
+  
+  // Check if on holiday
+  const { data: businessInfo } = await supabase
+    .from('business_info')
+    .select('special_hours_note')
+    .single()
+  
+  const holidayStatus = detectHolidayMode(businessInfo?.special_hours_note)
+  
   const data: any = {
-    businessHours: await getBusinessHoursStatus().then(formatBusinessHoursMessage)
+    businessHours: businessHoursMessage,
+    holidayStatus,
+    holidayGreeting: holidayStatus.isOnHoliday ? generateHolidayGreeting(holidayStatus) : null
   }
 
   // ALWAYS fetch pricing for repair conversations (don't rely on intent classification)
@@ -499,6 +514,8 @@ function buildFocusedPrompt(params: {
 
   // Core identity (always included)
   const coreIdentity = `You are AI Steve, friendly assistant for New Forest Device Repairs.
+
+${relevantData.holidayStatus?.isOnHoliday ? getHolidaySystemPrompt(relevantData.holidayStatus) : ''}
 
 WHAT YOU KNOW ABOUT THIS CONVERSATION:
 ${context.customerName ? `- Customer name: ${context.customerName}` : ''}
