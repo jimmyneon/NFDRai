@@ -35,5 +35,10 @@ ADD COLUMN IF NOT EXISTS price_ranges JSONB DEFAULT '[
   }
 ]'::jsonb;
 
--- Add comment
+-- Add toggle for pricing mode (ranges vs exact)
+ALTER TABLE public.business_info 
+ADD COLUMN IF NOT EXISTS use_exact_prices BOOLEAN DEFAULT false;
+
+-- Add comments
 COMMENT ON COLUMN public.business_info.price_ranges IS 'JSONB array of price ranges for AI estimates. Format: [{"category": "...", "min": 0, "max": 0, "description": "..."}]';
+COMMENT ON COLUMN public.business_info.use_exact_prices IS 'If true, AI uses exact prices from database. If false, AI uses price ranges with confirmation disclaimer.';

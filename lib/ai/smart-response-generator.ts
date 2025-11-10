@@ -377,7 +377,7 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
   // Check if on holiday and get price ranges
   const { data: businessInfo } = await supabase
     .from('business_info')
-    .select('special_hours_note, price_ranges')
+    .select('special_hours_note, price_ranges, use_exact_prices')
     .single()
   
   const holidayStatus = detectHolidayMode(businessInfo?.special_hours_note)
@@ -386,7 +386,8 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
     businessHours: businessHoursMessage,
     holidayStatus,
     holidayGreeting: holidayStatus.isOnHoliday ? generateHolidayGreeting(holidayStatus) : null,
-    priceRanges: businessInfo?.price_ranges || []
+    priceRanges: businessInfo?.price_ranges || [],
+    useExactPrices: businessInfo?.use_exact_prices || false
   }
 
   // ALWAYS fetch pricing for repair conversations (don't rely on intent classification)
@@ -667,14 +668,12 @@ MULTIPLE MESSAGES:
   // Add relevant data only
   let dataContext = ''
   
-  // NOTE: Pricing is intentionally NOT included here
-  // AI uses price ranges from PRICING POLICY instead of exact database prices
-  // This allows flexibility while database prices are being updated
-  // if (relevantData.prices) {
-  //   dataContext += `\n\nAVAILABLE PRICING:\n${relevantData.prices
-  //     .map((p: any) => `- ${p.device} ${p.repair_type}: £${p.cost}`)
-  //     .join('\n')}`
-  // }
+  // Include exact prices if toggle is enabled
+  if (relevantData.useExactPrices && relevantData.prices) {
+    dataContext += `\n\nAVAILABLE PRICING (USE THESE EXACT PRICES):\n${relevantData.prices
+      .map((p: any) => `- ${p.device} ${p.repair_type}: £${p.cost}`)
+      .join('\n')}`
+  }
 
   if (relevantData.businessHours) {
     dataContext += `\n\nBUSINESS HOURS:\n${relevantData.businessHours}`
