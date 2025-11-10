@@ -279,6 +279,35 @@ export function generateHolidayReminder(holidayStatus: HolidayStatus): string {
 }
 
 /**
+ * Detect holiday type and return appropriate greeting style
+ */
+function getHolidayGreetingStyle(holidayMessage: string): string {
+  const lowerMessage = holidayMessage.toLowerCase()
+  
+  if (lowerMessage.includes('christmas') || lowerMessage.includes('xmas')) {
+    return 'Christmas - Use warm, festive tone. Start with "Merry Christmas!" or "Season\'s greetings!" Be extra cheerful and mention wishing them well for the festive season.'
+  }
+  
+  if (lowerMessage.includes('new year')) {
+    return 'New Year - Use celebratory tone. Start with "Happy New Year!" Be upbeat and mention wishing them a great year ahead.'
+  }
+  
+  if (lowerMessage.includes('easter')) {
+    return 'Easter - Use cheerful, springtime tone. Start with "Happy Easter!" Be warm and friendly.'
+  }
+  
+  if (lowerMessage.includes('bank holiday')) {
+    return 'Bank Holiday - Use relaxed, friendly tone. Mention enjoying the long weekend. Be casual and upbeat.'
+  }
+  
+  if (lowerMessage.includes('annual leave') || lowerMessage.includes('holiday')) {
+    return 'Holiday/Leave - Use warm, friendly tone. Mention taking a well-earned break. Be understanding and friendly.'
+  }
+  
+  return 'General closure - Use professional but friendly tone.'
+}
+
+/**
  * Get holiday-aware system prompt addition
  */
 export function getHolidaySystemPrompt(holidayStatus: HolidayStatus): string {
@@ -286,39 +315,60 @@ export function getHolidaySystemPrompt(holidayStatus: HolidayStatus): string {
     return ''
   }
   
+  const greetingStyle = getHolidayGreetingStyle(holidayStatus.holidayMessage || '')
+  
   return `
 *** CRITICAL - HOLIDAY CLOSURE ***
 ${holidayStatus.holidayMessage}
 
+HOLIDAY TONE: ${greetingStyle}
+
 IMPORTANT INSTRUCTIONS:
-1. START EVERY RESPONSE with the holiday notice
-2. Be helpful but SET EXPECTATIONS: John will confirm when he returns
-3. For quotes: Provide estimate but say "John will confirm this quote when he returns"
-4. For bookings: Say "I can note your interest, John will confirm availability when he returns"
-5. For repairs: Say "John will assess and confirm when he returns"
-6. Be friendly and helpful, but always remind them about the holiday closure
-7. NO EMOJIS - SMS doesn't support them (this includes the holiday notice!)
+1. START EVERY RESPONSE with a friendly holiday greeting based on the holiday type
+2. Add festive flair and warmth appropriate to the occasion
+3. Be helpful but SET EXPECTATIONS: John will confirm when he returns
+4. For quotes: Provide estimate but say "John will confirm this quote when he returns"
+5. For bookings: Say "I can note your interest, John will confirm availability when he returns"
+6. For repairs: Say "John will assess and confirm when he returns"
+7. Be extra friendly and warm - it's a holiday!
+8. NO EMOJIS - SMS doesn't support them
 
 EXAMPLE RESPONSES:
 
 Customer: "How much for iPhone screen?"
-You: "*** HOLIDAY NOTICE ***
-${holidayStatus.holidayMessage}
+You (Christmas): "Merry Christmas!
 
-For an iPhone screen repair, it's typically around £80-120 depending on the model. 
+We're closed December 25-26 for Christmas, but I'm happy to help with a quote!
 
-However, John will confirm the exact quote when he returns${holidayStatus.returnDate ? ` on ${holidayStatus.returnDate}` : ''}. 
+For an iPhone screen repair, it's typically around £80-120 depending on the model. John will confirm the exact quote when he returns on December 27th.
 
-Can you tell me which iPhone model you have so I can give you a more accurate estimate?"
+Hope you're having a wonderful festive season! Which iPhone model do you have?"
+
+You (New Year): "Happy New Year!
+
+We're closed January 1st to celebrate, but I can still help with information!
+
+For an iPhone screen repair, it's typically around £80-120. John will confirm the exact quote when he's back on January 2nd.
+
+Wishing you a fantastic year ahead! What iPhone model is it?"
+
+You (Bank Holiday): "Hope you're enjoying the long weekend!
+
+We're closed for the bank holiday, but I'm here to help with quotes and info!
+
+For an iPhone screen repair, it's typically around £80-120. John will confirm when he's back.
+
+What iPhone model do you have?"
 
 Customer: "Can I book in for tomorrow?"
-You: "*** HOLIDAY NOTICE ***
-${holidayStatus.holidayMessage}
+You (Christmas): "Merry Christmas!
 
-I'd love to help, but we're currently closed for the holiday. 
+We're closed December 25-26 for the festive season, so we can't do tomorrow I'm afraid.
 
-John will be back${holidayStatus.returnDate ? ` on ${holidayStatus.returnDate}` : ''} and can confirm availability then. Would you like me to note your interest so John can contact you when he returns?"
+But I'd be happy to note your interest and John will get back to you on December 27th to arrange a time that works for you.
 
-ALWAYS lead with the holiday notice, then be helpful!
+Hope you're having a lovely Christmas! Shall I make a note for John?"
+
+ALWAYS be warm, friendly, and add appropriate holiday cheer based on the occasion!
 `
 }
