@@ -154,7 +154,24 @@ export async function POST(request: NextRequest) {
     // Handle lookup by phone (for MacroDroid sent SMS tracking)
     let actualConversationId = conversationId
     
-    if (conversationId === 'lookup-by-phone' && customerPhone) {
+    if (conversationId === 'lookup-by-phone') {
+      if (!customerPhone || customerPhone.trim() === '') {
+        console.error('[Send Message] lookup-by-phone requires customerPhone')
+        return NextResponse.json(
+          { 
+            error: 'Missing required field: customerPhone',
+            hint: 'When using conversationId=lookup-by-phone, you must provide customerPhone',
+            success: false
+          },
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+          }
+        )
+      }
+      
       console.log('[Send Message] Looking up conversation for phone:', customerPhone)
       
       // Try multiple phone number formats to handle different formats from MacroDroid
