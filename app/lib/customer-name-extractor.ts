@@ -142,6 +142,9 @@ function capitalizeProperName(name: string): string {
 export function isLikelyValidName(name: string): boolean {
   const lowerName = name.toLowerCase()
   
+  // Titles and honorifics (NOT names)
+  const titles = ['mr', 'mrs', 'ms', 'miss', 'dr', 'sir', 'madam']
+  
   // Common words that are NOT names
   const commonWords = [
     'the', 'a', 'an', 'and', 'but', 'for', 'not', 'yes', 'sure', 'okay', 'ok',
@@ -155,11 +158,20 @@ export function isLikelyValidName(name: string): boolean {
     'going', 'coming', 'looking', 'trying', 'making', 'taking', 'giving',
     'telling', 'asking', 'calling', 'texting', 'messaging', 'sending',
     'about', 'after', 'before', 'during', 'between', 'through', 'into',
-    'from', 'with', 'without', 'under', 'over', 'above', 'below'
+    'from', 'with', 'without', 'under', 'over', 'above', 'below',
+    // Device-related
+    'iphone', 'samsung', 'galaxy', 'ipad', 'macbook', 'laptop', 'device',
+    // Random words
+    'ready', 'quote', 'price', 'cost', 'fixed', 'done', 'finished'
   ]
   
   // Name should be at least 2 characters
   if (lowerName.length < 2) {
+    return false
+  }
+  
+  // Name should not be a title
+  if (titles.includes(lowerName)) {
     return false
   }
   
@@ -168,7 +180,7 @@ export function isLikelyValidName(name: string): boolean {
     return false
   }
   
-  // Name should only contain letters
+  // Name should only contain letters (no numbers)
   if (!/^[a-z]+$/i.test(lowerName)) {
     return false
   }

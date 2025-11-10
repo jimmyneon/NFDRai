@@ -92,6 +92,9 @@ async function fixCustomerNames() {
   console.log('\n=== Fixing Customer Names ===\n')
   
   const invalidNames = [
+    // Titles and honorifics
+    'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Sir', 'Madam',
+    // Common words
     'Bad', 'Just', 'Changing', 'Learning', 'Doing', 'Getting', 'Having', 'Being',
     'Going', 'Coming', 'Looking', 'Trying', 'Making', 'Taking', 'Giving',
     'Telling', 'Asking', 'Calling', 'Texting', 'Messaging', 'Sending',
@@ -103,39 +106,75 @@ async function fixCustomerNames() {
     'Only', 'Also', 'Even', 'Still', 'Back', 'Here', 'There',
     'This', 'That', 'These', 'Those', 'What', 'When', 'Where', 'Which',
     'Who', 'Why', 'How', 'Can', 'Could', 'Would', 'Should', 'Will',
-    'Phone', 'Screen', 'Battery', 'Repair', 'Fix', 'Broken', 'Cracked', 'Lol'
+    'Phone', 'Screen', 'Battery', 'Repair', 'Fix', 'Broken', 'Cracked', 'Lol',
+    // Device-related
+    'Iphone', 'Samsung', 'Galaxy', 'Ipad', 'Macbook', 'Laptop', 'Device',
+    // Random words that might get extracted
+    'Ready', 'Quote', 'Price', 'Cost', 'Fixed', 'Done', 'Finished'
   ]
   
-  // Find customers with invalid names
-  const { data: invalidCustomers } = await supabase
+  // Find customers with invalid names (case-insensitive)
+  const { data: allCustomers } = await supabase
     .from('customers')
     .select('id, name, phone')
-    .in('name', invalidNames)
+    .not('name', 'is', null)
   
-  console.log(`Found ${invalidCustomers?.length || 0} customers with invalid names:`)
-  invalidCustomers?.forEach(c => {
-    console.log(`  - ${c.name} (${c.phone})`)
+  const invalidCustomers = allCustomers?.filter(c => {
+    if (!c.name) return false
+    
+    // Check against invalid names list (case-insensitive)
+    if (invalidNames.some(invalid => invalid.toLowerCase() === c.name.toLowerCase())) {
+      return true
+    }
+    
+    // Check for single letters
+    if (c.name.length === 1) {
+      return true
+    }
+    
+    // Check for numbers in name
+    if (/\d/.test(c.name)) {
+      return true
+    }
+    
+    // Check for special characters (except spaces, hyphens, apostrophes)
+    if (/[^a-zA-Z\s\-']/.test(c.name)) {
+      return true
+    }
+    
+    return false
+  }) || []
+  
+  console.log(`Found ${invalidCustomers.length} customers with invalid names:`)
+  invalidCustomers.forEach(c => {
+    console.log(`  - "${c.name}" (${c.phone})`)
   })
   
+  if (invalidCustomers.length === 0) {
+    console.log('✅ No invalid names found!')
+    return
+  }
+  
   // Clear invalid names
+  const invalidIds = invalidCustomers.map(c => c.id)
   const { error } = await supabase
     .from('customers')
     .update({ name: null })
-    .in('name', invalidNames)
+    .in('id', invalidIds)
   
   if (error) {
     console.error('Error fixing customer names:', error)
   } else {
-    console.log(`\n✅ Cleared ${invalidCustomers?.length || 0} invalid names`)
+    console.log(`\n✅ Cleared ${invalidCustomers.length} invalid names`)
   }
   
   // Show summary
-  const { data: allCustomers } = await supabase
+  const { data: updatedCustomers } = await supabase
     .from('customers')
     .select('name')
   
-  const withName = allCustomers?.filter(c => c.name).length || 0
-  const withoutName = allCustomers?.filter(c => !c.name).length || 0
+  const withName = updatedCustomers?.filter(c => c.name).length || 0
+  const withoutName = updatedCustomers?.filter(c => !c.name).length || 0
   
   console.log('\nCustomer name summary:')
   console.log(`  With name: ${withName}`)
