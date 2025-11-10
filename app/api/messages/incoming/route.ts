@@ -539,6 +539,16 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Check if conversation is blocked (AI permanently disabled)
+    if (conversation.status === 'blocked') {
+      console.log('[AI Blocked] This conversation is blocked - AI will never respond')
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Message received (conversation blocked - no AI response)',
+        ai_blocked: true
+      })
+    }
+
     // Check if conversation is in manual mode
     if (conversation.status !== 'auto') {
       // Check if staff has manually replied in this conversation
@@ -558,19 +568,19 @@ export async function POST(request: NextRequest) {
       if (hasStaffReplied) {
         // Check how long ago staff replied
         const lastStaffReplyTime = new Date(staffMessages[0].created_at).getTime()
-        const hoursSinceStaffReply = (Date.now() - lastStaffReplyTime) / (1000 * 60 * 60)
+        const minutesSinceStaffReply = (Date.now() - lastStaffReplyTime) / (1000 * 60)
         
-        // If staff replied more than 2 hours ago, auto-switch to AI
-        const timeBasedSwitch = hoursSinceStaffReply > 2
+        // If staff replied more than 30 minutes ago, auto-switch to AI
+        const timeBasedSwitch = minutesSinceStaffReply > 30
         
         // Staff has replied - analyze if we should switch back to auto mode
         const shouldAutoSwitch = timeBasedSwitch || shouldSwitchToAutoMode(message)
         const reason = timeBasedSwitch 
-          ? `Staff replied ${hoursSinceStaffReply.toFixed(1)}h ago - switching to auto`
+          ? `Staff replied ${minutesSinceStaffReply.toFixed(0)} min ago - switching to auto`
           : getModeDecisionReason(message, shouldAutoSwitch)
         
         console.log('[Smart Mode] Message:', message.substring(0, 50))
-        console.log('[Smart Mode] Hours since staff reply:', hoursSinceStaffReply.toFixed(1))
+        console.log('[Smart Mode] Minutes since staff reply:', minutesSinceStaffReply.toFixed(0))
         console.log('[Smart Mode] Should switch to auto?', shouldAutoSwitch)
         console.log('[Smart Mode] Reason:', reason)
         

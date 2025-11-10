@@ -111,6 +111,8 @@ export function ConversationList({ conversations: initialConversations }: { conv
         return 'bg-green-500'
       case 'manual':
         return 'bg-amber-500'
+      case 'blocked':
+        return 'bg-red-500'
       case 'paused':
         return 'bg-red-500'
       default:

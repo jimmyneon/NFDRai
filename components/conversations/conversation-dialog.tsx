@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDate } from '@/lib/utils'
-import { User, Bot, UserCog, Check, CheckCheck } from 'lucide-react'
+import { User, Bot, UserCog, Check, CheckCheck, Ban, Unlock } from 'lucide-react'
 
 type Message = {
   id: string
@@ -221,6 +221,58 @@ export function ConversationDialog({
     setLoading(false)
   }
 
+  const handleBlock = async () => {
+    setLoading(true)
+    
+    const { error } = await supabase
+      .from('conversations')
+      .update({ status: 'blocked' })
+      .eq('id', conversation.id)
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to block AI',
+        variant: 'destructive',
+      })
+    } else {
+      toast({
+        title: 'Success',
+        description: 'AI permanently blocked for this conversation',
+      })
+      onClose()
+      window.location.reload()
+    }
+    
+    setLoading(false)
+  }
+
+  const handleUnblock = async () => {
+    setLoading(true)
+    
+    const { error } = await supabase
+      .from('conversations')
+      .update({ status: 'manual' })
+      .eq('id', conversation.id)
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to unblock AI',
+        variant: 'destructive',
+      })
+    } else {
+      toast({
+        title: 'Success',
+        description: 'AI unblocked - conversation in manual mode',
+      })
+      onClose()
+      window.location.reload()
+    }
+    
+    setLoading(false)
+  }
+
   const handleAddNote = async () => {
     if (!staffNote.trim()) return
 
@@ -347,14 +399,33 @@ export function ConversationDialog({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2">
-            {conversation.status === 'auto' ? (
-              <Button onClick={handleTakeOver} disabled={loading} className="flex-1">
-                Take Over (Manual Mode)
-              </Button>
-            ) : (
-              <Button onClick={handleResume} disabled={loading} className="flex-1">
-                Resume Auto Mode
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {conversation.status === 'blocked' ? (
+                <Button onClick={handleUnblock} disabled={loading} className="flex-1" variant="outline">
+                  <Unlock className="w-4 h-4 mr-2" />
+                  Unblock AI
+                </Button>
+              ) : conversation.status === 'auto' ? (
+                <Button onClick={handleTakeOver} disabled={loading} className="flex-1">
+                  Take Over (Manual Mode)
+                </Button>
+              ) : (
+                <Button onClick={handleResume} disabled={loading} className="flex-1">
+                  Resume Auto Mode
+                </Button>
+              )}
+            </div>
+            {conversation.status !== 'blocked' && (
+              <Button 
+                onClick={handleBlock} 
+                disabled={loading} 
+                variant="destructive" 
+                className="w-full"
+                size="sm"
+              >
+                <Ban className="w-4 h-4 mr-2" />
+                Block AI Permanently
               </Button>
             )}
           </div>
