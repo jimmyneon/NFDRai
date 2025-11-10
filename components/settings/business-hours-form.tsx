@@ -373,8 +373,102 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
             </div>
           </div>
 
+          <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+            <Label className="text-base font-semibold">Custom Holiday Dates</Label>
+            <p className="text-sm text-muted-foreground">
+              Build your own holiday message with specific dates
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="start_date">Start Date</Label>
+                <Input
+                  id="start_date"
+                  type="date"
+                  onChange={(e) => {
+                    const startDate = e.target.value
+                    if (startDate) {
+                      const date = new Date(startDate)
+                      const formatted = date.toLocaleDateString('en-GB', { month: 'long', day: 'numeric' })
+                      // Update the message with the start date
+                      const currentMessage = formData.special_hours_note || 'Closed [start] for holiday'
+                      const newMessage = currentMessage.includes('[start]') 
+                        ? currentMessage.replace('[start]', formatted)
+                        : `Closed ${formatted} for holiday`
+                      setFormData(prev => ({ ...prev, special_hours_note: newMessage }))
+                    }
+                  }}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="end_date">End Date (Optional)</Label>
+                <Input
+                  id="end_date"
+                  type="date"
+                  onChange={(e) => {
+                    const endDate = e.target.value
+                    if (endDate) {
+                      const date = new Date(endDate)
+                      const formatted = date.toLocaleDateString('en-GB', { month: 'long', day: 'numeric' })
+                      // Add end date to the message
+                      const currentMessage = formData.special_hours_note || 'Closed for holiday'
+                      if (currentMessage.includes(' for ')) {
+                        const parts = currentMessage.split(' for ')
+                        const datePart = parts[0].replace('Closed ', '')
+                        const reasonPart = parts[1]
+                        const newMessage = `Closed ${datePart} - ${formatted} for ${reasonPart}`
+                        setFormData(prev => ({ ...prev, special_hours_note: newMessage }))
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="holiday_reason">Reason</Label>
+              <Input
+                id="holiday_reason"
+                type="text"
+                placeholder="e.g., Christmas, annual leave, bank holiday"
+                onChange={(e) => {
+                  const reason = e.target.value
+                  if (reason) {
+                    const currentMessage = formData.special_hours_note || 'Closed [dates] for holiday'
+                    if (currentMessage.includes(' for ')) {
+                      const parts = currentMessage.split(' for ')
+                      const newMessage = `${parts[0]} for ${reason}`
+                      setFormData(prev => ({ ...prev, special_hours_note: newMessage }))
+                    } else {
+                      setFormData(prev => ({ ...prev, special_hours_note: `Closed [dates] for ${reason}` }))
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setFormData(prev => ({ ...prev, special_hours_note: '' }))
+                // Reset the date inputs
+                const startInput = document.getElementById('start_date') as HTMLInputElement
+                const endInput = document.getElementById('end_date') as HTMLInputElement
+                const reasonInput = document.getElementById('holiday_reason') as HTMLInputElement
+                if (startInput) startInput.value = ''
+                if (endInput) endInput.value = ''
+                if (reasonInput) reasonInput.value = ''
+              }}
+            >
+              Clear All
+            </Button>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="special_hours_note">Holiday Message</Label>
+            <Label htmlFor="special_hours_note">Holiday Message (Edit Manually)</Label>
             <Textarea
               id="special_hours_note"
               value={formData.special_hours_note}
@@ -383,7 +477,7 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
               rows={3}
             />
             <p className="text-xs text-muted-foreground">
-              Replace [date] with actual dates (e.g., &quot;April 5&quot;, &quot;May 27&quot;)
+              You can also type or edit the message directly here
             </p>
           </div>
 
