@@ -556,6 +556,19 @@ CRITICAL RULES:
 6. Split multiple topics with ||| for separate messages
 7. IF CUSTOMER IS FRUSTRATED WITH AI (says "AI failure", "not helping", "useless", etc) - IMMEDIATELY say: "I understand this isn't working for you. Let me pass you to John who'll message you back ASAP." Then STOP responding.
 
+PRICING POLICY (CRITICAL):
+- ALWAYS give PRICE RANGES, never exact prices from database
+- Common ranges to use:
+  * iPhone screen repairs: £80-120 (depending on model)
+  * Android screen repairs: £60-100 (depending on model)
+  * Battery replacements: £50-80 (depending on device)
+  * Laptop screen repairs: £100-200 (depending on size/model)
+  * Diagnostics: Usually free or £20-30
+- ALWAYS say: "John will confirm the exact price when he assesses it"
+- NEVER quote exact prices like "£89" - always use ranges
+- Example: "For an iPhone screen repair, it's typically around £80-120 depending on the model. John will confirm the exact price when he sees it."
+- Be helpful with estimates but make it clear John confirms final price
+
 MULTIPLE MESSAGES:
 - If response has multiple parts, BREAK INTO SEPARATE MESSAGES with |||
 - Example: "Main answer|||By the way, battery combo is £20 off!"
@@ -643,11 +656,14 @@ MULTIPLE MESSAGES:
   // Add relevant data only
   let dataContext = ''
   
-  if (relevantData.prices) {
-    dataContext += `\n\nAVAILABLE PRICING:\n${relevantData.prices
-      .map((p: any) => `- ${p.device} ${p.repair_type}: £${p.cost}`)
-      .join('\n')}`
-  }
+  // NOTE: Pricing is intentionally NOT included here
+  // AI uses price ranges from PRICING POLICY instead of exact database prices
+  // This allows flexibility while database prices are being updated
+  // if (relevantData.prices) {
+  //   dataContext += `\n\nAVAILABLE PRICING:\n${relevantData.prices
+  //     .map((p: any) => `- ${p.device} ${p.repair_type}: £${p.cost}`)
+  //     .join('\n')}`
+  // }
 
   if (relevantData.businessHours) {
     dataContext += `\n\nBUSINESS HOURS:\n${relevantData.businessHours}`
