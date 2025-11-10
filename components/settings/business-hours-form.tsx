@@ -273,18 +273,90 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Special Hours Note</CardTitle>
+          <CardTitle>Special Hours / Holiday Closure</CardTitle>
           <CardDescription>
-            Add notes about holiday hours or temporary closures (optional)
+            Add holiday closures or special hours. Include specific dates for automatic activation!
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Textarea
-            value={formData.special_hours_note}
-            onChange={(e) => setFormData(prev => ({ ...prev, special_hours_note: e.target.value }))}
-            placeholder="e.g., Closed December 25-26 for Christmas"
-            rows={3}
-          />
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Quick Templates</Label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ 
+                  ...prev, 
+                  special_hours_note: 'Closed December 25-26 for Christmas' 
+                }))}
+              >
+                Christmas
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ 
+                  ...prev, 
+                  special_hours_note: 'Closed January 1 for New Year' 
+                }))}
+              >
+                New Year
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ 
+                  ...prev, 
+                  special_hours_note: 'Closed December 23 - January 2 for holiday' 
+                }))}
+              >
+                Extended Holiday
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="special_hours_note">Holiday Message</Label>
+            <Textarea
+              id="special_hours_note"
+              value={formData.special_hours_note}
+              onChange={(e) => setFormData(prev => ({ ...prev, special_hours_note: e.target.value }))}
+              placeholder="e.g., Closed December 25-26 for Christmas"
+              rows={3}
+            />
+          </div>
+
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Supported date formats:</strong>
+              <ul className="list-disc list-inside mt-1 text-sm space-y-1">
+                <li>"December 25-26" - Specific date range</li>
+                <li>"Dec 25-26" - Short month names work too</li>
+                <li>"December 23 - January 2" - Spans multiple months</li>
+                <li>"Closed until January 5" - Open-ended closure</li>
+              </ul>
+              <p className="mt-2 text-sm">
+                💡 <strong>Tip:</strong> Always include specific dates! Holiday mode will only activate on those dates.
+              </p>
+            </AlertDescription>
+          </Alert>
+
+          {formData.special_hours_note && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Preview:</strong> AI will lead with this message when the dates are active:
+                <div className="mt-2 p-2 bg-muted rounded text-sm">
+                  🎄 HOLIDAY NOTICE 🎄<br />
+                  {formData.special_hours_note}
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
