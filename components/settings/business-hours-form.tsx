@@ -275,13 +275,13 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
         <CardHeader>
           <CardTitle>Special Hours / Holiday Closure</CardTitle>
           <CardDescription>
-            Add holiday closures or special hours. Include specific dates for automatic activation!
+            Build your holiday message with UK holidays or create a custom one
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Quick Templates</Label>
-            <div className="flex flex-wrap gap-2">
+            <Label>UK Bank Holidays & Common Closures</Label>
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -310,10 +310,65 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
                 size="sm"
                 onClick={() => setFormData(prev => ({ 
                   ...prev, 
-                  special_hours_note: 'Closed December 23 - January 2 for holiday' 
+                  special_hours_note: 'Closed for Easter - back on [date]' 
                 }))}
               >
-                Extended Holiday
+                Easter
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ 
+                  ...prev, 
+                  special_hours_note: 'Closed for May Bank Holiday - back on [date]' 
+                }))}
+              >
+                May Bank Holiday
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ 
+                  ...prev, 
+                  special_hours_note: 'Closed for Spring Bank Holiday - back on [date]' 
+                }))}
+              >
+                Spring Bank Holiday
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ 
+                  ...prev, 
+                  special_hours_note: 'Closed for Summer Bank Holiday - back on [date]' 
+                }))}
+              >
+                Summer Bank Holiday
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ 
+                  ...prev, 
+                  special_hours_note: 'Closed December 23 - January 2 for Christmas holiday' 
+                }))}
+              >
+                Extended Christmas
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(prev => ({ 
+                  ...prev, 
+                  special_hours_note: 'Closed for annual leave - back on [date]' 
+                }))}
+              >
+                Annual Leave
               </Button>
             </div>
           </div>
@@ -327,6 +382,9 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
               placeholder="e.g., Closed December 25-26 for Christmas"
               rows={3}
             />
+            <p className="text-xs text-muted-foreground">
+              Replace [date] with actual dates (e.g., &quot;April 5&quot;, &quot;May 27&quot;)
+            </p>
           </div>
 
           <Alert>
@@ -334,13 +392,13 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
             <AlertDescription>
               <strong>Supported date formats:</strong>
               <ul className="list-disc list-inside mt-1 text-sm space-y-1">
-                <li>"December 25-26" - Specific date range</li>
-                <li>"Dec 25-26" - Short month names work too</li>
-                <li>"December 23 - January 2" - Spans multiple months</li>
-                <li>"Closed until January 5" - Open-ended closure</li>
+                <li>&quot;December 25-26&quot; - Specific date range</li>
+                <li>&quot;Dec 25-26&quot; - Short month names work too</li>
+                <li>&quot;December 23 - January 2&quot; - Spans multiple months</li>
+                <li>&quot;Closed until January 5&quot; - Open-ended closure</li>
               </ul>
               <p className="mt-2 text-sm">
-                💡 <strong>Tip:</strong> Always include specific dates! Holiday mode will only activate on those dates.
+                <strong>TIP:</strong> Always include specific dates! Holiday mode will only activate on those dates.
               </p>
             </AlertDescription>
           </Alert>
@@ -350,8 +408,9 @@ export function BusinessHoursForm({ businessInfo }: BusinessHoursFormProps) {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <strong>Preview:</strong> AI will lead with this message when the dates are active:
-                <div className="mt-2 p-2 bg-muted rounded text-sm font-mono">
-                  *** HOLIDAY NOTICE ***<br />
+                <div className="mt-2 p-2 bg-muted rounded text-sm font-mono whitespace-pre-wrap">
+                  *** HOLIDAY NOTICE ***
+                  {'\n'}
                   {formData.special_hours_note}
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
