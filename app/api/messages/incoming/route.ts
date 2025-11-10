@@ -12,6 +12,7 @@ import { isAutoresponder, getAutoresponderReason } from '@/app/lib/autoresponder
 import { sendAlertNotification, shouldSendNotification } from '@/app/lib/alert-notifier'
 import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-extractor'
+import { shouldAIRespond } from '@/app/lib/simple-query-detector'
 
 /**
  * Calculate similarity between two strings (0 = completely different, 1 = identical)
@@ -646,7 +647,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if staff has recently replied
-    // If staff replied, wait a few minutes before AI responds (give staff time to reply)
+    // If staff replied within last 30 minutes, only respond to simple queries (hours, directions, etc)
     const { data: recentMessages } = await supabase
       .from('messages')
       .select('sender, created_at')
@@ -662,8 +663,15 @@ export async function POST(request: NextRequest) {
       const minutesSinceStaffMessage = 
         (Date.now() - new Date(recentStaffMessage.created_at).getTime()) / 1000 / 60
 
-      // If staff replied within last 5 minutes, wait and let staff handle it
-      if (minutesSinceStaffMessage < 5) {
+      // Check if AI should respond based on time and message type
+      const aiResponseDecision = shouldAIRespond(minutesSinceStaffMessage, message)
+      
+      console.log('[Staff Activity Check] Minutes since staff message:', minutesSinceStaffMessage.toFixed(1))
+      console.log('[Staff Activity Check] Should AI respond?', aiResponseDecision.shouldRespond)
+      console.log('[Staff Activity Check] Reason:', aiResponseDecision.reason)
+      
+      if (!aiResponseDecision.shouldRespond) {
+        // Staff replied recently and this isn't a simple query - don't respond
         // Send alert to notify staff of new message
         await supabaseService.from('alerts').insert({
           conversation_id: conversation.id,
@@ -673,8 +681,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          mode: 'waiting',
-          message: 'Staff recently active - waiting for staff response',
+          mode: 'paused',
+          message: aiResponseDecision.reason,
+          minutesSinceStaffMessage: minutesSinceStaffMessage.toFixed(1),
         }, {
           headers: {
             'Content-Type': 'application/json; charset=utf-8',
@@ -682,8 +691,8 @@ export async function POST(request: NextRequest) {
         })
       }
       
-      // If staff replied 5+ minutes ago, send a generic holding response
-      // This lets the customer know we got their message
+      // AI can respond - either it's been 30+ minutes or it's a simple query
+      console.log('[Staff Activity Check] ✅ AI will respond:', aiResponseDecision.reason)
     }
 
     // Generate AI response with smart state-aware generator (using batched message if applicable)

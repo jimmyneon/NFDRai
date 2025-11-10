@@ -111,18 +111,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Compose a friendly, concise missed-call message (no creepy personalization)
+    // Compose a friendly, concise missed-call message
+    // Improved: warmer tone, shorter, emphasizes speed, maintains AI disclosure
     const apologyMessage = [
-      'Sorry we missed your call. I can help right now with:',
-      '- Repair pricing',
-      '- Booking you in',
-      '- Parts & warranty questions',
-      '- Today\'s opening hours',
+      'Sorry we missed your call!',
       '',
-      'Just reply with what you need and I\'ll sort it.',
+      'I can help with pricing, bookings, or any questions you have. Just text back and I\'ll get you sorted straight away.',
       '',
-      'Many Thanks,',
-      'AI Steve,',
+      'Many thanks,',
+      'AI Steve',
       'New Forest Device Repairs'
     ].join('\n')
 

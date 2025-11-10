@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 import { extractConfirmationData } from '@/app/lib/confirmation-extractor'
 import { getCorrectSender } from '@/app/lib/sender-detector'
+import { extractStaffMessageInfo, shouldExtractFromMessage } from '@/app/lib/staff-message-extractor'
 
 /**
  * POST /api/messages/send
@@ -97,8 +98,20 @@ export async function POST(request: NextRequest) {
     }
 
     // If trackOnly is true, this is from MacroDroid tracking an already-sent message
+    // Detect sender EARLY to determine if this is tracking
+    // This must happen before we check isTrackingOnly
+    const detectedSender = text ? getCorrectSender(text, sender || 'staff') : (sender || 'staff')
+    
+    console.log('[Send Message] Early sender detection:', {
+      providedSender: sender,
+      detectedSender,
+      textPreview: text?.substring(0, 50),
+      hasAISteve: text?.toLowerCase().includes('ai steve'),
+    })
+    
     // We should only log it, not send it again
-    const isTrackingOnly = trackOnly === true || sender === 'staff'
+    // If sender is not provided but message is from AI, it's tracking
+    const isTrackingOnly = trackOnly === true || sender === 'staff' || detectedSender === 'ai'
 
     // Check if this exact message was recently sent by AI or system (within last 30 seconds)
     // to avoid duplicate tracking from MacroDroid
@@ -328,19 +341,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Detect the correct sender based on message content
-    // AI messages are signed "many thanks, AI Steve"
-    // Staff messages are signed "many thanks, John"
-    const detectedSender = getCorrectSender(text, sender || 'staff')
-    
-    console.log('[Send Message] Sender detection:', {
-      providedSender: sender,
-      detectedSender,
-      textPreview: text.substring(0, 50),
-      hasAISteve: text.toLowerCase().includes('ai steve'),
-      hasJohn: text.toLowerCase().includes('john') && !text.toLowerCase().includes('john will')
-    })
-    
+    // Sender was already detected early (see line 102)
     // If this is an AI Steve message coming through send endpoint, it's a duplicate/confirmation
     // The AI already sent it, this is just MacroDroid confirming delivery
     if (detectedSender === 'ai' && isTrackingOnly) {
@@ -405,6 +406,53 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', actualConversationId)
+
+    // Extract structured information from staff messages
+    if (detectedSender === 'staff' && shouldExtractFromMessage(text)) {
+      console.log('[Staff Extraction] Extracting info from staff message...')
+      
+      const extractedInfo = extractStaffMessageInfo(text)
+      
+      console.log('[Staff Extraction] Extracted:', {
+        customerName: extractedInfo.customerName,
+        deviceType: extractedInfo.deviceType,
+        deviceModel: extractedInfo.deviceModel,
+        repairStatus: extractedInfo.repairStatus,
+        messageType: extractedInfo.messageType,
+        confidence: extractedInfo.extractionConfidence,
+      })
+      
+      // Only save if we extracted something useful (confidence > 0.3)
+      if (extractedInfo.extractionConfidence >= 0.3) {
+        const { error: extractionError } = await supabase
+          .from('staff_message_extractions')
+          .insert({
+            message_id: message.id,
+            conversation_id: actualConversationId,
+            customer_name: extractedInfo.customerName,
+            device_type: extractedInfo.deviceType,
+            device_model: extractedInfo.deviceModel,
+            device_issue: extractedInfo.deviceIssue,
+            repair_status: extractedInfo.repairStatus,
+            repair_notes: extractedInfo.repairNotes,
+            price_quoted: extractedInfo.priceQuoted,
+            price_final: extractedInfo.priceFinal,
+            message_type: extractedInfo.messageType,
+            extraction_confidence: extractedInfo.extractionConfidence,
+            extraction_method: 'pattern_matching',
+            raw_extracted_data: extractedInfo.rawData,
+          })
+        
+        if (extractionError) {
+          console.error('[Staff Extraction] Failed to save extraction:', extractionError)
+          // Don't fail the request, just log the error
+        } else {
+          console.log('[Staff Extraction] ✅ Saved extraction with confidence:', extractedInfo.extractionConfidence)
+        }
+      } else {
+        console.log('[Staff Extraction] ⚠️  Confidence too low, not saving:', extractedInfo.extractionConfidence)
+      }
+    }
 
     return NextResponse.json({
       success: true,

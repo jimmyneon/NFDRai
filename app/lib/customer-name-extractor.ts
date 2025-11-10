@@ -28,8 +28,11 @@ export function extractCustomerName(message: string): ExtractedNameData {
   
   if (match1) {
     customerName = match1[1].trim()
-    confidence = 'high'
-    return { customerName: capitalizeFirstLetter(customerName), confidence }
+    // Validate the name before returning
+    if (isLikelyValidName(customerName)) {
+      confidence = 'high'
+      return { customerName: capitalizeFirstLetter(customerName), confidence }
+    }
   }
   
   // Pattern 2: "My name is {name}" or "My name's {name}"
@@ -38,8 +41,10 @@ export function extractCustomerName(message: string): ExtractedNameData {
   
   if (match2) {
     customerName = match2[1].trim()
-    confidence = 'high'
-    return { customerName: capitalizeFirstLetter(customerName), confidence }
+    if (isLikelyValidName(customerName)) {
+      confidence = 'high'
+      return { customerName: capitalizeFirstLetter(customerName), confidence }
+    }
   }
   
   // Pattern 3: "This is {name}" (at start of message)
@@ -48,8 +53,10 @@ export function extractCustomerName(message: string): ExtractedNameData {
   
   if (match3) {
     customerName = match3[1].trim()
-    confidence = 'high'
-    return { customerName: capitalizeFirstLetter(customerName), confidence }
+    if (isLikelyValidName(customerName)) {
+      confidence = 'high'
+      return { customerName: capitalizeFirstLetter(customerName), confidence }
+    }
   }
   
   // Pattern 4: "It's {name} here" or "It's {name}" (avoid articles)
@@ -58,8 +65,10 @@ export function extractCustomerName(message: string): ExtractedNameData {
   
   if (match4) {
     customerName = match4[1].trim()
-    confidence = 'medium'
-    return { customerName: capitalizeFirstLetter(customerName), confidence }
+    if (isLikelyValidName(customerName)) {
+      confidence = 'medium'
+      return { customerName: capitalizeFirstLetter(customerName), confidence }
+    }
   }
   
   // Pattern 5: "{name} here" (at start of message)
@@ -68,8 +77,10 @@ export function extractCustomerName(message: string): ExtractedNameData {
   
   if (match5) {
     customerName = match5[1].trim()
-    confidence = 'medium'
-    return { customerName: capitalizeFirstLetter(customerName), confidence }
+    if (isLikelyValidName(customerName)) {
+      confidence = 'medium'
+      return { customerName: capitalizeFirstLetter(customerName), confidence }
+    }
   }
   
   // Pattern 6: "I am {name}"
@@ -78,8 +89,10 @@ export function extractCustomerName(message: string): ExtractedNameData {
   
   if (match6) {
     customerName = match6[1].trim()
-    confidence = 'high'
-    return { customerName: capitalizeFirstLetter(customerName), confidence }
+    if (isLikelyValidName(customerName)) {
+      confidence = 'high'
+      return { customerName: capitalizeFirstLetter(customerName), confidence }
+    }
   }
   
   // Pattern 7: Name preference correction - "please refer to me as {name}" or "call me {name}"
@@ -138,7 +151,11 @@ export function isLikelyValidName(name: string): boolean {
     'this', 'that', 'these', 'those', 'what', 'when', 'where', 'which',
     'who', 'why', 'how', 'can', 'could', 'would', 'should', 'will',
     'phone', 'screen', 'battery', 'repair', 'fix', 'broken', 'cracked',
-    'lol'
+    'lol', 'changing', 'learning', 'doing', 'getting', 'having', 'being',
+    'going', 'coming', 'looking', 'trying', 'making', 'taking', 'giving',
+    'telling', 'asking', 'calling', 'texting', 'messaging', 'sending',
+    'about', 'after', 'before', 'during', 'between', 'through', 'into',
+    'from', 'with', 'without', 'under', 'over', 'above', 'below'
   ]
   
   // Name should be at least 2 characters
