@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MessageSquare, Bot, User, AlertCircle } from 'lucide-react'
 import { GlobalKillSwitch } from '@/components/dashboard/kill-switch'
+import { OpenAIUsageCard } from '@/components/dashboard/openai-usage-card'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -122,96 +123,102 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sortedRecentConversations && sortedRecentConversations.length > 0 ? (
-              <div className="space-y-3">
-                {sortedRecentConversations.map((conv) => (
-                  <a
-                    key={conv.id}
-                    href={`/dashboard/conversations?id=${conv.id}`}
-                    className="flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent transition-colors"
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">
-                        {conv.customers?.name || 'Unknown Customer'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {conv.customers?.phone || 'No phone'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(conv.lastMessageTime).toLocaleString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className="text-xs text-muted-foreground capitalize">
-                        {conv.channel}
-                      </span>
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          conv.status === 'auto'
-                            ? 'bg-green-500'
-                            : conv.status === 'manual'
-                            ? 'bg-amber-500'
-                            : 'bg-red-500'
-                        }`}
-                      />
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No recent activity to display.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sortedRecentConversations && sortedRecentConversations.length > 0 ? (
+                <div className="space-y-3">
+                  {sortedRecentConversations.map((conv) => (
+                    <a
+                      key={conv.id}
+                      href={`/dashboard/conversations?id=${conv.id}`}
+                      className="flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent transition-colors"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">
+                          {conv.customers?.name || 'Unknown Customer'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {conv.customers?.phone || 'No phone'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(conv.lastMessageTime).toLocaleString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {conv.channel}
+                        </span>
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            conv.status === 'auto'
+                              ? 'bg-green-500'
+                              : conv.status === 'manual'
+                              ? 'bg-amber-500'
+                              : 'bg-red-500'
+                          }`}
+                        />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No recent activity to display.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
-            <a
-              href="/dashboard/conversations"
-              className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
-            >
-              <MessageSquare className="w-6 h-6 mx-auto mb-2" />
-              <p className="text-sm font-medium">View Chats</p>
-            </a>
-            <a
-              href="/dashboard/sandbox"
-              className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
-            >
-              <Bot className="w-6 h-6 mx-auto mb-2" />
-              <p className="text-sm font-medium">Test AI</p>
-            </a>
-            <a
-              href="/dashboard/pricing"
-              className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
-            >
-              <span className="text-2xl mx-auto mb-2 block">£</span>
-              <p className="text-sm font-medium">Pricing</p>
-            </a>
-            <a
-              href="/dashboard/settings"
-              className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
-            >
-              <span className="text-2xl mx-auto mb-2 block">⚙️</span>
-              <p className="text-sm font-medium">Settings</p>
-            </a>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3">
+              <a
+                href="/dashboard/conversations"
+                className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
+              >
+                <MessageSquare className="w-6 h-6 mx-auto mb-2" />
+                <p className="text-sm font-medium">View Chats</p>
+              </a>
+              <a
+                href="/dashboard/sandbox"
+                className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
+              >
+                <Bot className="w-6 h-6 mx-auto mb-2" />
+                <p className="text-sm font-medium">Test AI</p>
+              </a>
+              <a
+                href="/dashboard/pricing"
+                className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
+              >
+                <span className="text-2xl mx-auto mb-2 block">£</span>
+                <p className="text-sm font-medium">Pricing</p>
+              </a>
+              <a
+                href="/dashboard/settings"
+                className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
+              >
+                <span className="text-2xl mx-auto mb-2 block">⚙️</span>
+                <p className="text-sm font-medium">Settings</p>
+              </a>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <OpenAIUsageCard />
+        </div>
       </div>
     </div>
   )
