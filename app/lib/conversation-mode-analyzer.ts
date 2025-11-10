@@ -9,6 +9,18 @@ export function shouldSwitchToAutoMode(message: string): boolean {
   
   // Messages clearly directed at staff - STAY IN MANUAL MODE
   const manualPatterns = [
+    // Frustrated with AI - wants human
+    /ai\s+(failure|fail|useless|stupid|not\s+working|doesn't\s+understand)/i,
+    /(this|you|it)(\s+\w+)?\s+(is|are|isn't|isnt|not)\s+(useless|stupid|terrible|rubbish)/i,
+    /speak\s+to\s+(a\s+)?(human|person|someone|john|staff|owner)/i,
+    /talk\s+to\s+(a\s+)?(human|person|someone|john|staff|owner)/i,
+    /get\s+me\s+(a\s+)?(human|person|someone|john|staff|owner)/i,
+    /real\s+person/i,
+    /actual\s+person/i,
+    /not\s+helping/i,
+    /this\s+(isn't|isnt|is\s+not)\s+working/i,
+    
+    // Directed at staff
     /thanks?\s+(john|mate|boss|bro|buddy)/i,
     /thank\s+you\s+(john|mate|boss|bro|buddy)/i,
     /cheers?\s+(john|mate|boss|bro|buddy)/i,

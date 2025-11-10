@@ -106,7 +106,9 @@ export function quickSentimentCheck(message: string): SentimentAnalysis {
   // Frustrated keywords
   const frustratedKeywords = [
     'third time', 'second time', 'again', 'still waiting', 'still no',
-    'ridiculous', 'unacceptable', 'disappointed', 'frustrated'
+    'ridiculous', 'unacceptable', 'disappointed', 'frustrated',
+    'ai failure', 'ai fail', 'not helping', 'useless', 'doesn\'t understand',
+    'not working', 'this isn\'t working'
   ]
   
   // Angry keywords
