@@ -75,6 +75,23 @@ function isSimpleQuery(message) {
   return { isSimpleQuery: false, reason: 'Not a recognized simple query' }
 }
 
+function isAcknowledgment(message) {
+  const lowerMessage = message.toLowerCase().trim()
+  
+  const acknowledgmentPatterns = [
+    /^thanks?\s+(john|mate|boss|bro|buddy)[\s!.]*$/i,
+    /^thank\s+you\s+(john|mate|boss|bro|buddy)[\s!.]*$/i,
+    /^cheers?\s+(john|mate|boss|bro|buddy)[\s!.]*$/i,
+    /^(ok|okay|alright|cool|nice|great|perfect|brilliant|lovely|sound|sounds good)[\s!.]*$/i,
+    /^(thanks?|thank you|cheers?|ta)[\s!.]*$/i,
+    /^(bye|goodbye|see ya|cya|later)[\s!.]*$/i,
+    /^see\s+you\s+(soon|later|tomorrow|today)[\s!.]*$/i,
+    /^on\s+my\s+way[\s!.]*$/i,
+  ]
+  
+  return acknowledgmentPatterns.some(pattern => pattern.test(lowerMessage))
+}
+
 function shouldAIRespond(minutesSinceStaffMessage, message) {
   const PAUSE_DURATION_MINUTES = 30
   
@@ -82,6 +99,14 @@ function shouldAIRespond(minutesSinceStaffMessage, message) {
     return {
       shouldRespond: true,
       reason: `Staff replied ${minutesSinceStaffMessage.toFixed(0)} minutes ago - resuming full AI mode`
+    }
+  }
+  
+  // Check for acknowledgments first
+  if (isAcknowledgment(message)) {
+    return {
+      shouldRespond: false,
+      reason: 'Customer acknowledgment - no AI response needed'
     }
   }
   
@@ -103,7 +128,7 @@ function shouldAIRespond(minutesSinceStaffMessage, message) {
   }
 }
 
-console.log('\n=== Testing AI Pause After Staff Message ===\n')
+console.log('\n=== Testing AI Pause Logic ===\n')
 
 // Test cases
 const testCases = [
@@ -183,6 +208,58 @@ const testCases = [
     minutesSinceStaff: 45,
     expectedRespond: true,
     expectedType: null
+  },
+  
+  // Acknowledgments (should NOT respond during pause)
+  {
+    message: 'Thanks John',
+    minutesSinceStaff: 5,
+    expectedRespond: false,
+    expectedType: null
+  },
+  {
+    message: 'Thank you John!',
+    minutesSinceStaff: 10,
+    expectedRespond: false,
+    expectedType: null
+  },
+  {
+    message: 'Cheers mate',
+    minutesSinceStaff: 8,
+    expectedRespond: false,
+    expectedType: null
+  },
+  {
+    message: 'Ok',
+    minutesSinceStaff: 12,
+    expectedRespond: false,
+    expectedType: null
+  },
+  {
+    message: 'Perfect',
+    minutesSinceStaff: 7,
+    expectedRespond: false,
+    expectedType: null
+  },
+  {
+    message: 'See you soon',
+    minutesSinceStaff: 15,
+    expectedRespond: false,
+    expectedType: null
+  },
+  {
+    message: 'On my way',
+    minutesSinceStaff: 20,
+    expectedRespond: false,
+    expectedType: null
+  },
+  
+  // Acknowledgment with question (should respond to the question)
+  {
+    message: 'Thanks John! When are you open tomorrow?',
+    minutesSinceStaff: 10,
+    expectedRespond: true,
+    expectedType: 'hours'
   },
 ]
 
