@@ -3,6 +3,8 @@
  * Captures device details, repair status, pricing, and customer information
  */
 
+import { extractCustomerNameSmart } from './ai-name-extractor'
+
 export interface ExtractedInfo {
   customerName?: string
   deviceType?: string
@@ -18,31 +20,11 @@ export interface ExtractedInfo {
 }
 
 /**
- * Extract customer name from staff message
+ * Extract customer name from staff message (using AI + regex fallback)
  */
-function extractCustomerName(message: string): string | undefined {
-  const patterns = [
-    // "Hi Carol" or "Hello Carol"
-    /(?:hi|hello|hey)\s+([A-Z][a-z]+)/i,
-    // "Carol," at start
-    /^([A-Z][a-z]+),/,
-    // "for [name]"
-    /for\s+([A-Z][a-z]+)(?:\s|,|\.)/i,
-  ]
-  
-  for (const pattern of patterns) {
-    const match = message.match(pattern)
-    if (match && match[1]) {
-      const name = match[1]
-      // Filter out common words
-      const excludeWords = ['the', 'your', 'this', 'that', 'device', 'phone', 'repair']
-      if (!excludeWords.includes(name.toLowerCase())) {
-        return name
-      }
-    }
-  }
-  
-  return undefined
+async function extractCustomerName(message: string, apiKey?: string): Promise<string | undefined> {
+  const result = await extractCustomerNameSmart(message, apiKey)
+  return result.name || undefined
 }
 
 /**
@@ -212,10 +194,10 @@ function extractRepairStatus(message: string): {
 }
 
 /**
- * Main extraction function
+ * Main extraction function (now async to support AI name extraction)
  */
-export function extractStaffMessageInfo(message: string): ExtractedInfo {
-  const customerName = extractCustomerName(message)
+export async function extractStaffMessageInfo(message: string, apiKey?: string): Promise<ExtractedInfo> {
+  const customerName = await extractCustomerName(message, apiKey)
   const deviceInfo = extractDeviceInfo(message)
   const pricing = extractPricing(message)
   const statusInfo = extractRepairStatus(message)

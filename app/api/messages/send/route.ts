@@ -411,7 +411,14 @@ export async function POST(request: NextRequest) {
     if (detectedSender === 'staff' && shouldExtractFromMessage(text)) {
       console.log('[Staff Extraction] Extracting info from staff message...')
       
-      const extractedInfo = extractStaffMessageInfo(text)
+      // Get API key for AI name extraction
+      const { data: aiSettings } = await supabase
+        .from('ai_settings')
+        .select('api_key')
+        .eq('active', true)
+        .single()
+      
+      const extractedInfo = await extractStaffMessageInfo(text, aiSettings?.api_key)
       
       console.log('[Staff Extraction] Extracted:', {
         customerName: extractedInfo.customerName,
@@ -439,7 +446,7 @@ export async function POST(request: NextRequest) {
             price_final: extractedInfo.priceFinal,
             message_type: extractedInfo.messageType,
             extraction_confidence: extractedInfo.extractionConfidence,
-            extraction_method: 'pattern_matching',
+            extraction_method: aiSettings?.api_key ? 'ai_enhanced' : 'pattern_matching',
             raw_extracted_data: extractedInfo.rawData,
           })
         
@@ -448,6 +455,29 @@ export async function POST(request: NextRequest) {
           // Don't fail the request, just log the error
         } else {
           console.log('[Staff Extraction] ✅ Saved extraction with confidence:', extractedInfo.extractionConfidence)
+        }
+        
+        // Update customer name in customers table if we extracted one
+        if (extractedInfo.customerName) {
+          const { data: conversation } = await supabase
+            .from('conversations')
+            .select('customer_id')
+            .eq('id', actualConversationId)
+            .single()
+          
+          if (conversation?.customer_id) {
+            const { error: customerUpdateError } = await supabase
+              .from('customers')
+              .update({ name: extractedInfo.customerName })
+              .eq('id', conversation.customer_id)
+              .is('name', null) // Only update if name is currently null
+            
+            if (customerUpdateError) {
+              console.error('[Staff Extraction] Failed to update customer name:', customerUpdateError)
+            } else {
+              console.log('[Staff Extraction] ✅ Updated customer name:', extractedInfo.customerName)
+            }
+          }
         }
       } else {
         console.log('[Staff Extraction] ⚠️  Confidence too low, not saving:', extractedInfo.extractionConfidence)
