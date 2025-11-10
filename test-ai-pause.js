@@ -78,6 +78,22 @@ function isSimpleQuery(message) {
 function isAcknowledgment(message) {
   const lowerMessage = message.toLowerCase().trim()
   
+  // If message contains a question mark, it's NOT just an acknowledgment
+  if (lowerMessage.includes('?')) {
+    return false
+  }
+  
+  // If message is longer than 50 characters, likely has additional content
+  if (lowerMessage.length > 50) {
+    return false
+  }
+  
+  // If message contains question words, it's NOT just an acknowledgment
+  const questionWords = ['how', 'what', 'when', 'where', 'why', 'which', 'who', 'much', 'many', 'owe']
+  if (questionWords.some(word => lowerMessage.includes(word))) {
+    return false
+  }
+  
   const acknowledgmentPatterns = [
     /^thanks?\s+(john|mate|boss|bro|buddy)[\s!.]*$/i,
     /^thank\s+you\s+(john|mate|boss|bro|buddy)[\s!.]*$/i,
@@ -260,6 +276,14 @@ const testCases = [
     minutesSinceStaff: 10,
     expectedRespond: true,
     expectedType: 'hours'
+  },
+  
+  // Real-world case: "Thank you John, I will collect during the week. How much do I owe you?"
+  {
+    message: 'Thank you John, I will collect during the week. How much do I owe you?',
+    minutesSinceStaff: 5,
+    expectedRespond: false, // Complex pricing question - wait for staff
+    expectedType: null
   },
 ]
 

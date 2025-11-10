@@ -127,12 +127,30 @@ export function isSimpleQuery(message: string): SimpleQueryResult {
 /**
  * Check if message is just an acknowledgment (thanks, ok, bye, etc.)
  * These don't need AI responses when staff has recently replied
+ * 
+ * IMPORTANT: Only returns true for PURE acknowledgments (no questions or additional content)
  */
 function isAcknowledgment(message: string): boolean {
   const lowerMessage = message.toLowerCase().trim()
   
+  // If message contains a question mark, it's NOT just an acknowledgment
+  if (lowerMessage.includes('?')) {
+    return false
+  }
+  
+  // If message is longer than 50 characters, likely has additional content
+  if (lowerMessage.length > 50) {
+    return false
+  }
+  
+  // If message contains question words, it's NOT just an acknowledgment
+  const questionWords = ['how', 'what', 'when', 'where', 'why', 'which', 'who', 'much', 'many', 'owe']
+  if (questionWords.some(word => lowerMessage.includes(word))) {
+    return false
+  }
+  
   const acknowledgmentPatterns = [
-    // Thanks to John
+    // Thanks to John (pure acknowledgment only)
     /^thanks?\s+(john|mate|boss|bro|buddy)[\s!.]*$/i,
     /^thank\s+you\s+(john|mate|boss|bro|buddy)[\s!.]*$/i,
     /^cheers?\s+(john|mate|boss|bro|buddy)[\s!.]*$/i,
@@ -186,7 +204,16 @@ export function shouldAIRespond(minutesSinceStaffMessage: number, message: strin
   
   // Check if it's just an acknowledgment (thanks John, ok, bye, etc.)
   // These don't need AI responses - customer is just acknowledging staff
-  if (isAcknowledgment(message)) {
+  const isAck = isAcknowledgment(message)
+  console.log('[AI Pause] Acknowledgment check:', {
+    message: message.substring(0, 100),
+    isAcknowledgment: isAck,
+    hasQuestionMark: message.includes('?'),
+    length: message.length,
+    hasQuestionWords: ['how', 'what', 'when', 'where', 'why', 'which', 'who', 'much', 'many', 'owe'].some(w => message.toLowerCase().includes(w))
+  })
+  
+  if (isAck) {
     return {
       shouldRespond: false,
       reason: 'Customer acknowledgment - no AI response needed'
