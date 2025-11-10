@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatRelativeTime } from '@/lib/utils'
-import { MessageSquare, Phone, User } from 'lucide-react'
+import { MessageSquare, Phone, User, AlertTriangle, AlertCircle } from 'lucide-react'
 import { ConversationDialog } from './conversation-dialog'
 
 type Conversation = {
@@ -14,6 +14,9 @@ type Conversation = {
   channel: string
   status: string
   updated_at: string
+  last_sentiment?: string | null
+  last_urgency?: string | null
+  requires_urgent_attention?: boolean
   customer: {
     name: string | null
     phone: string | null
@@ -166,6 +169,15 @@ export function ConversationList({ conversations: initialConversations }: { conv
                         <Badge className={getStatusColor(conversation.status)}>
                           {conversation.status}
                         </Badge>
+                        {conversation.requires_urgent_attention && (
+                          <Badge variant="destructive" className="flex items-center gap-1">
+                            {conversation.last_sentiment === 'angry' ? (
+                              <><AlertCircle className="w-3 h-3" /> Angry</>
+                            ) : (
+                              <><AlertTriangle className="w-3 h-3" /> Frustrated</>
+                            )}
+                          </Badge>
+                        )}
                       </div>
                       
                       {conversation.customer?.phone && (

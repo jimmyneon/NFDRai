@@ -13,6 +13,7 @@ import { sendAlertNotification, shouldSendNotification } from '@/app/lib/alert-n
 import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-extractor'
 import { shouldAIRespond } from '@/app/lib/simple-query-detector'
+import { analyzeSentimentSmart } from '@/app/lib/sentiment-analyzer'
 
 /**
  * Calculate similarity between two strings (0 = completely different, 1 = identical)
@@ -430,6 +431,10 @@ export async function POST(request: NextRequest) {
     }
     
     console.log(`[Message Processing] Customer message inserted successfully`)
+
+    // Analyze sentiment of customer message (async, don't wait)
+    analyzeSentimentAsync(message, conversation.id, supabase)
+      .catch((err: unknown) => console.error('[Sentiment Analysis] Error:', err))
 
     // CRITICAL: Check if AI just sent a message (within last 2 seconds)
     // BUT only skip if customer message is very short/vague (not a real answer)
@@ -868,5 +873,90 @@ export async function POST(request: NextRequest) {
         },
       }
     )
+  }
+}
+
+/**
+ * Analyze sentiment of customer message (async, non-blocking)
+ */
+async function analyzeSentimentAsync(
+  message: string,
+  conversationId: string,
+  supabase: any
+): Promise<void> {
+  try {
+    console.log('[Sentiment Analysis] Analyzing message...')
+    
+    // Get API key for AI analysis
+    const { data: aiSettings } = await supabase
+      .from('ai_settings')
+      .select('api_key')
+      .eq('active', true)
+      .single()
+    
+    // Analyze sentiment
+    const sentiment = await analyzeSentimentSmart(message, aiSettings?.api_key)
+    
+    console.log('[Sentiment Analysis] Result:', {
+      sentiment: sentiment.sentiment,
+      urgency: sentiment.urgency,
+      confidence: sentiment.confidence,
+      requiresAttention: sentiment.requiresStaffAttention
+    })
+    
+    // Get the message ID we just inserted
+    const { data: messageData } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('sender', 'customer')
+      .eq('text', message)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (!messageData) {
+      console.error('[Sentiment Analysis] Could not find message ID')
+      return
+    }
+    
+    // Save sentiment analysis
+    const { error: insertError } = await supabase
+      .from('sentiment_analysis')
+      .insert({
+        message_id: messageData.id,
+        conversation_id: conversationId,
+        sentiment: sentiment.sentiment,
+        urgency: sentiment.urgency,
+        confidence: sentiment.confidence,
+        reasoning: sentiment.reasoning,
+        keywords: sentiment.keywords || [],
+        requires_staff_attention: sentiment.requiresStaffAttention,
+        analysis_method: sentiment.confidence >= 0.7 ? 'regex' : 'ai'
+      })
+    
+    if (insertError) {
+      console.error('[Sentiment Analysis] Failed to save:', insertError)
+      return
+    }
+    
+    console.log('[Sentiment Analysis] ✅ Saved successfully')
+    
+    // If requires urgent attention, send alert
+    if (sentiment.requiresStaffAttention) {
+      console.log('[Sentiment Analysis] 🚨 Urgent attention required - sending alert')
+      
+      await supabase
+        .from('alerts')
+        .insert({
+          conversation_id: conversationId,
+          type: sentiment.sentiment === 'angry' ? 'urgent' : 'manual_required',
+          notified_to: 'admin',
+          message: `Customer is ${sentiment.sentiment} (${sentiment.urgency} urgency): ${sentiment.reasoning}`
+        })
+    }
+  } catch (error) {
+    console.error('[Sentiment Analysis] Error:', error)
+    // Don't throw - sentiment analysis is non-critical
   }
 }
