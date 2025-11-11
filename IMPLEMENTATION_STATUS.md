@@ -19,23 +19,28 @@
 
 ---
 
-### Phase 2: Integration Prep (50% Complete)
+### Phase 2: Incoming Handler Integration (100% Complete) ✅
 - ✅ Updated imports in `app/api/messages/incoming/route.ts`
 - ✅ Removed old analyzer imports
 - ✅ Added unified analyzer and module selector imports
 - ✅ Created detailed implementation plan (`PHASE_2_CHANGES.md`)
-- ⏳ Need to implement 5 code changes in incoming handler
+- ✅ Implemented all 5 code changes in incoming handler
+- ✅ Run unified analyzer early with mode decisions
+- ✅ Removed context check section
+- ✅ Added module selection
+- ✅ Removed name extraction section
+- ✅ Replaced analyzeSentimentAsync with saveAnalysisAsync
 
 **Files Modified:**
-- `app/api/messages/incoming/route.ts` (imports only)
+- `app/api/messages/incoming/route.ts` (complete integration)
 
-**Commit:** 4cd2ae0
+**Commits:** 4cd2ae0, 449a671
 
 ---
 
 ## 🔄 IN PROGRESS
 
-### Phase 2: Incoming Handler Integration (50% Remaining)
+### Phase 3: Update Response Generator (0% → Starting)
 
 **Remaining Changes:**
 
@@ -105,7 +110,7 @@
 | Phase 5 | ⏳ Pending | 0% | - | - |
 | Phase 6 | ⏳ Pending | 0% | 3 | - |
 
-**Overall Progress:** 25% Complete
+**Overall Progress:** 50% Complete
 
 ---
 
