@@ -162,7 +162,10 @@ export function isLikelyValidName(name: string): boolean {
     // Device-related
     'iphone', 'samsung', 'galaxy', 'ipad', 'macbook', 'laptop', 'device',
     // Random words
-    'ready', 'quote', 'price', 'cost', 'fixed', 'done', 'finished'
+    'ready', 'quote', 'price', 'cost', 'fixed', 'done', 'finished',
+    // Availability/status words (NOT names)
+    'away', 'out', 'busy', 'unavailable', 'available', 'free', 'off', 'working',
+    'late', 'early', 'soon', 'later', 'tomorrow', 'today', 'tonight', 'now'
   ]
   
   // Name should be at least 2 characters

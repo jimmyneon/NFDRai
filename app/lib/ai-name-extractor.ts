@@ -43,6 +43,7 @@ RULES:
 5. Return ONLY the first name (not "John" from "John (Owner)")
 6. Return null if no customer name found
 7. Ignore "John" if it refers to the staff member
+8. NEVER extract status/availability words as names: "away", "out", "busy", "unavailable", "late", "free", "off", "working"
 
 OUTPUT FORMAT (JSON only):
 {
@@ -58,6 +59,7 @@ EXAMPLES:
 "Your phone is ready" → {"name": null, "confidence": 0.0, "reasoning": "No name found"}
 "Many thanks, John" → {"name": null, "confidence": 0.0, "reasoning": "John is staff, not customer"}
 "Hi there, your phone is ready" → {"name": null, "confidence": 0.0, "reasoning": "No name found"}
+"I am away until tomorrow" → {"name": null, "confidence": 0.0, "reasoning": "Away is status, not a name"}
 `
         },
         {
@@ -108,7 +110,10 @@ export function extractNameWithRegex(message: string): AIExtractedName {
   const excludeWords = [
     'the', 'your', 'this', 'that', 'device', 'phone', 'repair', 'iphone',
     'samsung', 'screen', 'battery', 'many', 'thanks', 'john', 'ready',
-    'quote', 'price', 'cost', 'fixed', 'broken', 'cracked', 'there'
+    'quote', 'price', 'cost', 'fixed', 'broken', 'cracked', 'there',
+    // Status/availability words (NOT names)
+    'away', 'out', 'busy', 'unavailable', 'available', 'free', 'off', 'working',
+    'late', 'early', 'soon', 'later', 'tomorrow', 'today', 'tonight', 'now'
   ]
   
   for (const { pattern, confidence } of patterns) {
