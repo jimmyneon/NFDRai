@@ -11,10 +11,10 @@ import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id
+    const { id: conversationId } = await params
     const supabase = await createClient()
 
     // Get conversation and verify it exists
