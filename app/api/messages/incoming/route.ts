@@ -12,7 +12,7 @@ import { isAutoresponder, getAutoresponderReason } from '@/app/lib/autoresponder
 import { sendAlertNotification, shouldSendNotification } from '@/app/lib/alert-notifier'
 import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-extractor'
-import { shouldAIRespond } from '@/app/lib/simple-query-detector'
+import { shouldAIRespond, isSimpleQuery } from '@/app/lib/simple-query-detector'
 import { analyzeSentimentSmart } from '@/app/lib/sentiment-analyzer'
 import { checkContextConfidence } from '@/app/lib/context-confidence-checker'
 
@@ -549,6 +549,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Track if we just switched to auto mode (to skip blocking checks)
+    let justSwitchedToAuto = false
+
     // Check if conversation is in manual mode
     if (conversation.status !== 'auto') {
       // Check if staff has manually replied in this conversation
@@ -595,6 +598,10 @@ export async function POST(request: NextRequest) {
             .eq('id', conversation.id)
           
           console.log('[Smart Mode] ✅ Switched to auto mode -', reason)
+          
+          // Set flag to skip blocking checks since we just switched to auto
+          // This ensures AI responds to the message that triggered the switch
+          justSwitchedToAuto = true
           
           // Continue to AI response generation below
           // Don't return here - let the AI handle the message
@@ -664,6 +671,8 @@ export async function POST(request: NextRequest) {
 
     // Check if staff has recently replied
     // If staff replied within last 30 minutes, only respond to simple queries (hours, directions, etc)
+    // UNLESS we just switched to auto mode (then always respond)
+    
     const { data: recentMessages } = await supabase
       .from('messages')
       .select('sender, created_at')
@@ -675,7 +684,7 @@ export async function POST(request: NextRequest) {
       (msg) => msg.sender === 'staff'
     )
 
-    if (recentStaffMessage) {
+    if (recentStaffMessage && !justSwitchedToAuto) {
       const minutesSinceStaffMessage = 
         (Date.now() - new Date(recentStaffMessage.created_at).getTime()) / 1000 / 60
 
@@ -709,55 +718,64 @@ export async function POST(request: NextRequest) {
       
       // AI can respond - either it's been 30+ minutes or it's a simple query
       console.log('[Staff Activity Check] ✅ AI will respond:', aiResponseDecision.reason)
+    } else if (justSwitchedToAuto) {
+      console.log('[Staff Activity Check] ✅ Just switched to auto mode - AI will respond')
     }
 
     // CONTEXT CONFIDENCE CHECK: Does this message make sense to respond to?
-    console.log('[Context Check] Checking if message makes sense in context...')
-    const { data: contextMessages } = await supabase
-      .from('messages')
-      .select('sender, text')
-      .eq('conversation_id', conversation.id)
-      .order('created_at', { ascending: false })
-      .limit(5)
+    // SKIP if we just switched to auto mode OR if it's a simple query
+    const skipContextCheck = justSwitchedToAuto || isSimpleQuery(message).isSimpleQuery
     
-    // Get API key for AI context check
-    const { data: aiSettings } = await supabase
-      .from('ai_settings')
-      .select('api_key')
-      .eq('active', true)
-      .single()
-    
-    const contextCheck = await checkContextConfidence(
-      messageToProcess,
-      contextMessages || [],
-      aiSettings?.api_key
-    )
-    
-    if (!contextCheck.shouldRespond) {
-      console.log('[Context Check] ❌ Should NOT respond:', contextCheck.reasoning)
-      console.log('[Context Check] Creating alert for manual attention...')
+    if (!skipContextCheck) {
+      console.log('[Context Check] Checking if message makes sense in context...')
+      const { data: contextMessages } = await supabase
+        .from('messages')
+        .select('sender, text')
+        .eq('conversation_id', conversation.id)
+        .order('created_at', { ascending: false })
+        .limit(5)
       
-      // Create alert for staff to handle
-      await supabaseService.from('alerts').insert({
-        conversation_id: conversation.id,
-        type: 'manual_required',
-        notified_to: 'admin',
-        message: `Context unclear: ${contextCheck.reasoning}`,
-      })
+      // Get API key for AI context check
+      const { data: aiSettings } = await supabase
+        .from('ai_settings')
+        .select('api_key')
+        .eq('active', true)
+        .single()
       
-      return NextResponse.json({
-        success: true,
-        mode: 'context_unclear',
-        message: contextCheck.reasoning,
-        confidence: contextCheck.confidence,
-      }, {
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-      })
+      const contextCheck = await checkContextConfidence(
+        messageToProcess,
+        contextMessages || [],
+        aiSettings?.api_key
+      )
+      
+      if (!contextCheck.shouldRespond) {
+        console.log('[Context Check] ❌ Should NOT respond:', contextCheck.reasoning)
+        console.log('[Context Check] Creating alert for manual attention...')
+        
+        // Create alert for staff to handle
+        await supabaseService.from('alerts').insert({
+          conversation_id: conversation.id,
+          type: 'manual_required',
+          notified_to: 'admin',
+          message: `Context unclear: ${contextCheck.reasoning}`,
+        })
+        
+        return NextResponse.json({
+          success: true,
+          mode: 'context_unclear',
+          message: contextCheck.reasoning,
+          confidence: contextCheck.confidence,
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        })
+      }
+      
+      console.log('[Context Check] ✅ Context OK, proceeding with AI response')
+    } else {
+      console.log('[Context Check] ⏭️  Skipped - just switched to auto mode or simple query')
     }
-    
-    console.log('[Context Check] ✅ Context OK, proceeding with AI response')
 
     // Generate AI response with smart state-aware generator (using batched message if applicable)
     console.log('[Smart AI] Generating response with state awareness...')

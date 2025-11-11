@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/use-toast'
 import { formatDate } from '@/lib/utils'
-import { User, Bot, UserCog, Check, CheckCheck, Ban, Unlock } from 'lucide-react'
+import { User, Bot, UserCog, Check, CheckCheck, Ban, Unlock, RefreshCw } from 'lucide-react'
 
 type Message = {
   id: string
@@ -273,6 +273,35 @@ export function ConversationDialog({
     setLoading(false)
   }
 
+  const handleRetryAI = async () => {
+    setLoading(true)
+    
+    try {
+      const response = await fetch(`/api/conversations/${conversation.id}/retry-ai`, {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to retry AI')
+      }
+
+      toast({
+        title: 'Success',
+        description: `AI sent ${data.responsesCount} message(s)`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to retry AI',
+        variant: 'destructive',
+      })
+    }
+    
+    setLoading(false)
+  }
+
   const handleAddNote = async () => {
     if (!staffNote.trim()) return
 
@@ -407,13 +436,25 @@ export function ConversationDialog({
                   Unblock AI
                 </Button>
               ) : conversation.status === 'auto' ? (
-                <Button onClick={handleTakeOver} disabled={loading} className="flex-1">
-                  Take Over (Manual Mode)
-                </Button>
+                <>
+                  <Button onClick={handleRetryAI} disabled={loading} variant="outline" className="flex-1">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry with AI
+                  </Button>
+                  <Button onClick={handleTakeOver} disabled={loading} className="flex-1">
+                    Take Over (Manual Mode)
+                  </Button>
+                </>
               ) : (
-                <Button onClick={handleResume} disabled={loading} className="flex-1">
-                  Resume Auto Mode
-                </Button>
+                <>
+                  <Button onClick={handleRetryAI} disabled={loading} variant="outline" className="flex-1">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry with AI
+                  </Button>
+                  <Button onClick={handleResume} disabled={loading} className="flex-1">
+                    Resume Auto Mode
+                  </Button>
+                </>
               )}
             </div>
             {conversation.status !== 'blocked' && (
