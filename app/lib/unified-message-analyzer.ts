@@ -23,8 +23,15 @@ export interface UnifiedAnalysis {
   sentimentKeywords: string[]
   
   // Intent
-  intent: 'question' | 'complaint' | 'booking' | 'status_check' | 'greeting' | 'acknowledgment' | 'unclear'
+  intent: 'question' | 'complaint' | 'booking' | 'status_check' | 'greeting' | 'acknowledgment' | 'device_issue' | 'buyback' | 'purchase' | 'unclear'
   intentConfidence: number
+  
+  // Content Type (NEW!)
+  contentType: 'pricing' | 'business_hours' | 'location' | 'services' | 'warranty' |
+               'troubleshooting' | 'water_damage' | 'battery_issue' | 'screen_damage' |
+               'camera_issue' | 'charging_issue' | 'software_issue' |
+               'device_sale' | 'device_purchase' | 'appointment' | 'repair_status' |
+               'introduction' | 'acknowledgment' | 'dissatisfaction' | 'unclear'
   
   // Context
   shouldAIRespond: boolean
@@ -68,6 +75,7 @@ export function quickAnalysis(
         sentimentKeywords: [],
         intent: 'acknowledgment',
         intentConfidence: 0.9,
+        contentType: 'acknowledgment',
         shouldAIRespond: false,
         contextConfidence: 0.9,
         isDirectedAtAI: false,
@@ -95,6 +103,7 @@ export function quickAnalysis(
       sentimentKeywords: frustrationKeywords.filter(kw => lowerMessage.includes(kw)),
       intent: 'complaint',
       intentConfidence: 0.8,
+      contentType: 'dissatisfaction',
       shouldAIRespond: false,
       contextConfidence: 0.9,
       isDirectedAtAI: true,
@@ -120,6 +129,7 @@ export function quickAnalysis(
       sentimentKeywords: angerKeywords.filter(kw => lowerMessage.includes(kw)),
       intent: 'complaint',
       intentConfidence: 0.9,
+      contentType: 'dissatisfaction',
       shouldAIRespond: false,
       contextConfidence: 0.95,
       isDirectedAtAI: true,
@@ -146,6 +156,7 @@ export function quickAnalysis(
         sentimentKeywords: [],
         intent: 'unclear',
         intentConfidence: 0.5,
+        contentType: 'unclear',
         shouldAIRespond: false,
         contextConfidence: 0.85,
         isDirectedAtAI: false,
@@ -168,6 +179,18 @@ export function quickAnalysis(
   
   for (const pattern of simpleQuestionPatterns) {
     if (pattern.test(message)) {
+      // Detect content type from pattern
+      let contentType: UnifiedAnalysis['contentType'] = 'unclear'
+      if (/when (are|do) you (open|close)|what (time|are your hours)/i.test(message)) {
+        contentType = 'business_hours'
+      } else if (/where are you|location|address/i.test(message)) {
+        contentType = 'location'
+      } else if (/how much/i.test(message)) {
+        contentType = 'pricing'
+      } else if (/do you (fix|repair|do)/i.test(message)) {
+        contentType = 'services'
+      }
+      
       return {
         sentiment: 'neutral',
         urgency: 'low',
@@ -175,6 +198,7 @@ export function quickAnalysis(
         sentimentKeywords: [],
         intent: 'question',
         intentConfidence: 0.85,
+        contentType,
         shouldAIRespond: true,
         contextConfidence: 0.85,
         isDirectedAtAI: true,
@@ -241,15 +265,24 @@ ANALYZE THE FOLLOWING:
    - status_check: Checking on existing repair
    - greeting: Introducing themselves
    - acknowledgment: Simple "ok", "thanks", etc.
+   - device_issue: Technical problem with device
+   - buyback: Wants to sell device
+   - purchase: Wants to buy device
    - unclear: Can't determine intent
 
-4. CONTEXT CONFIDENCE:
+4. CONTENT TYPE (specific topic):
+   Questions: pricing, business_hours, location, services, warranty
+   Device Issues: troubleshooting, water_damage, battery_issue, screen_damage, camera_issue, charging_issue, software_issue
+   Transactions: device_sale, device_purchase, appointment, repair_status
+   Communication: introduction, acknowledgment, dissatisfaction, unclear
+
+5. CONTEXT CONFIDENCE:
    - Is message directed at AI or at a physical person?
    - Does message make sense in context?
    - Would AI response be helpful or confusing?
    - Should AI respond or stay silent?
 
-5. NAME EXTRACTION:
+6. NAME EXTRACTION:
    - Is customer introducing themselves? ("Hi, I'm Carol", "This is Mike", "Carol here")
    - Extract ONLY first name if present
    - Don't extract staff names (John)
@@ -260,8 +293,9 @@ OUTPUT FORMAT (JSON only, no markdown):
   "urgency": "low|medium|high|critical",
   "requiresStaffAttention": true|false,
   "sentimentKeywords": ["keyword1", "keyword2"],
-  "intent": "question|complaint|booking|status_check|greeting|acknowledgment|unclear",
+  "intent": "question|complaint|booking|status_check|greeting|acknowledgment|device_issue|buyback|purchase|unclear",
   "intentConfidence": 0.0-1.0,
+  "contentType": "pricing|business_hours|location|services|warranty|troubleshooting|water_damage|battery_issue|screen_damage|camera_issue|charging_issue|software_issue|device_sale|device_purchase|appointment|repair_status|introduction|acknowledgment|dissatisfaction|unclear",
   "shouldAIRespond": true|false,
   "contextConfidence": 0.0-1.0,
   "isDirectedAtAI": true|false,
@@ -303,6 +337,7 @@ OUTPUT FORMAT (JSON only, no markdown):
       sentimentKeywords: [],
       intent: 'unclear',
       intentConfidence: 0.3,
+      contentType: 'unclear',
       shouldAIRespond: false,
       contextConfidence: 0.3,
       isDirectedAtAI: true,
@@ -345,6 +380,7 @@ export async function analyzeMessage(
       sentimentKeywords: [],
       intent: 'unclear',
       intentConfidence: 0.5,
+      contentType: 'unclear',
       shouldAIRespond: false,
       contextConfidence: 0.5,
       isDirectedAtAI: true,
