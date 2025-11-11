@@ -316,25 +316,32 @@ export async function generateSmartResponse(
     hasAIInRecent: messages.some(m => m.sender === 'ai')
   })
   
-  if (isFirstAIMessage) {
-    // Add AI disclosure to first message only (with line breaks for readability)
-    const disclosure = "Hi! I'm AI Steve, your automated assistant for New Forest Device Repairs.\n\nI can help with pricing, bookings, and questions.\n\n"
-    
-    console.log('[AI Disclosure] Adding disclosure to first message')
-    
-    // If response starts with a greeting, replace it; otherwise prepend
-    if (finalResponse.match(/^(hi|hello|hey)/i)) {
-      finalResponse = disclosure + finalResponse.replace(/^(hi|hello|hey)[!,.\s]*/i, '')
-    } else {
-      finalResponse = disclosure + finalResponse
-    }
-  }
-
   // FORCE sign-off if not present (critical for message tracking)
   const signOff = "Many Thanks,\nAI Steve,\nNew Forest Device Repairs"
   if (!finalResponse.toLowerCase().includes('many thanks')) {
     // Add sign-off to end of response with proper spacing
     finalResponse = finalResponse.trim() + '\n\n' + signOff
+  }
+
+  // CRITICAL: If first AI message, send disclosure as SEPARATE message using |||
+  // This ensures disclosure is always its own message, not appended to response
+  if (isFirstAIMessage) {
+    const disclosure = "Hi! I'm AI Steve, your automated assistant for New Forest Device Repairs.\n\nI can help with pricing, bookings, and questions.\n\n" + signOff
+    
+    console.log('[AI Disclosure] Sending disclosure as SEPARATE message (using |||)')
+    
+    // Remove any greeting from the main response since disclosure has one
+    if (finalResponse.match(/^(hi|hello|hey)/i)) {
+      finalResponse = finalResponse.replace(/^(hi|hello|hey)[!,.\s]*/i, '').trim()
+      // Re-add sign-off if it was removed
+      if (!finalResponse.toLowerCase().includes('many thanks')) {
+        finalResponse = finalResponse + '\n\n' + signOff
+      }
+    }
+    
+    // ALWAYS send disclosure as first message, then main response
+    // Use ||| to split into separate messages
+    finalResponse = disclosure + '|||' + finalResponse
   }
 
   const responses = finalResponse.includes('|||')
