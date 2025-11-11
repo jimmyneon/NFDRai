@@ -110,7 +110,7 @@
 | Phase 5 | ⏳ Pending | 0% | - | - |
 | Phase 6 | ⏳ Pending | 0% | 3 | - |
 
-**Overall Progress:** 50% Complete
+**Overall Progress:** 75% Complete
 
 ---
 
