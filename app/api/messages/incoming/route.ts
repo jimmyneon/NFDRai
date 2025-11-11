@@ -12,6 +12,7 @@ import { isAutoresponder, getAutoresponderReason } from '@/app/lib/autoresponder
 import { sendAlertNotification, shouldSendNotification } from '@/app/lib/alert-notifier'
 import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-extractor'
+import { extractCustomerNameSmart } from '@/app/lib/ai-name-extractor'
 import { shouldAIRespond, isSimpleQuery } from '@/app/lib/simple-query-detector'
 import { analyzeSentimentSmart } from '@/app/lib/sentiment-analyzer'
 import { checkContextConfidence } from '@/app/lib/context-confidence-checker'
@@ -831,6 +832,34 @@ export async function POST(request: NextRequest) {
     })
     
     console.log(`[AI Response] After deduplication: ${uniqueResponses.length} unique message(s)`)
+    
+    // Extract customer name from AI's first response (e.g., "Hi Carol, your phone is ready")
+    if (uniqueResponses.length > 0 && (!customer.name || customer.name === 'Unknown Customer')) {
+      const { data: aiSettings } = await supabase
+        .from('ai_settings')
+        .select('api_key')
+        .eq('active', true)
+        .single()
+      
+      const extractedName = await extractCustomerNameSmart(uniqueResponses[0], aiSettings?.api_key)
+      
+      if (extractedName.name && isLikelyValidName(extractedName.name)) {
+        console.log('[AI Name Extraction] Found customer name in AI response:', extractedName.name, `(confidence: ${extractedName.confidence})`)
+        
+        // Update customer name in database
+        const { error: nameUpdateError } = await supabase
+          .from('customers')
+          .update({ name: extractedName.name })
+          .eq('id', customer.id)
+        
+        if (!nameUpdateError) {
+          console.log('[AI Name Extraction] ✅ Updated customer name to:', extractedName.name)
+          customer.name = extractedName.name // Update local object
+        } else {
+          console.error('[AI Name Extraction] ❌ Failed to update customer name:', nameUpdateError)
+        }
+      }
+    }
     
     for (let i = 0; i < uniqueResponses.length; i++) {
       const messageText = uniqueResponses[i]

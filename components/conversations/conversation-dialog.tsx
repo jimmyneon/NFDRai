@@ -348,9 +348,18 @@ export function ConversationDialog({
               <span>{conversation.customer?.name || 'Unknown Customer'}</span>
               <span className="text-xs text-muted-foreground">(v2)</span>
             </div>
-            <Badge variant={conversationStatus === 'auto' ? 'default' : 'secondary'}>
-              {conversationStatus === 'auto' ? '🤖 AI Mode' : '👨‍💼 Manual Mode'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {conversationStatus === 'blocked' ? (
+                <Badge variant="destructive" className="flex items-center gap-1">
+                  <Ban className="w-3 h-3" />
+                  AI Blocked
+                </Badge>
+              ) : (
+                <Badge variant={conversationStatus === 'auto' ? 'default' : 'secondary'}>
+                  {conversationStatus === 'auto' ? '🤖 AI Mode' : '👨‍💼 Manual Mode'}
+                </Badge>
+              )}
+            </div>
           </DialogTitle>
         </DialogHeader>
 

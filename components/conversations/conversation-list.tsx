@@ -178,7 +178,11 @@ export function ConversationList({ conversations: initialConversations }: { conv
                         <h3 className="font-semibold truncate">
                           {conversation.customer?.name || 'Unknown Customer'}
                         </h3>
-                        <Badge className={getStatusColor(conversation.status)}>
+                        <Badge 
+                          className={getStatusColor(conversation.status)}
+                          variant={conversation.status === 'blocked' ? 'destructive' : 'default'}
+                        >
+                          {conversation.status === 'blocked' && '🚫 '}
                           {conversation.status}
                         </Badge>
                         {conversation.requires_urgent_attention && (

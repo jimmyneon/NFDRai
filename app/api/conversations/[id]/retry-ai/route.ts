@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateSmartResponse } from '@/lib/ai/smart-response-generator'
 import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
+import { extractCustomerNameSmart } from '@/app/lib/ai-name-extractor'
+import { isLikelyValidName } from '@/app/lib/customer-name-extractor'
 
 /**
  * POST /api/conversations/[id]/retry-ai
@@ -64,6 +66,28 @@ export async function POST(
       confidence: aiResult.confidence,
       responsesCount: aiResult.responses.length,
     })
+
+    // Extract customer name from AI's first response if customer doesn't have a name
+    if (aiResult.responses.length > 0 && (!conversation.customer.name || conversation.customer.name === 'Unknown Customer')) {
+      const { data: aiSettings } = await supabase
+        .from('ai_settings')
+        .select('api_key')
+        .eq('active', true)
+        .single()
+      
+      const extractedName = await extractCustomerNameSmart(aiResult.responses[0], aiSettings?.api_key)
+      
+      if (extractedName.name && isLikelyValidName(extractedName.name)) {
+        console.log('[Manual AI Retry] Found customer name:', extractedName.name)
+        
+        await supabase
+          .from('customers')
+          .update({ name: extractedName.name })
+          .eq('id', conversation.customer.id)
+        
+        console.log('[Manual AI Retry] ✅ Updated customer name to:', extractedName.name)
+      }
+    }
 
     // Send each response
     for (let i = 0; i < aiResult.responses.length; i++) {
