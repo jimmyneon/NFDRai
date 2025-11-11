@@ -407,11 +407,11 @@ export async function POST(request: NextRequest) {
     console.log(`[Message Processing] Inserting customer message: "${message.substring(0, 50)}..."`)
     
     // Insert customer message
-    const { error: insertError } = await supabase.from('messages').insert({
+    const { error: insertError, data: insertedMessage } = await supabase.from('messages').insert({
       conversation_id: conversation.id,
       sender: 'customer',
       text: message,
-    })
+    }).select('id').single()
     
     if (insertError) {
       console.error('[Message Processing] Failed to insert customer message:', insertError)
@@ -431,11 +431,8 @@ export async function POST(request: NextRequest) {
       throw insertError
     }
     
-    console.log(`[Message Processing] Customer message inserted successfully`)
-
-    // Analyze sentiment of customer message (async, don't wait)
-    analyzeSentimentAsync(message, conversation.id, supabase)
-      .catch((err: unknown) => console.error('[Sentiment Analysis] Error:', err))
+    const messageId = insertedMessage?.id
+    console.log(`[Message Processing] Customer message inserted successfully (ID: ${messageId})`)
 
     // CRITICAL: Check if AI just sent a message (within last 2 seconds)
     // BUT only skip if customer message is very short/vague (not a real answer)
@@ -509,6 +506,105 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json; charset=utf-8',
         },
       })
+    }
+
+    // ============================================================================
+    // UNIFIED MESSAGE ANALYSIS (Sentiment + Intent + Context + Name Extraction)
+    // ============================================================================
+    console.log('[Unified Analysis] Analyzing customer message...')
+    
+    // Get recent messages for context
+    const { data: contextMessages } = await supabase
+      .from('messages')
+      .select('sender, text')
+      .eq('conversation_id', conversation.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+    
+    // Get API key for AI analysis
+    const { data: aiSettings } = await supabase
+      .from('ai_settings')
+      .select('api_key')
+      .eq('active', true)
+      .single()
+    
+    // Run unified analysis
+    const analysis = await analyzeMessage(
+      messageToProcess,
+      contextMessages || [],
+      aiSettings?.api_key
+    )
+    
+    console.log('[Unified Analysis] Result:', {
+      sentiment: analysis.sentiment,
+      intent: analysis.intent,
+      contentType: analysis.contentType,
+      shouldRespond: analysis.shouldAIRespond,
+      requiresAttention: analysis.requiresStaffAttention,
+      confidence: analysis.overallConfidence
+    })
+    
+    // Save analysis to database (async, don't wait)
+    if (messageId) {
+      saveAnalysisAsync(analysis, messageId, conversation.id, supabase)
+        .catch((err: unknown) => console.error('[Analysis Save] Error:', err))
+    }
+    
+    // Check if requires staff attention IMMEDIATELY
+    if (analysis.requiresStaffAttention) {
+      console.log('[Mode Decision] Customer requires staff attention - switching to manual')
+      
+      // Switch to manual mode
+      await supabase
+        .from('conversations')
+        .update({ status: 'manual' })
+        .eq('id', conversation.id)
+      
+      // Create alert
+      await supabase.from('alerts').insert({
+        conversation_id: conversation.id,
+        type: analysis.urgency === 'critical' ? 'urgent' : 'manual_required',
+        message: analysis.reasoning
+      })
+      
+      return NextResponse.json({
+        success: true,
+        mode: 'manual',
+        message: analysis.reasoning,
+        analysis: {
+          sentiment: analysis.sentiment,
+          urgency: analysis.urgency,
+          intent: analysis.intent,
+          contentType: analysis.contentType
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    }
+    
+    // Check if should NOT respond
+    if (!analysis.shouldAIRespond) {
+      console.log('[Mode Decision] Should not respond:', analysis.reasoning)
+      
+      return NextResponse.json({
+        success: true,
+        mode: 'no_response',
+        message: analysis.reasoning
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    }
+    
+    // Update customer name if found
+    if (analysis.customerName && isLikelyValidName(analysis.customerName)) {
+      console.log('[Name Extraction] Found customer name:', analysis.customerName)
+      await supabase.from('customers').update({ 
+        name: analysis.customerName 
+      }).eq('id', customer.id)
     }
 
     // Check global kill switch
@@ -751,59 +847,12 @@ export async function POST(request: NextRequest) {
     }
 
     // CONTEXT CONFIDENCE CHECK: Does this message make sense to respond to?
-    // SKIP if we just switched to auto mode OR if it's a simple query
-    const skipContextCheck = justSwitchedToAuto || isSimpleQuery(message).isSimpleQuery
-    
-    if (!skipContextCheck) {
-      console.log('[Context Check] Checking if message makes sense in context...')
-      const { data: contextMessages } = await supabase
-        .from('messages')
-        .select('sender, text')
-        .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: false })
-        .limit(5)
-      
-      // Get API key for AI context check
-      const { data: aiSettings } = await supabase
-        .from('ai_settings')
-        .select('api_key')
-        .eq('active', true)
-        .single()
-      
-      const contextCheck = await checkContextConfidence(
-        messageToProcess,
-        contextMessages || [],
-        aiSettings?.api_key
-      )
-      
-      if (!contextCheck.shouldRespond) {
-        console.log('[Context Check] ❌ Should NOT respond:', contextCheck.reasoning)
-        console.log('[Context Check] Creating alert for manual attention...')
-        
-        // Create alert for staff to handle
-        await supabaseService.from('alerts').insert({
-          conversation_id: conversation.id,
-          type: 'manual_required',
-          notified_to: 'admin',
-          message: `Context unclear: ${contextCheck.reasoning}`,
-        })
-        
-        return NextResponse.json({
-          success: true,
-          mode: 'context_unclear',
-          message: contextCheck.reasoning,
-          confidence: contextCheck.confidence,
-        }, {
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-          },
-        })
-      }
-      
-      console.log('[Context Check] ✅ Context OK, proceeding with AI response')
-    } else {
-      console.log('[Context Check] ⏭️  Skipped - just switched to auto mode or simple query')
-    }
+    // Context check already handled by unified analyzer earlier
+    // Proceeding with AI response generation
+
+    // Select modules based on analysis
+    const modulesToLoad = getModulesForAnalysis(analysis)
+    logModuleSelection(analysis, modulesToLoad)
 
     // Generate AI response with smart state-aware generator (using batched message if applicable)
     console.log('[Smart AI] Generating response with state awareness...')
@@ -811,6 +860,8 @@ export async function POST(request: NextRequest) {
       customerMessage: messageToProcess,
       conversationId: conversation.id,
       customerPhone: from, // Pass customer phone for history lookup
+      // TODO Phase 3: Add modules parameter to generateSmartResponse
+      // modules: modulesToLoad,
     })
     
     console.log('[Smart AI] Response generated:', {
@@ -860,33 +911,7 @@ export async function POST(request: NextRequest) {
     
     console.log(`[AI Response] After deduplication: ${uniqueResponses.length} unique message(s)`)
     
-    // Extract customer name from AI's first response (e.g., "Hi Carol, your phone is ready")
-    if (uniqueResponses.length > 0 && (!customer.name || customer.name === 'Unknown Customer')) {
-      const { data: aiSettings } = await supabase
-        .from('ai_settings')
-        .select('api_key')
-        .eq('active', true)
-        .single()
-      
-      const extractedName = await extractCustomerNameSmart(uniqueResponses[0], aiSettings?.api_key)
-      
-      if (extractedName.name && isLikelyValidName(extractedName.name)) {
-        console.log('[AI Name Extraction] Found customer name in AI response:', extractedName.name, `(confidence: ${extractedName.confidence})`)
-        
-        // Update customer name in database
-        const { error: nameUpdateError } = await supabase
-          .from('customers')
-          .update({ name: extractedName.name })
-          .eq('id', customer.id)
-        
-        if (!nameUpdateError) {
-          console.log('[AI Name Extraction] ✅ Updated customer name to:', extractedName.name)
-          customer.name = extractedName.name // Update local object
-        } else {
-          console.error('[AI Name Extraction] ❌ Failed to update customer name:', nameUpdateError)
-        }
-      }
-    }
+    // Name extraction already handled by unified analyzer earlier
     
     for (let i = 0; i < uniqueResponses.length; i++) {
       const messageText = uniqueResponses[i]
@@ -1010,86 +1035,43 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Analyze sentiment of customer message (async, non-blocking)
+ * Save unified analysis to database (async, non-blocking)
  */
-async function analyzeSentimentAsync(
-  message: string,
+async function saveAnalysisAsync(
+  analysis: any,
+  messageId: string,
   conversationId: string,
   supabase: any
 ): Promise<void> {
   try {
-    console.log('[Sentiment Analysis] Analyzing message...')
+    console.log('[Analysis Save] Saving to database...')
     
-    // Get API key for AI analysis
-    const { data: aiSettings } = await supabase
-      .from('ai_settings')
-      .select('api_key')
-      .eq('active', true)
-      .single()
-    
-    // Analyze sentiment
-    const sentiment = await analyzeSentimentSmart(message, aiSettings?.api_key)
-    
-    console.log('[Sentiment Analysis] Result:', {
-      sentiment: sentiment.sentiment,
-      urgency: sentiment.urgency,
-      confidence: sentiment.confidence,
-      requiresAttention: sentiment.requiresStaffAttention
-    })
-    
-    // Get the message ID we just inserted
-    const { data: messageData } = await supabase
-      .from('messages')
-      .select('id')
-      .eq('conversation_id', conversationId)
-      .eq('sender', 'customer')
-      .eq('text', message)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-    
-    if (!messageData) {
-      console.error('[Sentiment Analysis] Could not find message ID')
-      return
-    }
-    
-    // Save sentiment analysis
+    // Save sentiment analysis with intent and contentType
     const { error: insertError } = await supabase
       .from('sentiment_analysis')
       .insert({
-        message_id: messageData.id,
+        message_id: messageId,
         conversation_id: conversationId,
-        sentiment: sentiment.sentiment,
-        urgency: sentiment.urgency,
-        confidence: sentiment.confidence,
-        reasoning: sentiment.reasoning,
-        keywords: sentiment.keywords || [],
-        requires_staff_attention: sentiment.requiresStaffAttention,
-        analysis_method: sentiment.confidence >= 0.7 ? 'regex' : 'ai'
+        sentiment: analysis.sentiment,
+        urgency: analysis.urgency,
+        confidence: analysis.overallConfidence,
+        reasoning: analysis.reasoning,
+        keywords: analysis.sentimentKeywords || [],
+        requires_staff_attention: analysis.requiresStaffAttention,
+        intent: analysis.intent,  // NEW!
+        content_type: analysis.contentType,  // NEW!
+        intent_confidence: analysis.intentConfidence,  // NEW!
+        analysis_method: analysis.overallConfidence >= 0.7 ? 'regex' : 'ai'
       })
     
     if (insertError) {
-      console.error('[Sentiment Analysis] Failed to save:', insertError)
+      console.error('[Analysis Save] Failed:', insertError)
       return
     }
     
-    console.log('[Sentiment Analysis] ✅ Saved successfully')
-    
-    // If requires urgent attention, send alert
-    if (sentiment.requiresStaffAttention) {
-      console.log('[Sentiment Analysis] 🚨 Urgent attention required - sending alert')
-      
-      await supabase
-        .from('alerts')
-        .insert({
-          conversation_id: conversationId,
-          type: sentiment.sentiment === 'angry' ? 'urgent' : 'manual_required',
-          notified_to: 'admin',
-          message: `Customer is ${sentiment.sentiment} (${sentiment.urgency} urgency): ${sentiment.reasoning}`
-        })
-    }
+    console.log('[Analysis Save] ✅ Saved successfully')
   } catch (error) {
-    console.error('[Sentiment Analysis] Error:', error)
-    // Don't throw - sentiment analysis is non-critical
+    console.error('[Analysis Save] Error:', error)
+    // Don't throw - analysis save is non-critical
   }
 }
