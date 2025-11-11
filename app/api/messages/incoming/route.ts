@@ -649,24 +649,52 @@ export async function POST(request: NextRequest) {
           })
         }
       } else {
-        // No staff reply yet - just stay in manual mode
-        console.log('[Smart Mode] No staff reply yet - staying in manual mode')
+        // No staff reply yet - check if we should switch to auto based on message type
+        console.log('[Smart Mode] No staff reply yet - checking if should switch to auto')
         
-        await supabaseService.from('alerts').insert({
-          conversation_id: conversation.id,
-          type: 'manual_required',
-          notified_to: 'admin',
-        })
+        const shouldAutoSwitch = shouldSwitchToAutoMode(message)
+        const reason = getModeDecisionReason(message, shouldAutoSwitch)
+        
+        console.log('[Smart Mode] Should switch to auto?', shouldAutoSwitch)
+        console.log('[Smart Mode] Reason:', reason)
+        
+        if (shouldAutoSwitch) {
+          // Switch to auto mode - this is a generic question AI can handle
+          await supabase
+            .from('conversations')
+            .update({ 
+              status: 'auto',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', conversation.id)
+          
+          console.log('[Smart Mode] ✅ Switched to auto mode -', reason)
+          
+          // Set flag to skip blocking checks
+          justSwitchedToAuto = true
+          
+          // Continue to AI response generation below
+        } else {
+          // Stay in manual mode
+          console.log('[Smart Mode] ⏸️  Staying in manual mode -', reason)
+          
+          await supabaseService.from('alerts').insert({
+            conversation_id: conversation.id,
+            type: 'manual_required',
+            notified_to: 'admin',
+          })
 
-        return NextResponse.json({
-          success: true,
-          mode: 'manual',
-          message: 'Message received - manual response required (no staff reply yet)',
-        }, {
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-          },
-        })
+          return NextResponse.json({
+            success: true,
+            mode: 'manual',
+            message: 'Message received - manual response required (no staff reply yet)',
+            reason,
+          }, {
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+          })
+        }
       }
     }
 
