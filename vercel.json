@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/reset-stale-conversations",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
