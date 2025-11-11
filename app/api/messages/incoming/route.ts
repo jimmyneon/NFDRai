@@ -12,10 +12,9 @@ import { isAutoresponder, getAutoresponderReason } from '@/app/lib/autoresponder
 import { sendAlertNotification, shouldSendNotification } from '@/app/lib/alert-notifier'
 import { isConfirmationFromJohn } from '@/app/lib/confirmation-extractor'
 import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-extractor'
-import { extractCustomerNameSmart } from '@/app/lib/ai-name-extractor'
 import { shouldAIRespond, isSimpleQuery } from '@/app/lib/simple-query-detector'
-import { analyzeSentimentSmart } from '@/app/lib/sentiment-analyzer'
-import { checkContextConfidence } from '@/app/lib/context-confidence-checker'
+import { analyzeMessage } from '@/app/lib/unified-message-analyzer'
+import { getModulesForAnalysis, logModuleSelection } from '@/app/lib/module-selector'
 
 /**
  * Calculate similarity between two strings (0 = completely different, 1 = identical)
