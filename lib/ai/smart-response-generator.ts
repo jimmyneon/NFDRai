@@ -20,6 +20,7 @@ interface SmartResponseParams {
   customerMessage: string
   conversationId: string
   customerPhone?: string
+  modules?: string[]  // NEW: Specific modules to load (from unified analyzer)
 }
 
 interface SmartResponseResult {
@@ -193,7 +194,12 @@ export async function generateSmartResponse(
   }
 
   // STEP 3: Load prompt modules from database
-  const { modules: promptModules, moduleNames } = await loadPromptModules(supabase, context.intent || 'unknown')
+  // Use specific modules from unified analyzer if provided, otherwise use intent-based loading
+  const { modules: promptModules, moduleNames } = await loadPromptModules(
+    supabase, 
+    context.intent || 'unknown',
+    params.modules  // NEW: Pass specific modules from unified analyzer
+  )
   
   // STEP 4: Build focused prompt based on state
   const stateGuidance = getPromptForState(context)
@@ -448,12 +454,52 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
 /**
  * Load modular prompts from database
  */
-async function loadPromptModules(supabase: any, intent: string): Promise<{
+async function loadPromptModules(
+  supabase: any, 
+  intent: string,
+  specificModules?: string[]  // NEW: Load only these specific modules
+): Promise<{
   modules: Array<{ module_name: string; prompt_text: string; priority: number }>
   moduleNames: string[]
 }> {
   try {
-    // Try to load from database first
+    // If specific modules provided (from unified analyzer), load only those
+    if (specificModules && specificModules.length > 0) {
+      console.log('[Prompt Modules] Loading specific modules from unified analyzer:', specificModules)
+      
+      const { data: modules, error } = await supabase
+        .from('prompts')
+        .select('module_name, prompt_text, priority')
+        .in('module_name', specificModules)
+        .eq('active', true)
+        .order('priority', { ascending: false })
+      
+      if (error) {
+        console.error('[Prompt Modules] Error loading specific modules:', error)
+        throw new Error(`Failed to load specific modules: ${error.message}`)
+      }
+      
+      if (!modules || modules.length === 0) {
+        console.error('[Prompt Modules] No modules found for:', specificModules)
+        throw new Error('No modules found for specified module names')
+      }
+      
+      console.log('[Prompt Modules] Loaded specific modules:', modules.map((m: any) => m.module_name))
+      
+      // Update usage stats for each module (async, don't wait)
+      modules.forEach((m: any) => {
+        supabase.rpc('update_prompt_usage', { p_module_name: m.module_name })
+          .then(() => {})
+          .catch((err: any) => console.error('[Prompt Modules] Usage update failed:', err))
+      })
+      
+      return {
+        modules,
+        moduleNames: modules.map((m: any) => m.module_name)
+      }
+    }
+    
+    // Otherwise, use intent-based loading (legacy behavior)
     console.log('[Prompt Modules] Calling get_prompt_modules with intent:', intent)
     const { data: modules, error } = await supabase
       .rpc('get_prompt_modules', { p_intent: intent })

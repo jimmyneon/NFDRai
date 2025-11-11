@@ -860,8 +860,7 @@ export async function POST(request: NextRequest) {
       customerMessage: messageToProcess,
       conversationId: conversation.id,
       customerPhone: from, // Pass customer phone for history lookup
-      // TODO Phase 3: Add modules parameter to generateSmartResponse
-      // modules: modulesToLoad,
+      modules: modulesToLoad,  // NEW: Load only relevant modules based on analysis
     })
     
     console.log('[Smart AI] Response generated:', {
