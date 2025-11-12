@@ -838,6 +838,13 @@ export async function POST(request: NextRequest) {
       conversationId: conversation.id,
       customerPhone: from, // Pass customer phone for history lookup
       modules: modulesToLoad,  // NEW: Load only relevant modules based on analysis
+      unifiedAnalysis: {  // NEW: Pass unified analysis to avoid duplicate classification
+        intent: analysis.intent,
+        contentType: analysis.contentType,
+        sentiment: analysis.sentiment,
+        urgency: analysis.urgency,
+        intentConfidence: analysis.intentConfidence
+      }
     })
     
     console.log('[Smart AI] Response generated:', {

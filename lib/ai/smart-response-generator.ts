@@ -21,6 +21,13 @@ interface SmartResponseParams {
   conversationId: string
   customerPhone?: string
   modules?: string[]  // NEW: Specific modules to load (from unified analyzer)
+  unifiedAnalysis?: {  // NEW: Pass analysis from unified analyzer to avoid duplicate classification
+    intent: string
+    contentType: string
+    sentiment: string
+    urgency: string
+    intentConfidence: number
+  }
 }
 
 interface SmartResponseResult {
@@ -77,30 +84,48 @@ export async function generateSmartResponse(
 
   const messages = messagesDesc?.reverse() || []
   
-  // STEP 0: Classify intent FIRST (fast and cheap) WITH CONTEXT
+  // STEP 0: Use unified analysis if provided, otherwise classify intent
   const classificationStartTime = Date.now()
   let intentClassification: IntentClassification
   
-  try {
-    intentClassification = await classifyIntent({
-      customerMessage: params.customerMessage,
-      conversationHistory: messages.slice(-5).map(m => ({ // Last 5 messages for context
-        sender: m.sender,
-        text: m.text
-      })),
-      apiKey: settings.api_key
-    })
-    console.log('[Smart AI] Intent classified:', {
+  if (params.unifiedAnalysis) {
+    // Use analysis from unified analyzer - NO DUPLICATE AI CALL!
+    console.log('[Smart AI] Using unified analysis (skipping duplicate classification)')
+    intentClassification = {
+      intent: params.unifiedAnalysis.contentType as any, // contentType is more specific than intent
+      confidence: params.unifiedAnalysis.intentConfidence,
+      reasoning: `From unified analyzer: ${params.unifiedAnalysis.intent}`
+    }
+    console.log('[Smart AI] Unified analysis:', {
       intent: intentClassification.intent,
       confidence: intentClassification.confidence,
-      device: intentClassification.deviceModel || intentClassification.deviceType
+      sentiment: params.unifiedAnalysis.sentiment,
+      urgency: params.unifiedAnalysis.urgency
     })
-  } catch (error) {
-    console.error('[Smart AI] Classification failed, using fallback')
-    intentClassification = {
-      intent: 'general_info',
-      confidence: 0.5,
-      reasoning: 'Classification failed'
+  } else {
+    // Fallback: Classify intent (only if unified analysis not provided)
+    console.log('[Smart AI] No unified analysis - running intent classifier')
+    try {
+      intentClassification = await classifyIntent({
+        customerMessage: params.customerMessage,
+        conversationHistory: messages.slice(-5).map(m => ({ // Last 5 messages for context
+          sender: m.sender,
+          text: m.text
+        })),
+        apiKey: settings.api_key
+      })
+      console.log('[Smart AI] Intent classified:', {
+        intent: intentClassification.intent,
+        confidence: intentClassification.confidence,
+        device: intentClassification.deviceModel || intentClassification.deviceType
+      })
+    } catch (error) {
+      console.error('[Smart AI] Classification failed, using fallback')
+      intentClassification = {
+        intent: 'general_info',
+        confidence: 0.5,
+        reasoning: 'Classification failed'
+      }
     }
   }
   
