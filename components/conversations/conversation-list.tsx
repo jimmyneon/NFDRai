@@ -17,6 +17,7 @@ type Conversation = {
   last_sentiment?: string | null
   last_urgency?: string | null
   requires_urgent_attention?: boolean
+  last_analysis_reasoning?: string | null
   customer: {
     name: string | null
     phone: string | null
@@ -174,7 +175,7 @@ export function ConversationList({ conversations: initialConversations }: { conv
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-semibold truncate">
                           {conversation.customer?.name || 'Unknown Customer'}
                         </h3>
@@ -192,6 +193,21 @@ export function ConversationList({ conversations: initialConversations }: { conv
                             ) : (
                               <><AlertTriangle className="w-3 h-3" /> Frustrated</>
                             )}
+                          </Badge>
+                        )}
+                        {conversation.last_analysis_reasoning && conversation.last_analysis_reasoning.includes('callback') && (
+                          <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                            📞 Callback Request
+                          </Badge>
+                        )}
+                        {conversation.last_analysis_reasoning && conversation.last_analysis_reasoning.includes('directed at') && (
+                          <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                            👤 For Staff
+                          </Badge>
+                        )}
+                        {conversation.last_analysis_reasoning && conversation.last_analysis_reasoning.includes('acknowledgment') && (
+                          <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                            ✓ Acknowledged
                           </Badge>
                         )}
                       </div>

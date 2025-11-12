@@ -140,18 +140,21 @@ export function quickAnalysis(
     }
   }
   
-  // 4. Referring to physical person (don't respond)
+  // 4. Referring to physical person or asking staff to call back (don't respond)
   const physicalPersonPatterns = [
     /for (the )?(tall|short|big|small|young|old)?\s*(guy|man|gentleman|person|bloke|lad|chap)/i,
     /with (the )?(beard|glasses|tattoo|hat)/i,
     /tell (him|her|them|john)/i,
+    /(phone|call|ring)\s+(me|us)\s+(when|once|after)/i,  // "phone me when you start"
+    /(can|could|would)\s+you\s+(phone|call|ring)\s+(me|us)/i,  // "can you phone me"
+    /if\s+you\s+(can|could)\s+(phone|call|ring)/i,  // "if you can phone me"
   ]
   
   for (const pattern of physicalPersonPatterns) {
     if (pattern.test(message)) {
       return {
         sentiment: 'neutral',
-        urgency: 'low',
+        urgency: 'medium',  // Changed from 'low' - callback requests need attention
         requiresStaffAttention: true,
         sentimentKeywords: [],
         intent: 'unclear',
@@ -160,7 +163,7 @@ export function quickAnalysis(
         shouldAIRespond: false,
         contextConfidence: 0.85,
         isDirectedAtAI: false,
-        reasoning: 'Message directed at physical person, not AI',
+        reasoning: 'Customer requesting callback from staff',
         customerName: null,
         nameConfidence: 0,
         overallConfidence: 0.8,
