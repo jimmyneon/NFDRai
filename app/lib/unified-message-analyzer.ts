@@ -286,11 +286,25 @@ ANALYZE THE FOLLOWING:
    - Should AI respond or stay silent?
 
 6. NAME EXTRACTION:
-   - Is customer introducing themselves? ("Hi, I'm Carol", "This is Mike", "Carol here")
-   - Check email signatures: ("Regards, Maurice", "Thanks, Sarah", "Cheers, Mike")
-   - Extract ONLY first name if present
-   - Don't extract staff names (John)
-   - Don't extract from "Many thanks, John" (that's staff)
+   - Extract customer's first name from ANY context where they identify themselves
+   - Common patterns: "Hi, I'm Carol", "This is Mike", "Carol here", "My name is Sarah"
+   - Email signatures: "Regards, Maurice", "Thanks, Sarah", "Cheers, Mike", "Best, Carol"
+   - Casual mentions: "It's Maurice", "Maurice speaking", "Call me Mike"
+   - End of message: "...login with you. Regards, Maurice." or "...see you soon. Sarah"
+   - IMPORTANT: Use context and common sense - if a name appears naturally as the sender, extract it
+   - Extract ONLY first name (not "John" which is staff)
+   - Don't extract from staff signatures: "Many thanks, John" or "Cheers, John"
+   - If uncertain whether it's customer or staff name, check context (customer messages end with customer name)
+
+NAME EXTRACTION EXAMPLES:
+✅ "Good morning John. If you can phone me when you start work. Regards, Maurice." → "Maurice"
+✅ "Hi, I'm Carol" → "Carol"
+✅ "Thanks for your help. Sarah" → "Sarah"
+✅ "This is Mike calling about my phone" → "Mike"
+✅ "Cheers, Dave" → "Dave"
+✅ "...see you tomorrow. Best, Emma" → "Emma"
+❌ "Your phone is ready. Many thanks, John" → null (John is staff)
+❌ "Thanks for the help" → null (no name)
 
 OUTPUT FORMAT (JSON only, no markdown):
 {
