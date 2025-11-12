@@ -287,8 +287,10 @@ ANALYZE THE FOLLOWING:
 
 6. NAME EXTRACTION:
    - Is customer introducing themselves? ("Hi, I'm Carol", "This is Mike", "Carol here")
+   - Check email signatures: ("Regards, Maurice", "Thanks, Sarah", "Cheers, Mike")
    - Extract ONLY first name if present
    - Don't extract staff names (John)
+   - Don't extract from "Many thanks, John" (that's staff)
 
 OUTPUT FORMAT (JSON only, no markdown):
 {

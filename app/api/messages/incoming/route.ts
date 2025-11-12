@@ -343,59 +343,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Extract customer name from message if they introduce themselves
-    // First try regex patterns
-    const nameData = extractCustomerName(message)
-    
-    // If regex found nothing or low confidence, try AI as backup
-    let finalName = nameData.customerName
-    let finalConfidence = nameData.confidence
-    let isCorrection = nameData.isCorrection
-    
-    if (!finalName || finalConfidence === 'low') {
-      // Get API key for AI name extraction
-      const { data: nameAiSettings } = await supabase
-        .from('ai_settings')
-        .select('api_key')
-        .eq('active', true)
-        .single()
-      
-      if (nameAiSettings?.api_key) {
-        console.log('[Name Extraction] Regex found nothing/low confidence - trying AI...')
-        const { extractCustomerNameSmart } = await import('@/app/lib/ai-name-extractor')
-        const aiResult = await extractCustomerNameSmart(message, nameAiSettings.api_key)
-        
-        if (aiResult.name && aiResult.confidence > 0.7) {
-          console.log('[Name Extraction] ✅ AI found:', aiResult.name, `(${aiResult.confidence})`)
-          finalName = aiResult.name
-          finalConfidence = aiResult.confidence > 0.85 ? 'high' : 'medium'
-        }
-      }
-    }
-    
-    if (finalName && isLikelyValidName(finalName)) {
-      console.log('[Name Extraction] Detected customer name:', finalName, 'confidence:', finalConfidence, 'isCorrection:', isCorrection)
-      
-      // Update if:
-      // 1. Customer doesn't have a name yet
-      // 2. This is high confidence
-      // 3. This is a name preference correction (always update)
-      if (!customer.name || finalConfidence === 'high' || isCorrection) {
-        const { error: updateError } = await supabase
-          .from('customers')
-          .update({ name: finalName })
-          .eq('id', customer.id)
-        
-        if (updateError) {
-          console.error('[Name Extraction] Failed to update customer name:', updateError)
-        } else {
-          const updateType = isCorrection ? 'corrected' : 'updated'
-          console.log(`[Name Extraction] ${updateType} customer name to:`, finalName)
-          // Update local customer object so AI can use it immediately
-          customer.name = finalName
-        }
-      }
-    }
+    // Name extraction is handled by unified analyzer below (lines 629-635)
+    // The unified analyzer already extracts names as part of the single AI call
+    // No need for separate extraction here
 
     // CRITICAL: Check if this exact message was already received recently (within 5 seconds)
     // This prevents duplicate processing if MacroDroid sends the webhook twice
