@@ -363,16 +363,30 @@ export async function generateSmartResponse(
     
     // Remove any greeting from the main response since disclosure has one
     if (finalResponse.match(/^(hi|hello|hey)/i)) {
-      finalResponse = finalResponse.replace(/^(hi|hello|hey)[!,.\s]*/i, '').trim()
-      // Re-add sign-off if it was removed
-      if (!finalResponse.toLowerCase().includes('many thanks')) {
-        finalResponse = finalResponse + '\n\n' + signOff
+      const withoutGreeting = finalResponse.replace(/^(hi|hello|hey)[!,.\s]*/i, '').trim()
+      
+      // CRITICAL: Check if response becomes empty after removing greeting
+      // If so, skip the second message entirely (disclosure is enough)
+      const contentWithoutSignature = withoutGreeting.replace(/many thanks.*/is, '').trim()
+      
+      if (contentWithoutSignature.length > 0) {
+        // There's actual content, use it
+        finalResponse = withoutGreeting
+        // Re-add sign-off if it was removed
+        if (!finalResponse.toLowerCase().includes('many thanks')) {
+          finalResponse = finalResponse + '\n\n' + signOff
+        }
+        // Send disclosure + main response
+        finalResponse = disclosure + '|||' + finalResponse
+      } else {
+        // Response was just a greeting, only send disclosure
+        console.log('[AI Disclosure] Response was only greeting - sending disclosure only')
+        finalResponse = disclosure
       }
+    } else {
+      // No greeting to remove, send both messages
+      finalResponse = disclosure + '|||' + finalResponse
     }
-    
-    // ALWAYS send disclosure as first message, then main response
-    // Use ||| to split into separate messages
-    finalResponse = disclosure + '|||' + finalResponse
   }
 
   const responses = finalResponse.includes('|||')
