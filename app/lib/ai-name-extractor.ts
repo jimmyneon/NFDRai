@@ -40,10 +40,12 @@ RULES:
 2. Look for names with "there": "Hi there Carol", "Hello there Mike"
 3. Look for names at the start: "Carol,", "Sarah -", "Mike:"
 4. Look for names after "for": "Ready for Carol", "Quote for Mike"
-5. Return ONLY the first name (not "John" from "John (Owner)")
-6. Return null if no customer name found
-7. Ignore "John" if it refers to the staff member
-8. NEVER extract status/availability words as names: "away", "out", "busy", "unavailable", "late", "free", "off", "working"
+5. SKIP titles and extract the actual name: "Hi Mrs Smith" → "Smith" (NOT "Mrs")
+6. Handle titles: Mr, Mrs, Ms, Miss, Dr, Sir, Madam - extract the name AFTER the title
+7. Return ONLY the first name (not "John" from "John (Owner)")
+8. Return null if no customer name found
+9. Ignore "John" if it refers to the staff member
+10. NEVER extract status/availability words as names: "away", "out", "busy", "unavailable", "late", "free", "off", "working"
 
 OUTPUT FORMAT (JSON only):
 {
@@ -54,6 +56,8 @@ OUTPUT FORMAT (JSON only):
 
 EXAMPLES:
 "Hi Carol, your iPhone is ready" → {"name": "Carol", "confidence": 1.0, "reasoning": "Found after 'Hi'"}
+"Hi Mrs Smith, your phone is ready" → {"name": "Smith", "confidence": 1.0, "reasoning": "Found after title 'Mrs'"}
+"Hi Mr Jones, it's £149" → {"name": "Jones", "confidence": 1.0, "reasoning": "Found after title 'Mr'"}
 "Hi there Sarah, it's £149" → {"name": "Sarah", "confidence": 1.0, "reasoning": "Found after 'Hi there'"}
 "Carol, your phone is ready" → {"name": "Carol", "confidence": 1.0, "reasoning": "Found at start"}
 "Your phone is ready" → {"name": null, "confidence": 0.0, "reasoning": "No name found"}
@@ -95,12 +99,18 @@ export function extractNameWithRegex(message: string): AIExtractedName {
   const patterns = [
     // "Hi there Carol" or "Hello there Carol" (check this FIRST before "Hi Carol")
     { pattern: /(?:hi|hello|hey)\s+there\s+([A-Z][a-z]+)/i, confidence: 0.9 },
+    // "Hi Mr/Mrs/Ms/Miss/Dr Smith" - extract name after title
+    { pattern: /(?:hi|hello|hey)\s+(?:mr|mrs|ms|miss|dr|sir|madam)\.?\s+([A-Z][a-z]+)/i, confidence: 0.95 },
     // "Hi Carol" or "Hello Carol" or "Hey Carol"
     { pattern: /(?:hi|hello|hey)\s+([A-Z][a-z]+)/i, confidence: 0.9 },
+    // "Mr/Mrs/Ms Smith," at start
+    { pattern: /^(?:mr|mrs|ms|miss|dr|sir|madam)\.?\s+([A-Z][a-z]+),/i, confidence: 0.9 },
     // "Carol," at start
     { pattern: /^([A-Z][a-z]+),/i, confidence: 0.85 },
     // "Carol -" or "Carol:" at start
     { pattern: /^([A-Z][a-z]+)\s*[-:]/i, confidence: 0.85 },
+    // "for Mr/Mrs Smith"
+    { pattern: /for\s+(?:mr|mrs|ms|miss|dr|sir|madam)\.?\s+([A-Z][a-z]+)/i, confidence: 0.85 },
     // "for Carol"
     { pattern: /for\s+([A-Z][a-z]+)(?:\s|,|\.)/i, confidence: 0.8 },
     // Just a name at the very start (risky)
@@ -111,6 +121,8 @@ export function extractNameWithRegex(message: string): AIExtractedName {
     'the', 'your', 'this', 'that', 'device', 'phone', 'repair', 'iphone',
     'samsung', 'screen', 'battery', 'many', 'thanks', 'john', 'ready',
     'quote', 'price', 'cost', 'fixed', 'broken', 'cracked', 'there',
+    // Titles (NOT names)
+    'mr', 'mrs', 'ms', 'miss', 'dr', 'sir', 'madam',
     // Status/availability words (NOT names)
     'away', 'out', 'busy', 'unavailable', 'available', 'free', 'off', 'working',
     'late', 'early', 'soon', 'later', 'tomorrow', 'today', 'tonight', 'now'
