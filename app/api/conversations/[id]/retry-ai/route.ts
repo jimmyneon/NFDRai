@@ -52,8 +52,25 @@ export async function POST(
     const latestMessage = messages[0]
 
     console.log('[Manual AI Retry] Generating AI response for:', latestMessage.text.substring(0, 50))
+    
+    // Get conversation history for logging (generateSmartResponse loads this internally)
+    const { data: historyMessages } = await supabase
+      .from('messages')
+      .select('sender, text, created_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    
+    console.log('[Manual AI Retry] Conversation history:', {
+      messageCount: historyMessages?.length || 0,
+      lastFewMessages: historyMessages?.slice(0, 3).map(m => ({
+        sender: m.sender,
+        text: m.text.substring(0, 30) + '...',
+        time: new Date(m.created_at).toLocaleTimeString()
+      }))
+    })
 
-    // Generate AI response
+    // Generate AI response (this will load conversation history internally for context)
     const aiResult = await generateSmartResponse({
       customerMessage: latestMessage.text,
       conversationId: conversation.id,
