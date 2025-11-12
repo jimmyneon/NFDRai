@@ -250,10 +250,14 @@ ANALYZE THE FOLLOWING:
 
 1. SENTIMENT:
    - positive: Happy, satisfied, grateful
-   - neutral: Factual, no strong emotion
+   - neutral: Factual, no strong emotion, describing device issues
    - negative: Disappointed, concerned
-   - frustrated: Impatient, annoyed, repeated questions
+   - frustrated: Impatient, annoyed, repeated questions, expressing dissatisfaction with SERVICE
    - angry: Very upset, threatening, demanding
+
+   IMPORTANT: Device descriptions are NEUTRAL, not frustrated!
+   ✅ "dead phone", "broken screen", "cracked display", "won't turn on" = NEUTRAL (device issue)
+   ❌ "third time asking", "still waiting", "terrible service" = FRUSTRATED (service issue)
 
 2. URGENCY:
    - low: Casual inquiry, no time pressure
@@ -315,6 +319,12 @@ NAME EXTRACTION EXAMPLES:
 ❌ "Hi there! Can you help?" → null ("there" is greeting, not name)
 ❌ "there! We can certainly help" → null ("there" is not a name)
 
+CRITICAL RULES FOR requiresStaffAttention:
+- Set to FALSE for: questions, device issues, pricing inquiries, general inquiries
+- Set to TRUE ONLY for: complaints about service, callback requests, directed at physical person
+- Device problems ("dead phone", "broken screen") = FALSE (AI can help)
+- Service problems ("third time asking", "terrible service") = TRUE (needs staff)
+
 OUTPUT FORMAT (JSON only, no markdown):
 {
   "sentiment": "positive|neutral|negative|frustrated|angry",
@@ -360,9 +370,20 @@ OUTPUT FORMAT (JSON only, no markdown):
       }
     }
     
+    // CRITICAL FIX: Device issues should NOT require staff attention
+    // AI can handle questions about broken/dead devices
+    if (analysis.intent === 'device_issue' || analysis.intent === 'question') {
+      if (analysis.requiresStaffAttention && analysis.sentiment !== 'frustrated' && analysis.sentiment !== 'angry') {
+        console.log('[Unified Analysis] ✅ Override: Device issue/question - AI can handle')
+        analysis.requiresStaffAttention = false
+        analysis.shouldAIRespond = true
+      }
+    }
+    
     console.log('[Unified Analysis] AI result:', {
       sentiment: analysis.sentiment,
       intent: analysis.intent,
+      requiresStaffAttention: analysis.requiresStaffAttention,
       shouldRespond: analysis.shouldAIRespond,
       confidence: analysis.overallConfidence,
       customerName: analysis.customerName
