@@ -367,7 +367,7 @@ export async function generateSmartResponse(
       
       // CRITICAL: Check if response becomes empty after removing greeting
       // If so, skip the second message entirely (disclosure is enough)
-      const contentWithoutSignature = withoutGreeting.replace(/many thanks.*/is, '').trim()
+      const contentWithoutSignature = withoutGreeting.replace(/many thanks[\s\S]*/i, '').trim()
       
       if (contentWithoutSignature.length > 0) {
         // There's actual content, use it
