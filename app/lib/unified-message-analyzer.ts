@@ -286,15 +286,21 @@ ANALYZE THE FOLLOWING:
    - Should AI respond or stay silent?
 
 6. NAME EXTRACTION:
-   - Extract customer's first name from ANY context where they identify themselves
+   - Extract customer's first name ONLY when they clearly identify themselves
    - Common patterns: "Hi, I'm Carol", "This is Mike", "Carol here", "My name is Sarah"
    - Email signatures: "Regards, Maurice", "Thanks, Sarah", "Cheers, Mike", "Best, Carol"
    - Casual mentions: "It's Maurice", "Maurice speaking", "Call me Mike"
    - End of message: "...login with you. Regards, Maurice." or "...see you soon. Sarah"
-   - IMPORTANT: Use context and common sense - if a name appears naturally as the sender, extract it
-   - Extract ONLY first name (not "John" which is staff)
-   - Don't extract from staff signatures: "Many thanks, John" or "Cheers, John"
-   - If uncertain whether it's customer or staff name, check context (customer messages end with customer name)
+   
+   CRITICAL VALIDATION RULES:
+   - MUST be a real person's name (not common words like "there", "here", "fine", "good")
+   - MUST be capitalized in the message (names are proper nouns)
+   - MUST make sense as someone's name (not verbs, adjectives, or pronouns)
+   - DON'T extract from greetings like "Hi there!" or "Hello there" (there = greeting, not name)
+   - DON'T extract "John" (that's staff)
+   - DON'T extract common words even if capitalized at start of sentence
+   
+   WHEN IN DOUBT: Return null. It's better to miss a name than extract a wrong one.
 
 NAME EXTRACTION EXAMPLES:
 ✅ "Good morning John. If you can phone me when you start work. Regards, Maurice." → "Maurice"
@@ -302,9 +308,12 @@ NAME EXTRACTION EXAMPLES:
 ✅ "Thanks for your help. Sarah" → "Sarah"
 ✅ "This is Mike calling about my phone" → "Mike"
 ✅ "Cheers, Dave" → "Dave"
-✅ "...see you tomorrow. Best, Emma" → "Emma"
+✅ "...see you soon. Best, Emma" → "Emma"
+✅ "That fine then. Thanks Kaileb" → "Kaileb"
 ❌ "Your phone is ready. Many thanks, John" → null (John is staff)
 ❌ "Thanks for the help" → null (no name)
+❌ "Hi there! Can you help?" → null ("there" is greeting, not name)
+❌ "there! We can certainly help" → null ("there" is not a name)
 
 OUTPUT FORMAT (JSON only, no markdown):
 {
@@ -336,11 +345,27 @@ OUTPUT FORMAT (JSON only, no markdown):
     // Parse JSON response
     const analysis = JSON.parse(content) as UnifiedAnalysis
     
+    // Validate extracted name - reject common words
+    if (analysis.customerName) {
+      const invalidNames = [
+        'there', 'here', 'fine', 'good', 'great', 'ok', 'okay', 'yes', 'no',
+        'thanks', 'thank', 'cheers', 'hi', 'hello', 'hey', 'bye', 'goodbye',
+        'please', 'sorry', 'sure', 'right', 'well', 'just', 'now', 'then'
+      ]
+      
+      if (invalidNames.includes(analysis.customerName.toLowerCase())) {
+        console.log('[Unified Analysis] ❌ Rejected invalid name:', analysis.customerName)
+        analysis.customerName = null
+        analysis.nameConfidence = 0
+      }
+    }
+    
     console.log('[Unified Analysis] AI result:', {
       sentiment: analysis.sentiment,
       intent: analysis.intent,
       shouldRespond: analysis.shouldAIRespond,
       confidence: analysis.overallConfidence,
+      customerName: analysis.customerName
     })
     
     return analysis

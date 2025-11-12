@@ -12,7 +12,7 @@ export default async function ConversationsPage() {
     .select(`
       *,
       customer:customers(*),
-      messages(
+      messages!inner(
         id, 
         text, 
         sender, 
@@ -32,6 +32,7 @@ export default async function ConversationsPage() {
       )
     `)
     .order('updated_at', { ascending: false })
+    .order('created_at', { foreignTable: 'messages', ascending: true })
 
   return (
     <div className="space-y-6">
