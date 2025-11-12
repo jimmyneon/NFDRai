@@ -25,6 +25,13 @@ type Message = {
   ai_confidence?: number | null
   delivered?: boolean | null
   delivered_at?: string | null
+  sentiment_analysis?: {
+    sentiment: string
+    intent: string
+    reasoning: string
+    should_ai_respond: boolean
+    analysis_method: string
+  }[]
 }
 
 type Conversation = {
@@ -398,8 +405,27 @@ export function ConversationDialog({
                   >
                     <p className="text-sm">{message.text}</p>
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
                     <span>{formatDate(message.created_at)}</span>
+                    
+                    {/* AI Analysis Badge for customer messages */}
+                    {message.sender === 'customer' && message.sentiment_analysis && message.sentiment_analysis.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <Badge variant="outline" className="text-xs">
+                          🤖 AI Analyzed
+                        </Badge>
+                        {!message.sentiment_analysis[0].should_ai_respond && (
+                          <Badge variant="secondary" className="text-xs">
+                            {message.sentiment_analysis[0].reasoning.includes('callback') ? '📞 Callback' :
+                             message.sentiment_analysis[0].reasoning.includes('directed at') ? '👤 For Staff' :
+                             message.sentiment_analysis[0].reasoning.includes('acknowledgment') ? '✓ Ack' :
+                             '⏸️ No Response'}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                    
                     {message.ai_provider && (
                       <>
                         <span>•</span>

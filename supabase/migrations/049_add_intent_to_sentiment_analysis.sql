@@ -5,7 +5,8 @@
 ALTER TABLE sentiment_analysis 
 ADD COLUMN IF NOT EXISTS intent TEXT,
 ADD COLUMN IF NOT EXISTS content_type TEXT,
-ADD COLUMN IF NOT EXISTS intent_confidence DECIMAL(3,2);
+ADD COLUMN IF NOT EXISTS intent_confidence DECIMAL(3,2),
+ADD COLUMN IF NOT EXISTS should_ai_respond BOOLEAN DEFAULT true;
 
 -- Add checks for valid values
 ALTER TABLE sentiment_analysis

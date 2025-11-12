@@ -12,7 +12,24 @@ export default async function ConversationsPage() {
     .select(`
       *,
       customer:customers(*),
-      messages(id, text, sender, created_at)
+      messages(
+        id, 
+        text, 
+        sender, 
+        created_at,
+        ai_provider,
+        ai_confidence,
+        delivered,
+        delivered_at,
+        sentiment_analysis(
+          sentiment,
+          intent,
+          reasoning,
+          requires_staff_attention,
+          should_ai_respond,
+          analysis_method
+        )
+      )
     `)
     .order('updated_at', { ascending: false })
 

@@ -1034,9 +1034,10 @@ async function saveAnalysisAsync(
         reasoning: analysis.reasoning,
         keywords: analysis.sentimentKeywords || [],
         requires_staff_attention: analysis.requiresStaffAttention,
-        intent: analysis.intent,  // NEW!
-        content_type: analysis.contentType,  // NEW!
-        intent_confidence: analysis.intentConfidence,  // NEW!
+        should_ai_respond: analysis.shouldAIRespond,  // NEW!
+        intent: analysis.intent,
+        content_type: analysis.contentType,
+        intent_confidence: analysis.intentConfidence,
         analysis_method: analysis.overallConfidence >= 0.7 ? 'regex' : 'ai'
       })
     
