@@ -527,38 +527,57 @@ export async function POST(request: NextRequest) {
         .catch((err: unknown) => console.error('[Analysis Save] Error:', err))
     }
     
-    // Check if requires staff attention IMMEDIATELY
+    // CRITICAL: Only check frustration AFTER AI has already responded!
+    // Don't judge frustration on first message - AI hasn't done anything yet!
+    const { data: aiMessages } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversation.id)
+      .eq('sender', 'ai')
+      .limit(1)
+    
+    const aiHasRespondedBefore = aiMessages && aiMessages.length > 0
+    
+    // Check if requires staff attention
     if (analysis.requiresStaffAttention) {
-      console.log('[Mode Decision] Customer requires staff attention - switching to manual')
-      
-      // Switch to manual mode
-      await supabase
-        .from('conversations')
-        .update({ status: 'manual' })
-        .eq('id', conversation.id)
-      
-      // Create alert
-      await supabase.from('alerts').insert({
-        conversation_id: conversation.id,
-        type: analysis.urgency === 'critical' ? 'urgent' : 'manual_required',
-        message: analysis.reasoning
-      })
-      
-      return NextResponse.json({
-        success: true,
-        mode: 'manual',
-        message: analysis.reasoning,
-        analysis: {
-          sentiment: analysis.sentiment,
-          urgency: analysis.urgency,
-          intent: analysis.intent,
-          contentType: analysis.contentType
-        }
-      }, {
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-      })
+      // If AI hasn't responded yet, ignore frustration detection
+      // Customer can't be frustrated with AI if AI hasn't tried to help yet!
+      if (!aiHasRespondedBefore && (analysis.sentiment === 'frustrated' || analysis.sentiment === 'angry')) {
+        console.log('[Mode Decision] ⚠️  Ignoring frustration - AI hasn\'t responded yet!')
+        console.log('[Mode Decision] Letting AI try to help first...')
+        // Don't switch to manual, let AI respond
+      } else {
+        console.log('[Mode Decision] Customer requires staff attention - switching to manual')
+        
+        // Switch to manual mode
+        await supabase
+          .from('conversations')
+          .update({ status: 'manual' })
+          .eq('id', conversation.id)
+        
+        // Create alert
+        await supabase.from('alerts').insert({
+          conversation_id: conversation.id,
+          type: analysis.urgency === 'critical' ? 'urgent' : 'manual_required',
+          message: analysis.reasoning
+        })
+        
+        return NextResponse.json({
+          success: true,
+          mode: 'manual',
+          message: analysis.reasoning,
+          analysis: {
+            sentiment: analysis.sentiment,
+            urgency: analysis.urgency,
+            intent: analysis.intent,
+            contentType: analysis.contentType
+          }
+        }, {
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        })
+      }
     }
     
     // Check if should NOT respond
