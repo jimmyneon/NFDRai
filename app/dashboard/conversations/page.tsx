@@ -7,12 +7,12 @@ import { formatRelativeTime } from '@/lib/utils'
 export default async function ConversationsPage() {
   const supabase = await createClient()
 
-  const { data: conversations } = await supabase
+  const { data: conversations, error: queryError } = await supabase
     .from('conversations')
     .select(`
       *,
       customer:customers(*),
-      messages!inner(
+      messages(
         id, 
         text, 
         sender, 
@@ -33,6 +33,10 @@ export default async function ConversationsPage() {
     `)
     .order('updated_at', { ascending: false })
     .order('created_at', { foreignTable: 'messages', ascending: true })
+  
+  if (queryError) {
+    console.error('[Conversations] Query error:', queryError)
+  }
 
   return (
     <div className="space-y-6">
