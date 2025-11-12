@@ -116,6 +116,21 @@ export function extractCustomerName(message: string): ExtractedNameData {
     return { customerName: capitalizeProperName(customerName), confidence, isCorrection: true }
   }
   
+  // Pattern 9: Email signature - "Regards, {name}" or "Thanks, {name}" or "Cheers, {name}"
+  // Example: "Regards, Maurice" or "Thanks, Sarah" or "Cheers, Mike"
+  // NOTE: This should NOT match staff signatures like "Many thanks, John"
+  const pattern9 = /(?:regards|thanks|thank you|cheers|best regards|kind regards),?\s+([a-z]+)(?:\s*\.)?$/i
+  const match9 = message.match(pattern9)
+  
+  if (match9) {
+    customerName = match9[1].trim()
+    // Don't extract staff names (John)
+    if (isLikelyValidName(customerName) && customerName.toLowerCase() !== 'john') {
+      confidence = 'medium'
+      return { customerName: capitalizeFirstLetter(customerName), confidence }
+    }
+  }
+  
   return { customerName: null, confidence: 'low' }
 }
 
