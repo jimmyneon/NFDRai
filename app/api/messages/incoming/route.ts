@@ -576,12 +576,28 @@ export async function POST(request: NextRequest) {
       })
     }
     
-    // Update customer name if found
+    // Update customer name if found (even for acknowledgments!)
+    // Only update if customer doesn't have a name yet, or if new name is different
     if (analysis.customerName && isLikelyValidName(analysis.customerName)) {
-      console.log('[Name Extraction] Found customer name:', analysis.customerName)
-      await supabase.from('customers').update({ 
-        name: analysis.customerName 
-      }).eq('id', customer.id)
+      const shouldUpdate = !customer.name || 
+                          customer.name === 'Unknown Customer' || 
+                          customer.name.toLowerCase() !== analysis.customerName.toLowerCase()
+      
+      if (shouldUpdate) {
+        console.log('[Name Extraction] Updating customer name:', analysis.customerName)
+        const { error: nameUpdateError } = await supabase
+          .from('customers')
+          .update({ name: analysis.customerName })
+          .eq('id', customer.id)
+        
+        if (nameUpdateError) {
+          console.error('[Name Extraction] Failed to update name:', nameUpdateError)
+        } else {
+          console.log('[Name Extraction] ✅ Updated customer name to:', analysis.customerName)
+        }
+      } else {
+        console.log('[Name Extraction] Customer already has name:', customer.name)
+      }
     }
 
     // Check global kill switch
