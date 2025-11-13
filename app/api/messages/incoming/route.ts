@@ -15,6 +15,7 @@ import { extractCustomerName, isLikelyValidName } from '@/app/lib/customer-name-
 import { shouldAIRespond, isSimpleQuery } from '@/app/lib/simple-query-detector'
 import { analyzeMessage } from '@/app/lib/unified-message-analyzer'
 import { getModulesForAnalysis, logModuleSelection } from '@/app/lib/module-selector'
+import { normalizePhoneNumber } from '@/app/lib/phone-normalizer'
 
 /**
  * Calculate similarity between two strings (0 = completely different, 1 = identical)
@@ -166,6 +167,23 @@ export async function POST(request: NextRequest) {
       
       return response
     }
+
+    // Normalize phone number to prevent duplicate conversations
+    const normalizedPhone = normalizePhoneNumber(from)
+    if (!normalizedPhone) {
+      return NextResponse.json(
+        { error: 'Invalid phone number format' },
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        }
+      )
+    }
+    
+    console.log('[Phone Normalization] Original:', from, '→ Normalized:', normalizedPhone)
+    from = normalizedPhone
 
     const supabase = await createClient()
     const supabaseService = createServiceClient() // For operations that bypass RLS (alerts, etc.)

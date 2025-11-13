@@ -4,6 +4,7 @@ import { sendMessageViaProvider } from '@/app/lib/messaging/provider'
 import { extractConfirmationData } from '@/app/lib/confirmation-extractor'
 import { getCorrectSender } from '@/app/lib/sender-detector'
 import { extractStaffMessageInfo, shouldExtractFromMessage } from '@/app/lib/staff-message-extractor'
+import { normalizePhoneNumber } from '@/app/lib/phone-normalizer'
 
 /**
  * POST /api/messages/send
@@ -172,62 +173,52 @@ export async function POST(request: NextRequest) {
         )
       }
       
+      // Normalize phone number to prevent duplicate conversations
+      const normalizedPhone = normalizePhoneNumber(customerPhone)
+      if (!normalizedPhone) {
+        console.error('[Send Message] Invalid phone number format:', customerPhone)
+        return NextResponse.json(
+          { 
+            error: 'Invalid phone number format',
+            hint: 'Phone number could not be normalized',
+            success: false
+          },
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+          }
+        )
+      }
+      
+      console.log('[Phone Normalization] Original:', customerPhone, '→ Normalized:', normalizedPhone)
+      customerPhone = normalizedPhone
+      
       console.log('[Send Message] Looking up conversation for phone:', customerPhone)
       
-      // Try multiple phone number formats to handle different formats from MacroDroid
-      // Generate all common UK phone formats
-      const phoneVariants = []
-      const cleanPhone = customerPhone.replace(/\s+/g, '') // Remove all spaces
-      
-      phoneVariants.push(cleanPhone) // Original
-      
-      // If starts with +44, add variants
-      if (cleanPhone.startsWith('+44')) {
-        phoneVariants.push(cleanPhone.substring(1))        // Remove +: 447410381247
-        phoneVariants.push('0' + cleanPhone.substring(3))  // UK format: 07410381247
-      }
-      // If starts with 44 (no +), add variants
-      else if (cleanPhone.startsWith('44') && !cleanPhone.startsWith('0')) {
-        phoneVariants.push('+' + cleanPhone)               // Add +: +447410381247
-        phoneVariants.push('0' + cleanPhone.substring(2))  // UK format: 07410381247
-      }
-      // If starts with 0, add variants
-      else if (cleanPhone.startsWith('0')) {
-        phoneVariants.push('+44' + cleanPhone.substring(1)) // International: +447410381247
-        phoneVariants.push('44' + cleanPhone.substring(1))  // No +: 447410381247
-      }
-      
-      // Remove duplicates
-      const uniqueVariants = [...new Set(phoneVariants)]
-      
-      console.log('[Send Message] Trying phone variants:', phoneVariants)
+      // Phone is already normalized, just look it up directly
+      console.log('[Send Message] Looking up customer with normalized phone:', customerPhone)
       
       let customer = null
-      let foundPhone = null
+      const { data: foundCustomer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('phone', customerPhone)
+        .maybeSingle()
       
-      // Try each phone variant
-      for (const phoneVariant of phoneVariants) {
-        const { data: foundCustomer } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('phone', phoneVariant)
-          .maybeSingle()
-        
-        if (foundCustomer) {
-          customer = foundCustomer
-          foundPhone = phoneVariant
-          console.log('[Send Message] Found customer with phone variant:', phoneVariant, 'Customer ID:', customer.id)
-          break
-        }
+      if (foundCustomer) {
+        customer = foundCustomer
+        console.log('[Send Message] Found customer:', customer.id)
       }
 
       if (!customer) {
         console.log('[Send Message] Customer not found - creating new customer for phone:', customerPhone)
         
-        // Create new customer for this phone number
+        // Create new customer for this phone number (already normalized)
         const { data: newCustomer, error: createError } = await supabase
           .from('customers')
-          .insert({ phone: cleanPhone })
+          .insert({ phone: customerPhone })
           .select()
           .single()
         
@@ -235,7 +226,6 @@ export async function POST(request: NextRequest) {
           console.error('[Send Message] Failed to create customer:', createError)
         } else {
           customer = newCustomer
-          foundPhone = cleanPhone
           console.log('[Send Message] Created new customer:', customer.id)
         }
       }
@@ -271,7 +261,7 @@ export async function POST(request: NextRequest) {
           }
         } else {
           actualConversationId = conversation.id
-          console.log('[Send Message] Found conversation:', actualConversationId, 'for phone:', foundPhone)
+          console.log('[Send Message] Found conversation:', actualConversationId, 'for phone:', customerPhone)
         }
       }
     }

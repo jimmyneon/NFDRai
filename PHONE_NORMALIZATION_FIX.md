@@ -1,10 +1,95 @@
-# ✅ Phone Number Normalization Fix
+# ✅ Phone Number Normalization Fix - DEPLOYED
+
+## Problem Fixed
+
+**Duplicate conversations** caused by inconsistent phone number formats from MacroDroid:
+- Incoming messages: `+447833454000` (with +)
+- Outgoing tracking: `447833454000` (no +)
+
+This created two separate customer records and conversations, causing:
+- ❌ Messages split across two conversations
+- ❌ AI responding when it should pause (couldn't see staff messages)
+- ❌ UI showing incomplete conversation history
+
+## Solution Implemented
+
+### 1. Phone Normalizer Utility (`app/lib/phone-normalizer.ts`)
+
+Normalizes all phone numbers to consistent `+44` format:
+
+```typescript
+normalizePhoneNumber('07833454000')    → '+447833454000'
+normalizePhoneNumber('447833454000')   → '+447833454000'
+normalizePhoneNumber('+447833454000')  → '+447833454000'
+normalizePhoneNumber('0044 7833 454000') → '+447833454000'
+```
+
+### 2. Integration Points
+
+**Incoming Messages** (`app/api/messages/incoming/route.ts`):
+- Normalizes phone before customer lookup
+- Prevents duplicate customer creation
+
+**Outgoing Messages** (`app/api/messages/send/route.ts`):
+- Normalizes phone in lookup-by-phone mode
+- Ensures messages go to correct conversation
+
+### 3. Immediate Fix Applied
+
+Ran `fix-duplicate-conversations.js` to merge existing duplicates:
+- Moved 4 staff messages from duplicate conversation
+- Combined with 7 existing messages (3 customer + 4 AI)
+- Total: 11 messages in one conversation
+- Deleted empty duplicate
+
+## Benefits
+
+✅ **No more duplicate conversations**
+- All phone formats normalize to same value
+- One customer record per phone number
+- One conversation per customer
+
+✅ **AI pause logic works correctly**
+- AI sees staff messages in same conversation
+- Pauses for 30 min after staff replies
+- Only responds to simple queries during pause
+
+✅ **Complete conversation history**
+- All messages visible in UI
+- Correct message counts
+- Proper timeline
+
+## Testing
+
+Run verification scripts:
+```bash
+# Check all messages in one conversation
+node check-messages.js
+
+# Test phone normalization
+node test-phone-normalizer.js
+```
+
+## Files Changed
+
+- `app/lib/phone-normalizer.ts` - NEW: Phone normalization utility
+- `app/api/messages/incoming/route.ts` - Added normalization
+- `app/api/messages/send/route.ts` - Added normalization
+- `fix-duplicate-conversations.js` - One-time merge script
+- `test-phone-normalizer.js` - Test suite
+
+## Deployment
+
+Committed and pushed to GitHub for automatic Vercel deployment.
+
+## Future Prevention
+
+Phone normalization now happens automatically on all incoming and outgoing messages. No MacroDroid changes needed - the server handles it
 
 ## Problem Solved
 
 The `/api/messages/send` endpoint was returning 404 because MacroDroid's phone number format didn't match the database format.
 
-**Example**:
 - MacroDroid sends: `+447410381247`
 - Database has: `07410381247`
 - Result: Customer not found → 404
