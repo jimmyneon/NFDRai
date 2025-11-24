@@ -79,6 +79,26 @@ export function isAutoresponder(message: string, phoneNumber: string): boolean {
     /capital\s+one/i,
     /mbna/i,
     /tesco\s+bank/i,
+
+    // Spam/Scam patterns
+    /you'?ve\s+won/i,
+    /congratulations.*won/i,
+    /claim\s+your\s+(prize|reward|gift)/i,
+    /free\s+(iphone|ipad|macbook|laptop|phone)/i,
+    /click\s+here\s+to\s+(claim|win|get)/i,
+    /tax\s+refund/i,
+    /hmrc/i,
+    /ppi\s+claim/i,
+    /compensation\s+claim/i,
+    /you\s+are\s+owed/i,
+    /urgent.*action\s+required/i,
+    /suspend(ed)?.*account/i,
+    /verify\s+your\s+account/i,
+    /unusual\s+activity/i,
+    /security\s+alert/i,
+    /package.*held.*customs/i,
+    /pay.*shipping.*fee/i,
+    /redelivery.*fee/i,
   ];
 
   for (const pattern of autoresponderPatterns) {

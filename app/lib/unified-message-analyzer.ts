@@ -232,7 +232,36 @@ export function quickAnalysis(
     }
   }
 
-  // 5. Simple questions (can respond)
+  // 5. Follow-up questions (customer continuing previous topic)
+  const followUpPatterns = [
+    /^(and|also|what about|how about)\s+(the\s+)?(battery|screen|back|camera|charging|speaker|microphone)/i,
+    /^(and|also)\s+(do you|can you|could you)/i,
+    /^what about/i,
+    /^how about/i,
+  ];
+
+  for (const pattern of followUpPatterns) {
+    if (pattern.test(message)) {
+      return {
+        sentiment: "neutral",
+        urgency: "low",
+        requiresStaffAttention: false,
+        sentimentKeywords: [],
+        intent: "question",
+        intentConfidence: 0.8,
+        contentType: "unclear", // Will be determined by AI with context
+        shouldAIRespond: true,
+        contextConfidence: 0.75,
+        isDirectedAtAI: true,
+        reasoning: "Follow-up question - continuing previous topic",
+        customerName: null,
+        nameConfidence: 0,
+        overallConfidence: 0.75,
+      };
+    }
+  }
+
+  // 6. Simple questions (can respond)
   const simpleQuestionPatterns = [
     /when (are|do) you (open|close)/i,
     /what (time|are your hours)/i,
@@ -293,9 +322,9 @@ export async function analyzeWithAI(
   try {
     const openai = new OpenAI({ apiKey });
 
-    // Build conversation context
+    // Build conversation context (use last 10 messages for better awareness)
     const contextStr = recentMessages
-      .slice(-5) // Last 5 messages
+      .slice(-10) // Last 10 messages
       .map(
         (m) =>
           `${m.sender === "staff" ? "John (Owner)" : "Customer"}: ${m.text}`
