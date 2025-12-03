@@ -2,35 +2,47 @@
  * Conversation State Machine
  * Tracks where we are in the conversation flow to prevent AI confusion
  */
-import { extractCustomerName as extractNameFromText, isLikelyValidName } from '@/app/lib/customer-name-extractor'
+import {
+  extractCustomerName as extractNameFromText,
+  isLikelyValidName,
+} from "@/app/lib/customer-name-extractor";
 
-export type ConversationState = 
-  | 'new_inquiry'           // First message from customer
-  | 'gathering_device_info' // Asked for device, waiting for answer
-  | 'gathering_issue_info'  // Asked for issue, waiting for answer
-  | 'presenting_options'    // Showed pricing options
-  | 'confirming_choice'     // Customer said yes, confirming which option
-  | 'upselling'            // Offered battery/additional service
-  | 'ready_to_visit'       // All info gathered, ready for walk-in
-  | 'follow_up'            // Customer asking about existing repair
-  | 'general_inquiry'      // Non-repair question
-  | 'handoff_required';    // Needs John
+export type ConversationState =
+  | "new_inquiry" // First message from customer
+  | "gathering_device_info" // Asked for device, waiting for answer
+  | "gathering_issue_info" // Asked for issue, waiting for answer
+  | "presenting_options" // Showed pricing options
+  | "confirming_choice" // Customer said yes, confirming which option
+  | "upselling" // Offered battery/additional service
+  | "ready_to_visit" // All info gathered, ready for walk-in
+  | "follow_up" // Customer asking about existing repair
+  | "general_inquiry" // Non-repair question
+  | "handoff_required"; // Needs John
 
 export type ConversationIntent =
-  | 'screen_repair'
-  | 'battery_replacement'
-  | 'diagnostic'
-  | 'buyback'
-  | 'sell_device'
-  | 'warranty_claim'
-  | 'general_info'
-  | 'status_check'
-  | 'unknown';
+  | "screen_repair"
+  | "battery_replacement"
+  | "diagnostic"
+  | "buyback"
+  | "sell_device"
+  | "warranty_claim"
+  | "general_info"
+  | "status_check"
+  | "unknown";
 
 export interface ConversationContext {
   state: ConversationState;
   intent: ConversationIntent;
-  deviceType?: 'iphone' | 'ipad' | 'macbook' | 'laptop' | 'samsung' | 'phone' | 'tablet' | 'watch' | 'other';
+  deviceType?:
+    | "iphone"
+    | "ipad"
+    | "macbook"
+    | "laptop"
+    | "samsung"
+    | "phone"
+    | "tablet"
+    | "watch"
+    | "other";
   deviceModel?: string;
   issue?: string;
   quotedPrice?: number;
@@ -42,47 +54,59 @@ export interface ConversationContext {
 /**
  * Determines the current conversation state based on message history
  */
-export function analyzeConversationState(messages: Array<{
-  sender: 'customer' | 'ai' | 'staff';
-  text: string;
-  created_at: string;
-}>): ConversationContext {
-  
+export function analyzeConversationState(
+  messages: Array<{
+    sender: "customer" | "ai" | "staff";
+    text: string;
+    created_at: string;
+  }>
+): ConversationContext {
   if (messages.length === 0) {
     return {
-      state: 'new_inquiry',
-      intent: 'unknown',
+      state: "new_inquiry",
+      intent: "unknown",
       lastStateChange: new Date(),
-      stateHistory: [{ state: 'new_inquiry', timestamp: new Date() }]
+      stateHistory: [{ state: "new_inquiry", timestamp: new Date() }],
     };
   }
 
-  const lastAIMessage = messages.filter(m => m.sender === 'ai').slice(-1)[0];
-  const lastCustomerMessage = messages.filter(m => m.sender === 'customer').slice(-1)[0];
-  
+  const lastAIMessage = messages.filter((m) => m.sender === "ai").slice(-1)[0];
+  const lastCustomerMessage = messages
+    .filter((m) => m.sender === "customer")
+    .slice(-1)[0];
+
   // CHECK TIME DECAY: If last message was >4 hours ago, treat as NEW conversation
-  const lastMessageTime = lastCustomerMessage ? new Date(lastCustomerMessage.created_at) : new Date();
-  const hoursSinceLastMessage = (Date.now() - lastMessageTime.getTime()) / (1000 * 60 * 60);
+  const lastMessageTime = lastCustomerMessage
+    ? new Date(lastCustomerMessage.created_at)
+    : new Date();
+  const hoursSinceLastMessage =
+    (Date.now() - lastMessageTime.getTime()) / (1000 * 60 * 60);
   const isStaleContext = hoursSinceLastMessage > 4;
-  
+
   // If context is stale OR customer says generic greeting, reset context
-  const isGenericGreeting = lastCustomerMessage?.text.toLowerCase().match(/^(hi|hello|hey|good morning|good afternoon)$/);
+  const isGenericGreeting = lastCustomerMessage?.text
+    .toLowerCase()
+    .match(/^(hi|hello|hey|good morning|good afternoon)$/);
   const shouldResetContext = isStaleContext || isGenericGreeting;
-  
+
   // Only use recent messages for context (last 10 messages OR messages from last 4 hours)
-  const recentMessages = shouldResetContext 
+  const recentMessages = shouldResetContext
     ? [lastCustomerMessage].filter(Boolean) // Only current message if context is stale
-    : messages.filter(m => {
-        const msgTime = new Date(m.created_at);
-        const hoursAgo = (Date.now() - msgTime.getTime()) / (1000 * 60 * 60);
-        return hoursAgo <= 4;
-      }).slice(-10); // Last 10 messages within 4 hours (increased from 5)
-  
-  const allText = recentMessages.map(m => m.text.toLowerCase()).join(' ');
+    : messages
+        .filter((m) => {
+          const msgTime = new Date(m.created_at);
+          const hoursAgo = (Date.now() - msgTime.getTime()) / (1000 * 60 * 60);
+          return hoursAgo <= 4;
+        })
+        .slice(-10); // Last 10 messages within 4 hours (increased from 5)
+
+  const allText = recentMessages.map((m) => m.text.toLowerCase()).join(" ");
 
   // Detect topic switch / clarification in last customer message
-  const lastText = (lastCustomerMessage?.text || '').toLowerCase();
-  const topicSwitch = /\b(i mean|actually|instead|no,? i want|i meant)\b/.test(lastText);
+  const lastText = (lastCustomerMessage?.text || "").toLowerCase();
+  const topicSwitch = /\b(i mean|actually|instead|no,? i want|i meant)\b/.test(
+    lastText
+  );
 
   // Extract device info if mentioned (only from recent context)
   const deviceType = extractDeviceType(allText);
@@ -93,47 +117,70 @@ export function analyzeConversationState(messages: Array<{
   let intent = determineIntent(allText);
   // If topic switch indicates moving to repair, downrank status_check
   if (topicSwitch) {
-    const repairCue = /(fix|repair|screen|broken|crack|diagnos|battery)/.test(allText);
-    if (repairCue && intent === 'status_check') {
-      intent = 'diagnostic';
+    const repairCue = /(fix|repair|screen|broken|crack|diagnos|battery)/.test(
+      allText
+    );
+    if (repairCue && intent === "status_check") {
+      intent = "diagnostic";
     }
   }
 
   // Determine state based on conversation flow
-  let state: ConversationState = 'new_inquiry';
+  let state: ConversationState = "new_inquiry";
 
   // Check if asking about existing repair
-  if (!topicSwitch && (allText.includes('ready') || allText.includes('done') || allText.includes('finished'))) {
-    state = 'follow_up';
+  if (
+    !topicSwitch &&
+    (allText.includes("ready") ||
+      allText.includes("done") ||
+      allText.includes("finished"))
+  ) {
+    state = "follow_up";
   }
   // Check if ready for visit
-  else if (deviceModel && intent !== 'unknown' && lastAIMessage?.text.toLowerCase().includes('pop in')) {
-    state = 'ready_to_visit';
+  else if (
+    deviceModel &&
+    intent !== "unknown" &&
+    lastAIMessage?.text.toLowerCase().includes("pop in")
+  ) {
+    state = "ready_to_visit";
   }
   // Check if we're in upsell phase (mentioned battery combo)
-  else if (lastAIMessage?.text.includes('£20 off battery')) {
-    state = 'upselling';
+  else if (lastAIMessage?.text.includes("£20 off battery")) {
+    state = "upselling";
   }
   // Check if AI presented pricing options and customer responded positively
-  else if (lastAIMessage?.text.includes('£') && 
-           (lastAIMessage?.text.includes('OLED') || lastAIMessage?.text.includes('genuine')) &&
-           lastCustomerMessage?.text.toLowerCase().match(/yes|yeah|ok|sure|interested|please/)) {
-    state = 'confirming_choice';
+  else if (
+    lastAIMessage?.text.includes("£") &&
+    (lastAIMessage?.text.includes("OLED") ||
+      lastAIMessage?.text.includes("genuine")) &&
+    lastCustomerMessage?.text
+      .toLowerCase()
+      .match(/yes|yeah|ok|sure|interested|please/)
+  ) {
+    state = "confirming_choice";
   }
   // Check if AI presented pricing options (waiting for response)
-  else if (lastAIMessage?.text.includes('£') && 
-           (lastAIMessage?.text.includes('OLED') || lastAIMessage?.text.includes('genuine'))) {
-    state = 'presenting_options';
+  else if (
+    lastAIMessage?.text.includes("£") &&
+    (lastAIMessage?.text.includes("OLED") ||
+      lastAIMessage?.text.includes("genuine"))
+  ) {
+    state = "presenting_options";
   }
   // Check if AI asked about the issue
-  else if (lastAIMessage?.text.toLowerCase().includes('what can i help') ||
-           lastAIMessage?.text.toLowerCase().includes('what\'s wrong')) {
-    state = 'gathering_issue_info';
+  else if (
+    lastAIMessage?.text.toLowerCase().includes("what can i help") ||
+    lastAIMessage?.text.toLowerCase().includes("what's wrong")
+  ) {
+    state = "gathering_issue_info";
   }
   // Check if AI asked for device info and customer hasn't provided it
-  else if (lastAIMessage?.text.toLowerCase().includes('what make and model') ||
-      lastAIMessage?.text.toLowerCase().includes('which device')) {
-    state = 'gathering_device_info';
+  else if (
+    lastAIMessage?.text.toLowerCase().includes("what make and model") ||
+    lastAIMessage?.text.toLowerCase().includes("which device")
+  ) {
+    state = "gathering_device_info";
   }
 
   return {
@@ -143,23 +190,36 @@ export function analyzeConversationState(messages: Array<{
     deviceModel,
     customerName,
     lastStateChange: new Date(),
-    stateHistory: [{ state, timestamp: new Date() }]
+    stateHistory: [{ state, timestamp: new Date() }],
   };
 }
 
 /**
  * Extract device type from conversation text
  */
-function extractDeviceType(text: string): ConversationContext['deviceType'] {
+function extractDeviceType(text: string): ConversationContext["deviceType"] {
   const lowerText = text.toLowerCase();
-  if (lowerText.includes('iphone')) return 'iphone';
-  if (lowerText.includes('ipad')) return 'ipad';
-  if (lowerText.includes('macbook') || lowerText.includes('mac book')) return 'macbook';
-  if (lowerText.includes('samsung') || lowerText.includes('galaxy')) return 'samsung';
-  if (lowerText.includes('laptop') || lowerText.includes('notebook')) return 'laptop';
-  if (lowerText.includes('phone') || lowerText.includes('mobile')) return 'phone';
-  if (lowerText.includes('tablet')) return 'tablet';
-  if (lowerText.includes('watch') || lowerText.includes('apple watch')) return 'watch';
+  if (lowerText.includes("iphone")) return "iphone";
+  if (lowerText.includes("ipad")) return "ipad";
+  if (lowerText.includes("macbook") || lowerText.includes("mac book"))
+    return "macbook";
+  if (lowerText.includes("samsung") || lowerText.includes("galaxy"))
+    return "samsung";
+  if (lowerText.includes("laptop") || lowerText.includes("notebook"))
+    return "laptop";
+  // Detect other phone brands as 'phone' type
+  if (lowerText.includes("motorola") || lowerText.includes("moto "))
+    return "phone";
+  if (lowerText.includes("pixel")) return "phone";
+  if (lowerText.includes("oneplus")) return "phone";
+  if (lowerText.includes("huawei")) return "phone";
+  if (lowerText.includes("xiaomi") || lowerText.includes("redmi"))
+    return "phone";
+  if (lowerText.includes("phone") || lowerText.includes("mobile"))
+    return "phone";
+  if (lowerText.includes("tablet")) return "tablet";
+  if (lowerText.includes("watch") || lowerText.includes("apple watch"))
+    return "watch";
   return undefined;
 }
 
@@ -168,22 +228,58 @@ function extractDeviceType(text: string): ConversationContext['deviceType'] {
  */
 function extractDeviceModel(text: string): string | undefined {
   const lowerText = text.toLowerCase();
-  
+
   // iPhone models - must have number or specific identifier
-  const iphoneMatch = text.match(/iphone\s*(1[0-5]|[6-9]|x[rs]?|se|pro\s*max|plus|mini)/i);
+  // Match iPhone with model number and optional Pro/Pro Max/Plus/Mini suffix
+  const iphoneMatch = text.match(
+    /iphone\s*(1[0-6]|[6-9]|x[rs]?|se)(\s*(pro\s*max|pro|plus|mini))?/i
+  );
   if (iphoneMatch) return iphoneMatch[0];
 
   // iPad models - only if specific model mentioned
   const ipadMatch = text.match(/ipad\s+(pro|air|mini|\d)/i);
   if (ipadMatch) return ipadMatch[0];
 
-  // Samsung Galaxy models - broader detection
-  const samsungMatch = text.match(/galaxy\s*([san]\d+|s\d+\s*(ultra|plus|fe)?|note\s*\d+|fold\s*\d*|flip\s*\d*)/i);
+  // Samsung Galaxy models - broader detection with Ultra/Plus/FE variants
+  const samsungMatch = text.match(
+    /galaxy\s*(s\d+\s*(ultra|plus|\+|fe)?|a\d+\s*(ultra|plus|\+)?|note\s*\d+|z?\s*fold\s*\d*|z?\s*flip\s*\d*)/i
+  );
   if (samsungMatch) return samsungMatch[0];
+
+  // Google Pixel models
+  const pixelMatch = text.match(/pixel\s*(\d+[a]?|pro|fold)/i);
+  if (pixelMatch) return `Pixel ${pixelMatch[1]}`;
+
+  // Motorola/Moto models - CRITICAL: This was missing!
+  const motoMatch = text.match(
+    /(?:motorola\s*)?moto\s*([gex]\s*\d+|g\s*power|g\s*stylus|edge|razr)/i
+  );
+  if (motoMatch) return `Moto ${motoMatch[1]}`;
+
+  // OnePlus models
+  const oneplusMatch = text.match(/oneplus\s*(\d+[t]?|nord|open)/i);
+  if (oneplusMatch) return `OnePlus ${oneplusMatch[1]}`;
+
+  // Huawei models
+  const huaweiMatch = text.match(/huawei\s*(p\d+|mate\s*\d+|nova\s*\d+)/i);
+  if (huaweiMatch) return `Huawei ${huaweiMatch[1]}`;
+
+  // Xiaomi/Redmi models
+  const xiaomiMatch = text.match(
+    /(xiaomi|redmi)\s*(note\s*\d+|mi\s*\d+|\d+[a-z]*)/i
+  );
+  if (xiaomiMatch) return `${xiaomiMatch[1]} ${xiaomiMatch[2]}`;
 
   // MacBook models
   const macbookMatch = text.match(/macbook\s*(pro|air)?(\s*(13|14|15|16))?/i);
-  if (macbookMatch && (macbookMatch[1] || macbookMatch[2])) return macbookMatch[0];
+  if (macbookMatch && (macbookMatch[1] || macbookMatch[2]))
+    return macbookMatch[0];
+
+  // Generic laptop brands with model numbers
+  const laptopMatch = text.match(
+    /(dell|hp|lenovo|asus|acer)\s*([\w\d]+\s*[\w\d]*)/i
+  );
+  if (laptopMatch) return `${laptopMatch[1]} ${laptopMatch[2]}`.trim();
 
   // Generic "just iPad" or "just iPhone" should NOT match - we need specifics
   // This ensures Steve asks for the model
@@ -193,41 +289,60 @@ function extractDeviceModel(text: string): string | undefined {
 /**
  * Extract customer name from messages
  */
-function extractNameFromRecent(messages: Array<{ sender: string; text: string }>): string | undefined {
+function extractNameFromRecent(
+  messages: Array<{ sender: string; text: string }>
+): string | undefined {
   for (const msg of messages) {
-    if (msg.sender === 'customer') {
-      const result = extractNameFromText(msg.text)
+    if (msg.sender === "customer") {
+      const result = extractNameFromText(msg.text);
       if (result.customerName && isLikelyValidName(result.customerName)) {
-        return result.customerName
+        return result.customerName;
       }
     }
   }
-  return undefined
+  return undefined;
 }
 
 /**
  * Determine conversation intent
  */
 function determineIntent(text: string): ConversationIntent {
-  if (text.includes('screen') && (text.includes('crack') || text.includes('broken') || text.includes('smash'))) {
-    return 'screen_repair';
+  if (
+    text.includes("screen") &&
+    (text.includes("crack") ||
+      text.includes("broken") ||
+      text.includes("smash"))
+  ) {
+    return "screen_repair";
   }
-  if (text.includes('battery') || text.includes('drain') || text.includes('charge')) {
-    return 'battery_replacement';
+  if (
+    text.includes("battery") ||
+    text.includes("drain") ||
+    text.includes("charge")
+  ) {
+    return "battery_replacement";
   }
-  if (text.includes('won\'t turn on') || text.includes('not working') || text.includes('dead')) {
-    return 'diagnostic';
+  if (
+    text.includes("won't turn on") ||
+    text.includes("not working") ||
+    text.includes("dead")
+  ) {
+    return "diagnostic";
   }
-  if (text.includes('sell') || text.includes('buy') && text.includes('my')) {
-    return 'buyback';
+  if (text.includes("sell") || (text.includes("buy") && text.includes("my"))) {
+    return "buyback";
   }
-  if (text.includes('warranty') || text.includes('still not working')) {
-    return 'warranty_claim';
+  if (text.includes("warranty") || text.includes("still not working")) {
+    return "warranty_claim";
   }
-  if (text.includes('ready') || text.includes('done') || text.includes('finished')) {
-    return 'status_check';
+  if (
+    text.includes("ready") ||
+    text.includes("done") ||
+    text.includes("finished")
+  ) {
+    return "status_check";
   }
-  return 'unknown';
+  return "unknown";
 }
 
 /**
@@ -261,9 +376,11 @@ DEVICE INFO REQUIREMENTS:
 
     gathering_issue_info: `
 🎯 STATE: Gathering Issue Info
-- Device type: ${context.deviceType || 'unknown'}
-- Device model: ${context.deviceModel || 'NOT YET PROVIDED'}
-- CRITICAL: If device model is "NOT YET PROVIDED", you MUST ask "What model ${context.deviceType || 'device'} is it?" BEFORE asking about the issue
+- Device type: ${context.deviceType || "unknown"}
+- Device model: ${context.deviceModel || "NOT YET PROVIDED"}
+- CRITICAL: If device model is "NOT YET PROVIDED", you MUST ask "What model ${
+      context.deviceType || "device"
+    } is it?" BEFORE asking about the issue
 - Only after you have the SPECIFIC MODEL (e.g., iPhone 12, iPad Pro) can you ask what's wrong
 - DO NOT skip the model question - it's required for pricing`,
 
@@ -319,7 +436,7 @@ DEVICE INFO REQUIREMENTS:
 🎯 STATE: Handoff Required
 - This needs John's attention
 - Explain why
-- Set expectations for response time`
+- Set expectations for response time`,
   };
 
   return stateGuidance[state];
@@ -336,73 +453,101 @@ export function validateResponseForState(
 
   // Check for state-specific violations
   switch (context.state) {
-    case 'new_inquiry':
+    case "new_inquiry":
       // Don't assume old context - should ask what they need
-      if (response.toLowerCase().includes('check on your repair') || 
-          response.toLowerCase().includes('existing repair')) {
-        issues.push('Assumed customer wants status check without asking');
+      if (
+        response.toLowerCase().includes("check on your repair") ||
+        response.toLowerCase().includes("existing repair")
+      ) {
+        issues.push("Assumed customer wants status check without asking");
       }
       break;
 
-    case 'gathering_device_info':
-      if (response.toLowerCase().includes('what make and model')) {
-        issues.push('Asked for device info again (already asked)');
+    case "gathering_device_info":
+      if (response.toLowerCase().includes("what make and model")) {
+        issues.push("Asked for device info again (already asked)");
       }
       break;
 
-    case 'presenting_options':
-      if (response.includes('£') && response.includes('OLED')) {
-        issues.push('Repeated pricing options (already presented)');
+    case "presenting_options":
+      if (response.includes("£") && response.includes("OLED")) {
+        issues.push("Repeated pricing options (already presented)");
       }
       break;
 
-    case 'confirming_choice':
-      if (!response.toLowerCase().includes('confirm')) {
-        issues.push('Did not explicitly confirm customer choice');
+    case "confirming_choice":
+      if (!response.toLowerCase().includes("confirm")) {
+        issues.push("Did not explicitly confirm customer choice");
       }
       break;
 
-    case 'ready_to_visit':
-      if (response.split('\n').length > 10) {
-        issues.push('Response too long for ready_to_visit state');
+    case "ready_to_visit":
+      if (response.split("\n").length > 10) {
+        issues.push("Response too long for ready_to_visit state");
       }
       break;
-      
-    case 'follow_up':
+
+    case "follow_up":
       // Steve cannot check repair status
-      if (response.toLowerCase().includes("i'll check") || 
-          response.toLowerCase().includes("let me check")) {
-        issues.push('Promised to check status but Steve has no access - should handoff to John');
+      if (
+        response.toLowerCase().includes("i'll check") ||
+        response.toLowerCase().includes("let me check")
+      ) {
+        issues.push(
+          "Promised to check status but Steve has no access - should handoff to John"
+        );
       }
       break;
   }
 
   // Check for common mistakes
-  if (context.deviceModel && response.toLowerCase().includes('what model')) {
+  if (context.deviceModel && response.toLowerCase().includes("what model")) {
     issues.push(`Already know device model: ${context.deviceModel}`);
   }
 
-  if (context.customerName && response.toLowerCase().includes('what\'s your name')) {
+  if (
+    context.customerName &&
+    response.toLowerCase().includes("what's your name")
+  ) {
     issues.push(`Already know customer name: ${context.customerName}`);
   }
 
   // CRITICAL: Check if Steve is giving pricing without knowing the model
   if (!context.deviceModel && context.deviceType) {
     // Has device type (iPhone, iPad) but not specific model
-    if (response.includes('£') || response.toLowerCase().includes('price') || 
-        response.toLowerCase().includes('cost')) {
-      issues.push(`Attempted to quote price without knowing specific model - only know device type: ${context.deviceType}`);
+    if (
+      response.includes("£") ||
+      response.toLowerCase().includes("price") ||
+      response.toLowerCase().includes("cost")
+    ) {
+      issues.push(
+        `Attempted to quote price without knowing specific model - only know device type: ${context.deviceType}`
+      );
     }
-    
+
     // Check if Steve is suggesting "bring it in" without first helping them find the model
-    const bringItInPhrases = ['bring it in', 'bring the', 'pop in', 'come by', 'drop in'];
-    const hasHelpedFindModel = response.toLowerCase().includes('settings') || 
-                               response.toLowerCase().includes('about phone') ||
-                               response.toLowerCase().includes('general > about') ||
-                               response.toLowerCase().includes('check the logo');
-    
-    if (bringItInPhrases.some(phrase => response.toLowerCase().includes(phrase)) && !hasHelpedFindModel) {
-      issues.push(`Suggested "bring it in" without first helping customer find their device model - should guide them to Settings > General > About (iPhone) or Settings > About Phone (Android)`);
+    const bringItInPhrases = [
+      "bring it in",
+      "bring the",
+      "pop in",
+      "come by",
+      "drop in",
+    ];
+    const hasHelpedFindModel =
+      response.toLowerCase().includes("settings") ||
+      response.toLowerCase().includes("about phone") ||
+      response.toLowerCase().includes("general > about") ||
+      response.toLowerCase().includes("check the logo");
+
+    if (
+      bringItInPhrases.some((phrase) =>
+        response.toLowerCase().includes(phrase)
+      ) &&
+      !hasHelpedFindModel
+    ) {
+      issues.push(
+        `Suggested "bring it in" without first helping customer find their device model - should guide them to Settings > General > About (iPhone) or Settings > About Phone (Android)`
+      );
     }
   }
 
