@@ -228,13 +228,13 @@ function generateMissedCallMessage(context: {
     const closeTime = extractCloseTime(context.todayHours);
     lines.push(`We're currently OPEN until ${closeTime}.`);
     lines.push("");
-    lines.push("I can help you right now with:");
-    lines.push("• Screen repair pricing (iPhone, Samsung, etc.)");
-    lines.push("• Battery replacement quotes");
-    lines.push("• Booking you in for today or tomorrow");
-    lines.push("• Any device repair questions");
+    lines.push("TEXT ME for instant help with:");
+    lines.push("• Repair quotes (no need to call!)");
+    lines.push("• Opening hours");
+    lines.push("• Booking appointments");
+    lines.push("• Any device questions");
     lines.push("");
-    lines.push("Just text back with what you need, or call us back!");
+    lines.push("I'll reply straight away - much faster than waiting on hold!");
   }
   // CURRENTLY CLOSED
   else {
@@ -246,12 +246,13 @@ function generateMissedCallMessage(context: {
       lines.push(`We're currently CLOSED. ${context.todayHours}`);
     }
     lines.push("");
-    lines.push("I can help you right now with:");
-    lines.push("• Repair quotes (screen, battery, etc.)");
-    lines.push("• Booking you in");
-    lines.push("• Questions about our services");
+    lines.push("TEXT ME now for instant help with:");
+    lines.push("• Repair quotes (no need to call back!)");
+    lines.push("• Opening hours");
+    lines.push("• Booking appointments");
+    lines.push("• Any questions");
     lines.push("");
-    lines.push("Just text back and I'll get you sorted!");
+    lines.push("I'll reply straight away - saves you calling back!");
   }
 
   // Add Google Maps link (if available)

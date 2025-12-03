@@ -85,15 +85,18 @@ export function quickAnalysis(
 
   // VERY CLEAR CASES - Don't need AI
 
-  // 1. Pure acknowledgments (don't respond)
+  // 1. Pure acknowledgments (don't respond) - EXPANDED
   const acknowledgmentPatterns = [
     /^(ok|okay|alright|sure|fine|thanks|thank you|cheers|ta)[\s.!]*$/i,
     /^(yes|yeah|yep|yup|no|nope|nah)[\s.!]*$/i,
-    /^(got it|understood|sounds good|perfect|great)[\s.!]*$/i,
+    /^(got it|understood|sounds good|perfect|great|lovely|brilliant|nice one)[\s.!]*$/i,
+    /^(will do|noted|roger|copy that|all good)[\s.!]*$/i,
+    /^see\s+you\s+(soon|later|then|tomorrow)[\s.!]*$/i,
+    /^(bye|goodbye|cya|see ya|later)[\s.!]*$/i,
   ];
 
   for (const pattern of acknowledgmentPatterns) {
-    if (pattern.test(message) && message.length < 30) {
+    if (pattern.test(message) && message.length < 40) {
       return {
         sentiment: "neutral",
         urgency: "low",
@@ -199,16 +202,27 @@ export function quickAnalysis(
     /with (the )?(beard|glasses|tattoo|hat)/i,
     /tell (him|her|them|john)/i,
 
-    // Callback requests
-    /(phone|call|ring)\s+(me|us)\s+(when|once|after)/i, // "phone me when you start"
+    // Callback requests - EXPANDED
+    /(phone|call|ring)\s+(me|us)\s+(when|once|after|as\s+soon|asap)/i, // "phone me when you start"
     /(can|could|would)\s+you\s+(phone|call|ring)\s+(me|us)/i, // "can you phone me"
     /if\s+you\s+(can|could)\s+(phone|call|ring)/i, // "if you can phone me"
+    /(give|send)\s+(me|us)\s+a\s+(call|ring)/i, // "give me a call"
+    /(call|phone|ring)\s+(me|us)\s+(back|please)/i, // "call me back", "phone me please"
+    /please\s+(call|phone|ring)/i, // "please call me"
+    /(need|want)\s+(you\s+to\s+)?(call|phone|ring)/i, // "need you to call", "want to call"
+
+    // Physical location waiting - EXPANDED
+    /(i'm|im|i am)\s+(at|in|outside|near)\s+(the\s+)?(shop|store|door|entrance|front|building)/i,
+    /(i'm|im|i am)\s+(here|outside|waiting)/i, // "I'm here", "I'm outside", "I'm waiting"
+    /(waiting|here)\s+(at|in|outside|for)\s+(the\s+)?(shop|you|door)/i,
+    /(at|outside)\s+(your|the)\s+(shop|store|door|place)/i,
+    /just\s+(arrived|outside|here)/i, // "just arrived", "just outside"
 
     // Location/meeting context (airport, arrivals, etc.)
     /(i'm|im)\s+(at|in)\s+(the\s+)?(airport|arrivals|departures|terminal|station)/i,
     /(waiting|here)\s+(at|in)\s+(the\s+)?(airport|arrivals|car\s+park)/i,
     /border\s+control/i,
-    /just\s+(landed|arrived)/i,
+    /just\s+(landed)/i,
   ];
 
   for (const pattern of physicalPersonPatterns) {
@@ -385,6 +399,19 @@ ANALYZE THE FOLLOWING:
    - Does message make sense in context?
    - Would AI response be helpful or confusing?
    - Should AI respond or stay silent?
+   
+   CRITICAL: AI should NOT respond if:
+   - Customer asks staff to call them back ("phone me when you start", "give me a call")
+   - Customer is physically waiting at location ("I'm outside", "I'm here", "just arrived")
+   - Customer is at airport/station waiting for pickup ("I'm at arrivals", "just landed")
+   - Message is directed at John specifically ("Hi John", "John, I'm here")
+   - Customer is describing someone physically ("for the tall guy with beard")
+   
+   AI SHOULD respond if:
+   - Customer asks about pricing, hours, services ("how much for screen?", "when are you open?")
+   - Customer has device issue and wants help ("my phone won't turn on")
+   - Customer wants to book appointment via text ("can I book in for tomorrow?")
+   - Follow-up questions about previous topic ("what about the battery?")
 
 6. NAME EXTRACTION:
    - Extract customer's first name ONLY when they clearly identify themselves
@@ -418,9 +445,12 @@ NAME EXTRACTION EXAMPLES:
 
 CRITICAL RULES FOR requiresStaffAttention:
 - Set to FALSE for: questions, device issues, pricing inquiries, general inquiries
-- Set to TRUE ONLY for: complaints about service, callback requests, directed at physical person
+- Set to TRUE for: complaints about service, callback requests, physically waiting at location, directed at John
 - Device problems ("dead phone", "broken screen") = FALSE (AI can help)
 - Service problems ("third time asking", "terrible service") = TRUE (needs staff)
+- Callback requests ("phone me when", "give me a call") = TRUE (needs staff)
+- Physical location ("I'm outside", "I'm here", "just arrived") = TRUE (needs staff)
+- Airport/pickup ("I'm at arrivals", "just landed") = TRUE (needs staff)
 
 OUTPUT FORMAT (JSON only, no markdown):
 {
