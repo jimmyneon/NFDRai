@@ -410,9 +410,10 @@ export async function generateSmartResponse(
     );
 
     // Remove any greeting from the main response since disclosure has one
-    if (finalResponse.match(/^(hi|hello|hey)/i)) {
+    // Handle: "Hi!", "Hi there!", "Hello!", "Hey!", "Hi there, we...", etc.
+    if (finalResponse.match(/^(hi|hello|hey)(\s+there)?[!,.\s]/i)) {
       const withoutGreeting = finalResponse
-        .replace(/^(hi|hello|hey)[!,.\s]*/i, "")
+        .replace(/^(hi|hello|hey)(\s+there)?[!,.\s]*/i, "")
         .trim();
 
       // CRITICAL: Check if response becomes empty after removing greeting
@@ -717,6 +718,8 @@ function buildFocusedPrompt(params: {
   const needsBuybackInfo =
     context.intent === "buyback" ||
     conversationText.includes("sell") ||
+    conversationText.includes("sold") ||
+    conversationText.includes("selling") ||
     conversationText.includes("trade") ||
     conversationText.includes("buy") ||
     conversationText.includes("old tech");

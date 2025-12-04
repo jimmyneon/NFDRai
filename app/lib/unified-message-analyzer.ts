@@ -282,6 +282,12 @@ export function quickAnalysis(
     /where are you/i,
     /how much (for|is|does)/i,
     /do you (fix|repair|do)/i,
+    // "Are you in the shop today?" / "Are you there today?"
+    /are you (in|at) (the )?(shop|store)/i,
+    /are you there (today|tomorrow|now)/i,
+    /is (the )?(shop|store) open/i,
+    /you open (today|tomorrow|now)/i,
+    /are you open/i,
   ];
 
   for (const pattern of simpleQuestionPatterns) {
@@ -289,7 +295,7 @@ export function quickAnalysis(
       // Detect content type from pattern
       let contentType: UnifiedAnalysis["contentType"] = "unclear";
       if (
-        /when (are|do) you (open|close)|what (time|are your hours)/i.test(
+        /when (are|do) you (open|close)|what (time|are your hours)|are you (in|at) (the )?(shop|store)|are you there (today|tomorrow|now)|is (the )?(shop|store) open|you open (today|tomorrow|now)|are you open/i.test(
           message
         )
       ) {

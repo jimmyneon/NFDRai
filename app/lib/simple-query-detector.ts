@@ -26,6 +26,11 @@ export function isSimpleQuery(message: string): SimpleQueryResult {
     /what\s+time.*open/i,
     /when.*open/i,
     /open\s+(today|tomorrow|now)/i,
+    // "Are you in the shop today?" / "Are you there today?"
+    /are\s+you\s+(in|at)\s+(the\s+)?(shop|store)/i,
+    /are\s+you\s+there\s+(today|tomorrow|now)/i,
+    /is\s+(the\s+)?(shop|store)\s+open/i,
+    /you\s+open\s+(today|tomorrow|now)/i,
   ];
 
   for (const pattern of hoursPatterns) {
