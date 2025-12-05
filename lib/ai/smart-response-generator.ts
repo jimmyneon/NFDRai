@@ -394,7 +394,11 @@ export async function generateSmartResponse(
   });
 
   // FORCE sign-off if not present (critical for message tracking)
-  const signOff = "Many Thanks,\nAI Steve,\nNew Forest Device Repairs";
+  // Use shorter sign-off for webchat
+  const signOff =
+    params.channel === "webchat"
+      ? "Many Thanks, AI Steve"
+      : "Many Thanks,\nAI Steve,\nNew Forest Device Repairs";
   if (!finalResponse.toLowerCase().includes("many thanks")) {
     // Add sign-off to end of response with proper spacing
     finalResponse = finalResponse.trim() + "\n\n" + signOff;
@@ -402,7 +406,8 @@ export async function generateSmartResponse(
 
   // CRITICAL: If first AI message, send disclosure as SEPARATE message using |||
   // This ensures disclosure is always its own message, not appended to response
-  if (isFirstAIMessage) {
+  // SKIP for webchat - the widget already shows the intro
+  if (isFirstAIMessage && params.channel !== "webchat") {
     const disclosure =
       "Hi! I'm AI Steve, your automated assistant for New Forest Device Repairs.\n\nI can help with pricing, bookings, and questions.\n\n" +
       signOff;
