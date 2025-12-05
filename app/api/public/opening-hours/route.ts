@@ -78,6 +78,132 @@ const DAY_NAMES = [
 ] as const;
 
 /**
+ * Check if special hours note contains dates that are still relevant (not in the past)
+ * Returns true if the note should be shown, false if all dates have passed
+ */
+function isSpecialHoursRelevant(
+  note: string | null,
+  timezone: string
+): boolean {
+  if (!note || note.trim().length === 0) {
+    return false;
+  }
+
+  // Get current date in business timezone
+  const now = new Date();
+  const currentDateStr = now.toLocaleDateString("en-CA", {
+    timeZone: timezone,
+  }); // YYYY-MM-DD format
+  const currentDate = new Date(currentDateStr);
+
+  // Month name patterns (case insensitive)
+  const months: Record<string, number> = {
+    january: 0,
+    february: 1,
+    march: 2,
+    april: 3,
+    may: 4,
+    june: 5,
+    july: 6,
+    august: 7,
+    september: 8,
+    october: 9,
+    november: 10,
+    december: 11,
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    sept: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
+  };
+
+  const monthPattern = Object.keys(months).join("|");
+
+  // Pattern to find dates like "23 November", "November 23", "23rd November", etc.
+  const datePatterns = [
+    // "23 November" or "23rd November" or "23 Nov"
+    new RegExp(`(\\d{1,2})(?:st|nd|rd|th)?\\s+(${monthPattern})`, "gi"),
+    // "November 23" or "November 23rd" or "Nov 23"
+    new RegExp(`(${monthPattern})\\s+(\\d{1,2})(?:st|nd|rd|th)?`, "gi"),
+    // "16/11" or "16/11/2024" or "16-11" or "16-11-2024"
+    /\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/gi,
+  ];
+
+  const foundDates: Date[] = [];
+  const currentYear = now.getFullYear();
+
+  // Try each pattern
+  for (const pattern of datePatterns) {
+    let match;
+    while ((match = pattern.exec(note)) !== null) {
+      let day: number;
+      let month: number;
+      let year = currentYear;
+
+      if (pattern.source.includes(monthPattern)) {
+        // Text month pattern
+        if (/^\d/.test(match[1])) {
+          // Day first: "23 November"
+          day = parseInt(match[1], 10);
+          month = months[match[2].toLowerCase()];
+        } else {
+          // Month first: "November 23"
+          month = months[match[1].toLowerCase()];
+          day = parseInt(match[2], 10);
+        }
+      } else {
+        // Numeric pattern: "16/11" or "16/11/2024"
+        day = parseInt(match[1], 10);
+        month = parseInt(match[2], 10) - 1; // 0-indexed
+        if (match[3]) {
+          year = parseInt(match[3], 10);
+          if (year < 100) year += 2000; // Handle 2-digit years
+        }
+      }
+
+      // Validate and create date
+      if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+        const date = new Date(year, month, day);
+        foundDates.push(date);
+      }
+    }
+  }
+
+  // If no dates found, assume it's a general note (always relevant)
+  if (foundDates.length === 0) {
+    // Check for keywords that suggest it's time-sensitive but no date
+    const timeSensitiveKeywords =
+      /\b(today|tomorrow|this week|next week|until|from|starting|ending)\b/i;
+    if (timeSensitiveKeywords.test(note)) {
+      // Can't determine, show it to be safe
+      return true;
+    }
+    // General note without dates - always show
+    return true;
+  }
+
+  // Check if ANY date is today or in the future
+  const hasRelevantDate = foundDates.some((date) => {
+    // Reset time to start of day for comparison
+    const dateOnly = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+    return dateOnly >= currentDate;
+  });
+
+  return hasRelevantDate;
+}
+
+/**
  * Convert time string (HH:MM) to minutes since midnight
  */
 function timeToMinutes(time: string): number {
@@ -240,10 +366,11 @@ export async function GET() {
     // Build weekly schedule
     const weeklySchedule = buildWeeklySchedule(info);
 
-    // Check for special hours (holidays, closures)
+    // Check for special hours (holidays, closures) - only if dates are still relevant
     const specialHoursNote = info.special_hours_note;
-    const hasSpecialHours = !!(
-      specialHoursNote && specialHoursNote.trim().length > 0
+    const hasSpecialHours = isSpecialHoursRelevant(
+      specialHoursNote,
+      info.timezone
     );
 
     const response: OpeningHoursResponse = {
