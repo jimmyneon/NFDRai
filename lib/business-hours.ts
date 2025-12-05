@@ -24,7 +24,10 @@ interface BusinessInfo {
 interface BusinessHoursStatus {
   isOpen: boolean;
   currentTime: string;
+  currentDay: string;
   todayHours: string;
+  tomorrowDay: string;
+  tomorrowHours: string;
   nextOpenTime: string | null;
   formattedSchedule: string;
   googleMapsUrl: string | null;
@@ -64,14 +67,27 @@ export async function getBusinessHoursStatus(): Promise<BusinessHoursStatus> {
 
   if (error || !businessInfo) {
     // Fallback to default hours if no data
+    const now = new Date();
+    const todayName = now.toLocaleDateString("en-US", {
+      weekday: "long",
+      timeZone: "Europe/London",
+    });
+    const tomorrow = new Date(now.getTime() + 86400000);
+    const tomorrowName = tomorrow.toLocaleDateString("en-US", {
+      weekday: "long",
+      timeZone: "Europe/London",
+    });
     return {
       isOpen: false,
-      currentTime: new Date().toLocaleTimeString("en-GB", {
+      currentTime: now.toLocaleTimeString("en-GB", {
         hour: "2-digit",
         minute: "2-digit",
         timeZone: "Europe/London",
       }),
+      currentDay: todayName,
       todayHours: "Hours not configured",
+      tomorrowDay: tomorrowName,
+      tomorrowHours: "Hours not configured",
       nextOpenTime: null,
       formattedSchedule: getDefaultSchedule(),
       googleMapsUrl: null,
@@ -90,23 +106,41 @@ export async function getBusinessHoursStatus(): Promise<BusinessHoursStatus> {
   });
 
   // Get current day (0 = Sunday, 6 = Saturday)
-  const currentDay = new Date()
+  const currentDayLower = now
     .toLocaleDateString("en-US", {
       weekday: "long",
       timeZone: info.timezone,
     })
     .toLowerCase() as (typeof DAYS)[number];
 
-  const currentDayIndex = DAYS.indexOf(currentDay);
+  const currentDayName = DAY_NAMES[DAYS.indexOf(currentDayLower)];
+  const currentDayIndex = DAYS.indexOf(currentDayLower);
+
+  // Get tomorrow's day
+  const tomorrow = new Date(now.getTime() + 86400000);
+  const tomorrowDayLower = tomorrow
+    .toLocaleDateString("en-US", {
+      weekday: "long",
+      timeZone: info.timezone,
+    })
+    .toLowerCase() as (typeof DAYS)[number];
+  const tomorrowDayName = DAY_NAMES[DAYS.indexOf(tomorrowDayLower)];
 
   // Get today's hours
-  const openKey = `${currentDay}_open` as keyof BusinessInfo;
-  const closeKey = `${currentDay}_close` as keyof BusinessInfo;
+  const openKey = `${currentDayLower}_open` as keyof BusinessInfo;
+  const closeKey = `${currentDayLower}_close` as keyof BusinessInfo;
   const todayOpen = info[openKey] as string | null;
   const todayClose = info[closeKey] as string | null;
 
+  // Get tomorrow's hours
+  const tomorrowOpenKey = `${tomorrowDayLower}_open` as keyof BusinessInfo;
+  const tomorrowCloseKey = `${tomorrowDayLower}_close` as keyof BusinessInfo;
+  const tomorrowOpen = info[tomorrowOpenKey] as string | null;
+  const tomorrowClose = info[tomorrowCloseKey] as string | null;
+
   let isOpen = false;
   let todayHours = "Closed";
+  let tomorrowHours = "Closed";
 
   if (todayOpen && todayClose) {
     todayHours = `${formatTime(todayOpen)} - ${formatTime(todayClose)}`;
@@ -117,6 +151,12 @@ export async function getBusinessHoursStatus(): Promise<BusinessHoursStatus> {
     const closeMinutes = timeToMinutes(todayClose);
 
     isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+  }
+
+  if (tomorrowOpen && tomorrowClose) {
+    tomorrowHours = `${formatTime(tomorrowOpen)} - ${formatTime(
+      tomorrowClose
+    )}`;
   }
 
   // Find next opening time if closed
@@ -131,7 +171,10 @@ export async function getBusinessHoursStatus(): Promise<BusinessHoursStatus> {
   return {
     isOpen,
     currentTime,
+    currentDay: currentDayName,
     todayHours,
+    tomorrowDay: tomorrowDayName,
+    tomorrowHours,
     nextOpenTime,
     formattedSchedule,
     googleMapsUrl: info.google_maps_url,
@@ -239,7 +282,8 @@ export function formatBusinessHoursMessage(
 ): string {
   let message = `**Current Status:** ${status.isOpen ? "OPEN" : "CLOSED"}\n`;
   message += `**Current Time:** ${status.currentTime}\n`;
-  message += `**Today's Hours:** ${status.todayHours}\n`;
+  message += `**Today (${status.currentDay}):** ${status.todayHours}\n`;
+  message += `**Tomorrow (${status.tomorrowDay}):** ${status.tomorrowHours}\n`;
 
   if (!status.isOpen && status.nextOpenTime) {
     message += `**Next Open:** ${status.nextOpenTime}\n`;
