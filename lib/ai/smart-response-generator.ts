@@ -27,6 +27,7 @@ interface SmartResponseParams {
   customerMessage: string;
   conversationId: string;
   customerPhone?: string;
+  channel?: "sms" | "whatsapp" | "messenger" | "webchat"; // Channel type for context-aware responses
   modules?: string[]; // NEW: Specific modules to load (from unified analyzer)
   unifiedAnalysis?: {
     // NEW: Pass analysis from unified analyzer to avoid duplicate classification
@@ -269,6 +270,7 @@ export async function generateSmartResponse(
     recentMessages: messages.slice(-5), // Only last 5 messages
     promptModules, // Pass database modules
     customerHistory, // Pass customer history for personalization
+    channel: params.channel, // Pass channel for context-aware responses
   });
 
   // STEP 5: Build conversation messages for API
@@ -691,6 +693,7 @@ function buildFocusedPrompt(params: {
     priority: number;
   }>;
   customerHistory?: any;
+  channel?: "sms" | "whatsapp" | "messenger" | "webchat";
 }) {
   const {
     context,
@@ -700,6 +703,7 @@ function buildFocusedPrompt(params: {
     recentMessages,
     promptModules = [],
     customerHistory,
+    channel,
   } = params;
 
   // Determine what context is relevant based on conversation
@@ -744,9 +748,25 @@ function buildFocusedPrompt(params: {
       conversationText
     );
 
+  // Webchat-specific instructions
+  const webchatInstructions =
+    channel === "webchat"
+      ? `
+WEBCHAT CHANNEL CONTEXT:
+- This is a WEBSITE CHAT widget visitor (not SMS/WhatsApp)
+- You DON'T have their phone number or name unless they provide it
+- DON'T call them by the business name - they're a website visitor
+- DON'T include the AI disclosure intro ("Hi! I'm AI Steve, your automated assistant...") - the widget already shows this
+- You CAN use emojis sparingly if appropriate (webchat supports them)
+- Keep responses conversational and helpful
+- If they need to book or get a quote confirmed, ask for their phone number or suggest they call
+- Be welcoming - they found you through the website!
+`
+      : "";
+
   // Core identity (always included)
   const coreIdentity = `You are AI Steve, friendly assistant for New Forest Device Repairs.
-
+${webchatInstructions}
 ${
   relevantData.holidayStatus?.isOnHoliday
     ? getHolidaySystemPrompt(relevantData.holidayStatus)
@@ -800,12 +820,30 @@ TONE & STYLE:
 - Use casual language: "No worries!", "Just a heads-up!", "Perfect!"
 
 CRITICAL RULES:
-1. NO EMOJIS - SMS doesn't display them
+1. ${
+    channel === "webchat"
+      ? "Emojis OK sparingly"
+      : "NO EMOJIS - SMS doesn't display them"
+  }
 2. Keep responses 2-3 sentences max per message
 3. Use SHORT PARAGRAPHS - break up text
-4. ALWAYS use customer name if known: ${context.customerName || "unknown"}
-5. Sign off: "Many Thanks,\nAI Steve,\nNew Forest Device Repairs" (each on new line)
-6. Split multiple topics with ||| for separate messages
+4. ${
+    channel === "webchat"
+      ? "Use customer name if they provided it"
+      : `ALWAYS use customer name if known: ${
+          context.customerName || "unknown"
+        }`
+  }
+5. ${
+    channel === "webchat"
+      ? 'Sign off: "Many Thanks, AI Steve" (shorter for webchat)'
+      : 'Sign off: "Many Thanks,\\nAI Steve,\\nNew Forest Device Repairs" (each on new line)'
+  }
+6. ${
+    channel === "webchat"
+      ? "Keep responses in single messages (no ||| splitting needed)"
+      : "Split multiple topics with ||| for separate messages"
+  }
 7. IF CUSTOMER IS FRUSTRATED WITH AI (says "AI failure", "not helping", "useless", etc) - IMMEDIATELY say: "I understand this isn't working for you. Let me pass you to John who'll message you back ASAP." Then STOP responding.
 
 PRICING POLICY (CRITICAL):

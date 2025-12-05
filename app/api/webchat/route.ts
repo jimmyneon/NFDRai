@@ -344,6 +344,7 @@ export async function POST(request: NextRequest) {
     const aiResult = await generateSmartResponse({
       customerMessage: message,
       conversationId: conversation.id,
+      channel: "webchat", // Tell AI this is webchat for context-aware responses
       modules: modulesToLoad,
       unifiedAnalysis: {
         intent: analysis.intent,

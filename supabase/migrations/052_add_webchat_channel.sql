@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     key_hash VARCHAR(64) NOT NULL,
-    key_prefix VARCHAR(8) NOT NULL,
+    key_prefix VARCHAR(16) NOT NULL,
     permissions TEXT[] DEFAULT ARRAY['webchat']::TEXT[],
     rate_limit_per_minute INTEGER DEFAULT 60,
     last_used_at TIMESTAMPTZ,
