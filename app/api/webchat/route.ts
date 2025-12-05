@@ -4,6 +4,10 @@ import { generateSmartResponse } from "@/lib/ai/smart-response-generator";
 import { checkRateLimit } from "@/app/lib/rate-limiter";
 import { analyzeMessage } from "@/app/lib/unified-message-analyzer";
 import { getModulesForAnalysis } from "@/app/lib/module-selector";
+import {
+  extractContactDetails,
+  formatPhoneNumber,
+} from "@/app/lib/contact-extractor";
 import crypto from "crypto";
 
 /**
@@ -195,6 +199,50 @@ export async function POST(request: NextRequest) {
             page_url: page_url || existingSession.page_url,
           })
           .eq("id", session.id);
+
+        console.log("[Webchat] Found existing session:", {
+          sessionId: session.id,
+          customerId: customer?.id,
+        });
+      }
+    }
+
+    // If no session found, try to find existing customer by IP + user agent (same browser)
+    if (!session && clientIp !== "unknown") {
+      const { data: existingSessionByIp } = await supabase
+        .from("web_sessions")
+        .select("*, customer:customers(*)")
+        .eq("ip_address", clientIp)
+        .eq("user_agent", userAgent)
+        .order("last_activity_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      // Only reuse if session was active in last 24 hours
+      if (existingSessionByIp) {
+        const lastActivity = new Date(existingSessionByIp.last_activity_at);
+        const hoursSinceActivity =
+          (Date.now() - lastActivity.getTime()) / (1000 * 60 * 60);
+
+        if (hoursSinceActivity < 24) {
+          session = existingSessionByIp;
+          customer = existingSessionByIp.customer;
+
+          // Update session activity
+          await supabase
+            .from("web_sessions")
+            .update({
+              last_activity_at: new Date().toISOString(),
+              page_url: page_url || existingSessionByIp.page_url,
+            })
+            .eq("id", session.id);
+
+          console.log("[Webchat] Reusing session by IP/UA:", {
+            sessionId: session.id,
+            customerId: customer?.id,
+            hoursSinceActivity,
+          });
+        }
       }
     }
 
@@ -249,6 +297,10 @@ export async function POST(request: NextRequest) {
       }
 
       session = newSession;
+      console.log("[Webchat] Created new session:", {
+        sessionId: session.id,
+        customerId: customer.id,
+      });
     }
 
     // Find or create conversation for webchat channel
@@ -294,6 +346,47 @@ export async function POST(request: NextRequest) {
 
     if (msgError) {
       console.error("[Webchat] Failed to save message:", msgError);
+    }
+
+    // Extract contact details from message and update customer if found
+    const contactDetails = extractContactDetails(message);
+    if (contactDetails.mobile || contactDetails.email || contactDetails.name) {
+      const updateData: any = {};
+
+      if (contactDetails.mobile && !customer.phone) {
+        updateData.phone = formatPhoneNumber(contactDetails.mobile);
+        console.log("[Webchat] Extracted mobile:", updateData.phone);
+      }
+      if (contactDetails.email && !customer.email) {
+        updateData.email = contactDetails.email;
+        console.log("[Webchat] Extracted email:", updateData.email);
+      }
+      if (contactDetails.name && !customer.name) {
+        updateData.name = contactDetails.name;
+        console.log("[Webchat] Extracted name:", updateData.name);
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await supabase
+          .from("customers")
+          .update(updateData)
+          .eq("id", customer.id);
+
+        // Update local customer object
+        customer = { ...customer, ...updateData };
+
+        console.log(
+          "[Webchat] Updated customer with contact details:",
+          updateData
+        );
+      }
+
+      // If they gave a landline, we'll let the AI handle asking for mobile
+      if (contactDetails.isLandline) {
+        console.log(
+          "[Webchat] Customer provided landline - AI will ask for mobile"
+        );
+      }
     }
 
     // Get recent messages for context
@@ -352,6 +445,11 @@ export async function POST(request: NextRequest) {
         sentiment: analysis.sentiment,
         urgency: analysis.urgency,
         intentConfidence: analysis.intentConfidence,
+      },
+      customerContactStatus: {
+        hasPhone: !!customer.phone,
+        hasEmail: !!customer.email,
+        hasName: !!customer.name,
       },
     });
 

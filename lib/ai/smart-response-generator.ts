@@ -37,6 +37,12 @@ interface SmartResponseParams {
     urgency: string;
     intentConfidence: number;
   };
+  customerContactStatus?: {
+    // For webchat - whether we have contact details for follow-up
+    hasPhone: boolean;
+    hasEmail: boolean;
+    hasName: boolean;
+  };
 }
 
 interface SmartResponseResult {
@@ -271,6 +277,7 @@ export async function generateSmartResponse(
     promptModules, // Pass database modules
     customerHistory, // Pass customer history for personalization
     channel: params.channel, // Pass channel for context-aware responses
+    customerContactStatus: params.customerContactStatus, // Pass contact status for webchat
   });
 
   // STEP 5: Build conversation messages for API
@@ -699,6 +706,11 @@ function buildFocusedPrompt(params: {
   }>;
   customerHistory?: any;
   channel?: "sms" | "whatsapp" | "messenger" | "webchat";
+  customerContactStatus?: {
+    hasPhone: boolean;
+    hasEmail: boolean;
+    hasName: boolean;
+  };
 }) {
   const {
     context,
@@ -709,6 +721,7 @@ function buildFocusedPrompt(params: {
     promptModules = [],
     customerHistory,
     channel,
+    customerContactStatus,
   } = params;
 
   // Determine what context is relevant based on conversation
@@ -753,6 +766,26 @@ function buildFocusedPrompt(params: {
       conversationText
     );
 
+  // Webchat contact status for AI context
+  const contactStatusInfo =
+    channel === "webchat" && customerContactStatus
+      ? `
+CUSTOMER CONTACT STATUS:
+- Has mobile number: ${
+          customerContactStatus.hasPhone ? "YES ✓" : "NO - need to collect"
+        }
+- Has email: ${customerContactStatus.hasEmail ? "YES ✓" : "NO"}
+- Has name: ${customerContactStatus.hasName ? "YES ✓" : "NO"}
+${
+  !customerContactStatus.hasPhone && !customerContactStatus.hasEmail
+    ? "⚠️ NO CONTACT DETAILS YET - Ask for mobile or email when giving quotes!"
+    : customerContactStatus.hasPhone || customerContactStatus.hasEmail
+    ? "✓ Have contact details - can follow up with quote"
+    : ""
+}
+`
+      : "";
+
   // Webchat-specific instructions
   const webchatInstructions =
     channel === "webchat"
@@ -764,8 +797,20 @@ WEBCHAT CHANNEL CONTEXT:
 - DON'T include the AI disclosure intro ("Hi! I'm AI Steve, your automated assistant...") - the widget already shows this
 - You CAN use emojis sparingly if appropriate (webchat supports them)
 - Keep responses conversational and helpful
-- If they need to book or get a quote confirmed, ask for their phone number or suggest they call
 - Be welcoming - they found you through the website!
+${contactStatusInfo}
+CONTACT COLLECTION FOR QUOTES (WEBCHAT ONLY):
+- When giving a quote or price estimate, ask for their contact details so John can follow up
+- Ask: "To send you a proper quote, could I grab your mobile number or email?"
+- MUST be mobile number (starts with 07) - if they give a landline (01, 02, 03), politely ask for mobile or email instead
+- Say: "That looks like a landline - could I get a mobile number instead? Or an email works too!"
+- Once you have their mobile or email, confirm: "Perfect, John will text/email you with a quote shortly!"
+- If they don't want to give details, that's fine - suggest they pop in or call instead
+
+WALK-IN ONLY (NO BOOKINGS):
+- We do NOT take bookings or appointments
+- Say: "We're walk-in only - no appointment needed! Just pop in during opening hours."
+- NEVER suggest "booking in" or "making an appointment"
 `
       : "";
 
