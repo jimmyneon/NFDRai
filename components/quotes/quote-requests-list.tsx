@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Send,
@@ -37,11 +38,38 @@ interface QuoteRequestsListProps {
   quoteRequests: QuoteRequest[];
 }
 
+// Quote type options
+type QuoteType = "fixed" | "diagnostic" | "estimate";
+
+const QUOTE_TYPES = [
+  {
+    value: "fixed" as QuoteType,
+    label: "Fixed Quote",
+    description: "Standard repair with fixed price",
+  },
+  {
+    value: "diagnostic" as QuoteType,
+    label: "Diagnostic First",
+    description: "Need to inspect before quoting",
+  },
+  {
+    value: "estimate" as QuoteType,
+    label: "Estimate",
+    description: "Approximate price, may vary",
+  },
+];
+
+// Common diagnostic fee
+const DIAGNOSTIC_FEE = 20;
+
 export function QuoteRequestsList({ quoteRequests }: QuoteRequestsListProps) {
   const [selectedRequest, setSelectedRequest] = useState<QuoteRequest | null>(
     null
   );
   const [price, setPrice] = useState("");
+  const [quoteType, setQuoteType] = useState<QuoteType>("fixed");
+  const [repairDescription, setRepairDescription] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -49,17 +77,67 @@ export function QuoteRequestsList({ quoteRequests }: QuoteRequestsListProps) {
   const handleSelectRequest = (request: QuoteRequest) => {
     setSelectedRequest(request);
     setPrice(request.quoted_price?.toString() || "");
+    setRepairDescription(
+      `${request.device_make} ${request.device_model} ${request.issue}`
+    );
+    setCustomMessage("");
+
+    // Auto-detect if diagnostic might be needed
+    const needsDiagnostic =
+      /won'?t\s+(turn|power|switch)\s+on|no\s+power|dead|water\s+damage|not\s+working|unknown/i.test(
+        request.issue
+      );
+    setQuoteType(needsDiagnostic ? "diagnostic" : "fixed");
   };
 
   const buildQuoteMessage = () => {
     if (!selectedRequest) return "";
     const firstName = selectedRequest.name.split(" ")[0];
 
+    // If custom message is set, use it
+    if (customMessage.trim()) {
+      return customMessage;
+    }
+
+    // Build message based on quote type
+    if (quoteType === "diagnostic") {
+      return `Hi ${firstName},
+
+Thanks for your repair enquiry about your ${repairDescription}.
+
+As this issue could have multiple causes, we'd need to run a diagnostic first to give you an accurate quote.
+
+The diagnostic fee is £${DIAGNOSTIC_FEE}, which is waived if you go ahead with the repair.
+
+Just pop in during opening hours - no appointment needed.
+
+Many thanks,
+John
+New Forest Device Repairs`;
+    }
+
+    if (quoteType === "estimate") {
+      return `Hi ${firstName},
+
+Thanks for your repair enquiry!
+
+For your ${repairDescription}, the estimated cost would be around £${price}.
+
+The final price may vary slightly once we've had a look at it.
+
+Just pop in during opening hours - no appointment needed.
+
+Many thanks,
+John
+New Forest Device Repairs`;
+    }
+
+    // Fixed quote (default)
     return `Hi ${firstName},
 
 Thanks for your repair enquiry!
 
-The quote for your ${selectedRequest.device_make} ${selectedRequest.device_model} (${selectedRequest.issue}) is £${price}.
+The quote for your ${repairDescription} is £${price}.
 
 Just pop in during opening hours - no appointment needed.
 
@@ -69,7 +147,9 @@ New Forest Device Repairs`;
   };
 
   const handleSendQuote = async () => {
-    if (!selectedRequest || !price) return;
+    if (!selectedRequest) return;
+    // For diagnostic, we don't need a price
+    if (quoteType !== "diagnostic" && !price) return;
 
     setSending(true);
     setError(null);
@@ -282,23 +362,58 @@ New Forest Device Repairs`;
                   )}
                 </div>
 
-                {/* Device Info */}
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium">
-                    {selectedRequest.device_make} {selectedRequest.device_model}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedRequest.issue}
+                {/* Quote Type Selection */}
+                <div>
+                  <label className="text-sm font-medium block mb-2">
+                    Quote Type
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {QUOTE_TYPES.map((type) => (
+                      <button
+                        key={type.value}
+                        onClick={() => setQuoteType(type.value)}
+                        className={`p-2 text-xs rounded-lg border transition-colors ${
+                          quoteType === type.value
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background hover:bg-accent border-border"
+                        }`}
+                      >
+                        <div className="font-medium">{type.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {
+                      QUOTE_TYPES.find((t) => t.value === quoteType)
+                        ?.description
+                    }
                   </p>
                 </div>
 
-                {/* Price Input */}
+                {/* Repair Description (editable) */}
                 <div>
                   <label className="text-sm font-medium block mb-1.5">
-                    Quote Price
+                    Repair Description
                   </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
+                  <Input
+                    value={repairDescription}
+                    onChange={(e) => setRepairDescription(e.target.value)}
+                    placeholder="e.g. iPhone 14 Pro screen repair"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Edit to clarify what the quote is for
+                  </p>
+                </div>
+
+                {/* Price Input - only show for fixed/estimate */}
+                {quoteType !== "diagnostic" && (
+                  <div>
+                    <label className="text-sm font-medium block mb-1.5">
+                      {quoteType === "estimate"
+                        ? "Estimated Price"
+                        : "Quote Price"}
+                    </label>
+                    <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                         £
                       </span>
@@ -312,34 +427,63 @@ New Forest Device Repairs`;
                         min="0"
                       />
                     </div>
-                    <Button
-                      onClick={handleSendQuote}
-                      disabled={
-                        !price || sending || selectedRequest.status === "quoted"
-                      }
-                      className="gap-2"
-                    >
-                      {sending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                      Send
-                    </Button>
                   </div>
-                </div>
+                )}
 
-                {/* Message Preview */}
-                {price && (
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm">
-                    <p className="font-medium text-blue-700 dark:text-blue-300 mb-2">
-                      Message Preview:
+                {/* Diagnostic fee info */}
+                {quoteType === "diagnostic" && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg text-sm">
+                    <p className="font-medium text-amber-700 dark:text-amber-300">
+                      Diagnostic Fee: £{DIAGNOSTIC_FEE}
                     </p>
-                    <p className="text-blue-600 dark:text-blue-400 whitespace-pre-line">
-                      {buildQuoteMessage()}
+                    <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                      Waived if customer proceeds with repair
                     </p>
                   </div>
                 )}
+
+                {/* Custom Message (optional) */}
+                <div>
+                  <label className="text-sm font-medium block mb-1.5">
+                    Custom Message (optional)
+                  </label>
+                  <Textarea
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    placeholder="Leave blank to use auto-generated message, or write your own..."
+                    rows={3}
+                    className="text-sm"
+                  />
+                </div>
+
+                {/* Message Preview */}
+                <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm">
+                  <p className="font-medium text-blue-700 dark:text-blue-300 mb-2">
+                    Message Preview:
+                  </p>
+                  <p className="text-blue-600 dark:text-blue-400 whitespace-pre-line text-xs">
+                    {buildQuoteMessage()}
+                  </p>
+                </div>
+
+                {/* Send Button */}
+                <Button
+                  onClick={handleSendQuote}
+                  disabled={
+                    (quoteType !== "diagnostic" && !price) ||
+                    sending ||
+                    selectedRequest.status === "quoted"
+                  }
+                  className="w-full gap-2"
+                >
+                  {sending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Send{" "}
+                  {quoteType === "diagnostic" ? "Diagnostic Request" : "Quote"}
+                </Button>
 
                 {selectedRequest.status === "quoted" && (
                   <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
