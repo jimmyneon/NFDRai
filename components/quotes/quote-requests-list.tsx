@@ -59,14 +59,12 @@ const QUOTE_TYPES = [
   },
 ];
 
-// Common diagnostic fee
-const DIAGNOSTIC_FEE = 20;
-
 export function QuoteRequestsList({ quoteRequests }: QuoteRequestsListProps) {
   const [selectedRequest, setSelectedRequest] = useState<QuoteRequest | null>(
     null
   );
   const [price, setPrice] = useState("");
+  const [diagnosticFee, setDiagnosticFee] = useState("20");
   const [quoteType, setQuoteType] = useState<QuoteType>("fixed");
   const [repairDescription, setRepairDescription] = useState("");
   const [customMessage, setCustomMessage] = useState("");
@@ -107,9 +105,9 @@ Thanks for your repair enquiry about your ${repairDescription}.
 
 As this issue could have multiple causes, we'd need to run a diagnostic first to give you an accurate quote.
 
-The diagnostic fee is £${DIAGNOSTIC_FEE}, which is waived if you go ahead with the repair.
+The diagnostic fee is £${diagnosticFee}, which goes towards the repair if you proceed.
 
-Just pop in during opening hours - no appointment needed.
+Let us know if you'd like to proceed and we'll arrange that ASAP.
 
 Many thanks,
 John
@@ -125,7 +123,7 @@ For your ${repairDescription}, the estimated cost would be around £${price}.
 
 The final price may vary slightly once we've had a look at it.
 
-Just pop in during opening hours - no appointment needed.
+Let us know if you'd like to proceed and we'll arrange that ASAP.
 
 Many thanks,
 John
@@ -139,7 +137,7 @@ Thanks for your repair enquiry!
 
 The quote for your ${repairDescription} is £${price}.
 
-Just pop in during opening hours - no appointment needed.
+Let us know if you'd like to proceed and we'll arrange that ASAP.
 
 Many thanks,
 John
@@ -430,14 +428,28 @@ New Forest Device Repairs`;
                   </div>
                 )}
 
-                {/* Diagnostic fee info */}
+                {/* Diagnostic fee input */}
                 {quoteType === "diagnostic" && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg text-sm">
-                    <p className="font-medium text-amber-700 dark:text-amber-300">
-                      Diagnostic Fee: £{DIAGNOSTIC_FEE}
-                    </p>
-                    <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
-                      Waived if customer proceeds with repair
+                  <div>
+                    <label className="text-sm font-medium block mb-1.5">
+                      Diagnostic Fee
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        £
+                      </span>
+                      <Input
+                        type="number"
+                        placeholder="20"
+                        value={diagnosticFee}
+                        onChange={(e) => setDiagnosticFee(e.target.value)}
+                        className="pl-7"
+                        step="1"
+                        min="0"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Goes towards the repair if customer proceeds
                     </p>
                   </div>
                 )}
