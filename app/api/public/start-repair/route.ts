@@ -8,7 +8,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 /**
  * POST /api/public/start-repair
- * Public API - No authentication required
+ * Public API endpoint for external websites - No authentication required
  * Receive repair quote request from external source (website form, etc)
  * Store in quote_requests table and send SMS confirmation
  *
