@@ -4,8 +4,19 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Send, Phone, Mail, MessageSquare, Check, Loader2 } from "lucide-react";
+import {
+  Send,
+  Phone,
+  Mail,
+  MessageSquare,
+  Check,
+  Loader2,
+  Smartphone,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 interface Customer {
   id: string;
@@ -33,7 +44,7 @@ interface QuotesListProps {
   leads: Lead[];
 }
 
-// Helper to get customer object (handles both single object and array from Supabase)
+// Helper to get customer object
 function getCustomer(lead: Lead): Customer | null {
   if (!lead.customer) return null;
   if (Array.isArray(lead.customer)) {
@@ -42,12 +53,103 @@ function getCustomer(lead: Lead): Customer | null {
   return lead.customer;
 }
 
+// Extract repair details from customer messages
+function getRepairDetails(lead: Lead): string {
+  const customerMessages = lead.messages
+    .filter((m) => m.sender === "customer")
+    .sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+  // Combine all customer messages to find device/repair info
+  const allText = customerMessages.map((m) => m.text).join(" ");
+
+  // Try to extract device type and issue
+  const devicePatterns = [
+    /iphone\s*\d+\s*(pro\s*)?(max)?/i,
+    /ipad\s*(pro|air|mini)?/i,
+    /samsung\s*(galaxy\s*)?(s\d+|a\d+|note\s*\d+)?/i,
+    /macbook\s*(pro|air)?/i,
+    /laptop/i,
+    /phone/i,
+    /tablet/i,
+  ];
+
+  const issuePatterns = [
+    /screen\s*(repair|replacement|crack|broken|smash)/i,
+    /battery\s*(replacement|issue|drain|dead)/i,
+    /charging\s*(port|issue|not charging)/i,
+    /water\s*damage/i,
+    /not\s*(turning|switching)\s*on/i,
+    /broken\s*screen/i,
+    /cracked\s*screen/i,
+  ];
+
+  let device = "";
+  let issue = "";
+
+  for (const pattern of devicePatterns) {
+    const match = allText.match(pattern);
+    if (match) {
+      device = match[0];
+      break;
+    }
+  }
+
+  for (const pattern of issuePatterns) {
+    const match = allText.match(pattern);
+    if (match) {
+      issue = match[0];
+      break;
+    }
+  }
+
+  if (device && issue) {
+    return `${device} - ${issue}`;
+  } else if (device) {
+    return device;
+  } else if (issue) {
+    return issue;
+  }
+
+  // Fallback: first customer message truncated
+  return customerMessages[0]?.text?.substring(0, 60) || "Repair enquiry";
+}
+
 export function QuotesList({ leads }: QuotesListProps) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [price, setPrice] = useState("");
+  const [repairDetails, setRepairDetails] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [showThread, setShowThread] = useState(false);
+
+  // When selecting a lead, auto-fill repair details
+  const handleSelectLead = (lead: Lead) => {
+    setSelectedLead(lead);
+    setRepairDetails(getRepairDetails(lead));
+    setShowThread(false);
+  };
+
+  // Build quote message in AI Steve style
+  const buildQuoteMessage = () => {
+    const customer = selectedLead ? getCustomer(selectedLead) : null;
+    const name = customer?.name || "there";
+
+    return `Hi ${name},
+
+Thanks for getting in touch about your ${repairDetails || "repair"}.
+
+The quote for this is £${price}.
+
+Just pop in during opening hours - no appointment needed.
+
+Many thanks,
+AI Steve
+New Forest Device Repairs`;
+  };
 
   const handleSendQuote = async () => {
     const customer = selectedLead ? getCustomer(selectedLead) : null;
@@ -57,22 +159,13 @@ export function QuotesList({ leads }: QuotesListProps) {
     setError(null);
 
     try {
-      // Get customer name and device info from conversation
-      const customerName = customer.name || "there";
-
-      // Build the quote message
-      const quoteMessage = `Hi ${customerName}, thanks for your enquiry! The quote for your repair is £${price}. Just pop in during opening hours - no appointment needed. We're open Mon-Fri 10am-5pm, Sat 10am-3pm. Many thanks, John, New Forest Device Repairs`;
-
-      // Send via the messages API
       const response = await fetch("/api/messages/send", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           conversationId: selectedLead.id,
-          text: quoteMessage,
-          sender: "staff",
+          text: buildQuoteMessage(),
+          sender: "ai",
         }),
       });
 
@@ -81,6 +174,7 @@ export function QuotesList({ leads }: QuotesListProps) {
       if (result.success) {
         setSent((prev) => new Set(prev).add(selectedLead.id));
         setPrice("");
+        setRepairDetails("");
         setSelectedLead(null);
       } else {
         setError(result.error || "Failed to send quote");
@@ -93,22 +187,6 @@ export function QuotesList({ leads }: QuotesListProps) {
     }
   };
 
-  // Get a summary of the conversation
-  const getConversationSummary = (lead: Lead) => {
-    const customerMessages = lead.messages
-      .filter((m) => m.sender === "customer")
-      .sort(
-        (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
-
-    return customerMessages
-      .map((m) => m.text)
-      .join(" | ")
-      .substring(0, 200);
-  };
-
-  // Format relative time
   const formatTime = (date: string) => {
     const now = new Date();
     const then = new Date(date);
@@ -138,34 +216,38 @@ export function QuotesList({ leads }: QuotesListProps) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Leads List */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">
+      {/* Leads List - Clean table-like view */}
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold mb-3">
           Webchat Leads ({leads.length})
         </h2>
-        {leads.map((lead) => {
-          const isSent = sent.has(lead.id);
-          const isSelected = selectedLead?.id === lead.id;
 
-          return (
-            <Card
-              key={lead.id}
-              className={`cursor-pointer transition-all ${
-                isSelected ? "ring-2 ring-primary" : "hover:bg-accent/50"
-              } ${isSent ? "opacity-60" : ""}`}
-              onClick={() => !isSent && setSelectedLead(lead)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">
-                        {getCustomer(lead)?.name || "Unknown"}
+        <div className="border rounded-lg divide-y">
+          {leads.map((lead) => {
+            const customer = getCustomer(lead);
+            const isSent = sent.has(lead.id);
+            const isSelected = selectedLead?.id === lead.id;
+            const repair = getRepairDetails(lead);
+
+            return (
+              <div
+                key={lead.id}
+                className={`p-3 cursor-pointer transition-colors ${
+                  isSelected ? "bg-primary/10" : "hover:bg-accent/50"
+                } ${isSent ? "opacity-50" : ""}`}
+                onClick={() => !isSent && handleSelectLead(lead)}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  {/* Name & Contact */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">
+                        {customer?.name || "Unknown"}
                       </span>
                       {isSent && (
                         <Badge
                           variant="outline"
-                          className="bg-green-50 text-green-700 border-green-200"
+                          className="bg-green-50 text-green-700 border-green-200 text-xs"
                         >
                           <Check className="w-3 h-3 mr-1" />
                           Sent
@@ -173,89 +255,78 @@ export function QuotesList({ leads }: QuotesListProps) {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2">
-                      {getCustomer(lead)?.phone && (
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
+                      {customer?.phone && (
                         <span className="flex items-center gap-1">
                           <Phone className="w-3 h-3" />
-                          {getCustomer(lead)?.phone}
+                          {customer.phone}
                         </span>
                       )}
-                      {getCustomer(lead)?.email && (
-                        <span className="flex items-center gap-1">
+                      {customer?.email && (
+                        <span className="flex items-center gap-1 truncate">
                           <Mail className="w-3 h-3" />
-                          {getCustomer(lead)?.email}
+                          {customer.email}
                         </span>
                       )}
                     </div>
-
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {getConversationSummary(lead) || "No messages"}
-                    </p>
                   </div>
 
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {formatTime(lead.updated_at)}
-                  </span>
+                  {/* Repair Details */}
+                  <div className="text-right">
+                    <div className="flex items-center gap-1 text-sm">
+                      <Smartphone className="w-3 h-3 text-muted-foreground" />
+                      <span className="truncate max-w-[150px]">{repair}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formatTime(lead.updated_at)}
+                    </span>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Quote Panel */}
       <div className="lg:sticky lg:top-24 h-fit">
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>Send Quote</CardTitle>
           </CardHeader>
           <CardContent>
             {selectedLead ? (
               <div className="space-y-4">
-                {/* Customer Info */}
+                {/* Customer Summary */}
                 <div className="p-3 bg-muted rounded-lg">
-                  <p className="font-medium">
-                    {getCustomer(selectedLead)?.name || "Unknown"}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {getCustomer(selectedLead)?.phone}
-                  </p>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium">
+                        {getCustomer(selectedLead)?.name || "Unknown"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {getCustomer(selectedLead)?.phone}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Conversation */}
+                {/* Repair Details (editable) */}
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Conversation</h4>
-                  <div className="max-h-64 overflow-y-auto space-y-2 p-3 bg-muted/50 rounded-lg">
-                    {selectedLead.messages
-                      .sort(
-                        (a, b) =>
-                          new Date(a.created_at).getTime() -
-                          new Date(b.created_at).getTime()
-                      )
-                      .map((msg) => (
-                        <div
-                          key={msg.id}
-                          className={`text-sm p-2 rounded ${
-                            msg.sender === "customer"
-                              ? "bg-background"
-                              : "bg-primary/10 ml-4"
-                          }`}
-                        >
-                          <span className="text-xs text-muted-foreground block mb-1">
-                            {msg.sender === "customer"
-                              ? "Customer"
-                              : "AI Steve"}
-                          </span>
-                          {msg.text}
-                        </div>
-                      ))}
-                  </div>
+                  <label className="text-sm font-medium block mb-1.5">
+                    Repair Details
+                  </label>
+                  <Input
+                    value={repairDetails}
+                    onChange={(e) => setRepairDetails(e.target.value)}
+                    placeholder="e.g. iPhone 14 screen repair"
+                  />
                 </div>
 
                 {/* Price Input */}
                 <div>
-                  <label className="text-sm font-medium block mb-2">
-                    Quote Price (£)
+                  <label className="text-sm font-medium block mb-1.5">
+                    Quote Price
                   </label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
@@ -264,11 +335,11 @@ export function QuotesList({ leads }: QuotesListProps) {
                       </span>
                       <Input
                         type="number"
-                        placeholder="0.00"
+                        placeholder="0"
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
                         className="pl-7"
-                        step="0.01"
+                        step="1"
                         min="0"
                       />
                     </div>
@@ -287,19 +358,65 @@ export function QuotesList({ leads }: QuotesListProps) {
                   </div>
                 </div>
 
-                {/* Preview */}
+                {/* Message Preview */}
                 {price && (
                   <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm">
-                    <p className="font-medium text-blue-700 dark:text-blue-300 mb-1">
+                    <p className="font-medium text-blue-700 dark:text-blue-300 mb-2">
                       Message Preview:
                     </p>
-                    <p className="text-blue-600 dark:text-blue-400">
-                      Hi {getCustomer(selectedLead)?.name || "there"}, thanks
-                      for your enquiry! The quote for your repair is £{price}.
-                      Just pop in during opening hours - no appointment needed.
-                      We're open Mon-Fri 10am-5pm, Sat 10am-3pm. Many thanks,
-                      John, New Forest Device Repairs
+                    <p className="text-blue-600 dark:text-blue-400 whitespace-pre-line">
+                      {buildQuoteMessage()}
                     </p>
+                  </div>
+                )}
+
+                {/* View Thread Toggle */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={() => setShowThread(!showThread)}
+                >
+                  {showThread ? (
+                    <>
+                      <ChevronUp className="w-4 h-4 mr-1" />
+                      Hide conversation
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4 mr-1" />
+                      View conversation ({selectedLead.messages.length}{" "}
+                      messages)
+                    </>
+                  )}
+                </Button>
+
+                {/* Collapsible Thread */}
+                {showThread && (
+                  <div className="max-h-48 overflow-y-auto space-y-2 p-3 bg-muted/50 rounded-lg text-sm">
+                    {selectedLead.messages
+                      .sort(
+                        (a, b) =>
+                          new Date(a.created_at).getTime() -
+                          new Date(b.created_at).getTime()
+                      )
+                      .map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`p-2 rounded ${
+                            msg.sender === "customer"
+                              ? "bg-background"
+                              : "bg-primary/10 ml-4"
+                          }`}
+                        >
+                          <span className="text-xs text-muted-foreground block mb-0.5">
+                            {msg.sender === "customer"
+                              ? "Customer"
+                              : "AI Steve"}
+                          </span>
+                          {msg.text}
+                        </div>
+                      ))}
                   </div>
                 )}
 
