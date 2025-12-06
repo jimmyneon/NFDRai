@@ -8,6 +8,7 @@ import {
   extractContactDetails,
   formatPhoneNumber,
 } from "@/app/lib/contact-extractor";
+import { extractQuoteInfoSmart } from "@/app/lib/webchat-quote-extractor";
 import crypto from "crypto";
 
 /**
@@ -467,6 +468,81 @@ export async function POST(request: NextRequest) {
       ai_model: aiResult.model,
       ai_confidence: aiResult.confidence,
     });
+
+    // Extract quote info and create quote_request if we have enough details
+    // This makes webchat leads appear in the same Quotes section as website form submissions
+    if (customer.phone) {
+      const allMessages = [
+        ...(contextMessages || []),
+        { sender: "customer", text: message },
+      ];
+      const quoteInfo = await extractQuoteInfoSmart(
+        allMessages,
+        { name: customer.name, phone: customer.phone, email: customer.email },
+        aiSettings?.api_key
+      );
+
+      // If we have device/issue info, create or update quote request
+      if (
+        quoteInfo.isComplete &&
+        (quoteInfo.device_make || quoteInfo.device_model || quoteInfo.issue)
+      ) {
+        // Check if quote request already exists for this conversation
+        const { data: existingQuote } = await supabase
+          .from("quote_requests")
+          .select("id")
+          .eq("conversation_id", conversation.id)
+          .single();
+
+        if (!existingQuote) {
+          // Create new quote request
+          const { error: quoteError } = await supabase
+            .from("quote_requests")
+            .insert({
+              name: customer.name || "Webchat Visitor",
+              phone: customer.phone,
+              email: customer.email,
+              device_make: quoteInfo.device_make || "Unknown",
+              device_model: quoteInfo.device_model || "Unknown",
+              issue: quoteInfo.issue || "Repair enquiry",
+              source: "webchat",
+              status: "pending",
+              customer_id: customer.id,
+              conversation_id: conversation.id,
+            });
+
+          if (quoteError) {
+            console.error(
+              "[Webchat] Failed to create quote request:",
+              quoteError
+            );
+          } else {
+            console.log("[Webchat] ✅ Created quote request from webchat:", {
+              name: customer.name,
+              device: `${quoteInfo.device_make} ${quoteInfo.device_model}`,
+              issue: quoteInfo.issue,
+            });
+          }
+        } else {
+          // Update existing quote request with new info
+          const updates: Record<string, any> = {};
+          if (quoteInfo.device_make)
+            updates.device_make = quoteInfo.device_make;
+          if (quoteInfo.device_model)
+            updates.device_model = quoteInfo.device_model;
+          if (quoteInfo.issue) updates.issue = quoteInfo.issue;
+
+          if (Object.keys(updates).length > 0) {
+            await supabase
+              .from("quote_requests")
+              .update(updates)
+              .eq("id", existingQuote.id);
+
+            console.log("[Webchat] Updated quote request:", updates);
+          }
+        }
+      }
+    }
 
     // Return response
     const responseTime = Date.now() - startTime;

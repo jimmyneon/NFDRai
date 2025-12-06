@@ -14,6 +14,7 @@ import {
   Smartphone,
   Clock,
   Globe,
+  MessageSquare,
 } from "lucide-react";
 
 interface QuoteRequest {
@@ -28,6 +29,7 @@ interface QuoteRequest {
   quoted_price: number | null;
   sms_sent: boolean;
   source: string;
+  conversation_id: string | null;
   created_at: string;
 }
 
@@ -176,8 +178,7 @@ New Forest Device Repairs`;
       {/* Quote Requests List */}
       <div className="space-y-2">
         <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Globe className="w-5 h-5" />
-          Website Quote Requests ({quoteRequests.length})
+          Quote Requests ({quoteRequests.length})
         </h2>
 
         <div className="border rounded-lg divide-y">
@@ -200,6 +201,23 @@ New Forest Device Repairs`;
                       <span className="font-medium truncate">
                         {request.name}
                       </span>
+                      {request.source === "webchat" ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-purple-50 text-purple-700 border-purple-200 text-xs"
+                        >
+                          <MessageSquare className="w-3 h-3 mr-1" />
+                          Chat
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 text-xs"
+                        >
+                          <Globe className="w-3 h-3 mr-1" />
+                          Web
+                        </Badge>
+                      )}
                       {getStatusBadge(request.status)}
                     </div>
 
