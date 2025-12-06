@@ -120,6 +120,7 @@ function getRepairDetails(lead: Lead): string {
 export function QuotesList({ leads }: QuotesListProps) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [price, setPrice] = useState("");
+  const [diagnosticFee, setDiagnosticFee] = useState("");
   const [repairDetails, setRepairDetails] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<Set<string>>(new Set());
@@ -138,13 +139,18 @@ export function QuotesList({ leads }: QuotesListProps) {
     const customer = selectedLead ? getCustomer(selectedLead) : null;
     const name = customer?.name || "there";
 
+    // Build diagnostic line if fee is set
+    const diagnosticLine = diagnosticFee
+      ? `\n\nThere's a £${diagnosticFee} diagnostic fee which goes towards the repair if you proceed.`
+      : "";
+
     return `Hi ${name},
 
 Thanks for getting in touch about your ${repairDetails || "repair"}.
 
-The quote for this is £${price}.
+The quote for this is £${price}.${diagnosticLine}
 
-Just pop in during opening hours - no appointment needed.
+Let us know if you'd like to proceed and we'll arrange that ASAP.
 
 Many thanks,
 AI Steve
@@ -174,6 +180,7 @@ New Forest Device Repairs`;
       if (result.success) {
         setSent((prev) => new Set(prev).add(selectedLead.id));
         setPrice("");
+        setDiagnosticFee("");
         setRepairDetails("");
         setSelectedLead(null);
       } else {
@@ -324,12 +331,12 @@ New Forest Device Repairs`;
                 </div>
 
                 {/* Price Input */}
-                <div>
-                  <label className="text-sm font-medium block mb-1.5">
-                    Quote Price
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium block mb-1.5">
+                      Quote Price
+                    </label>
+                    <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                         £
                       </span>
@@ -343,20 +350,44 @@ New Forest Device Repairs`;
                         min="0"
                       />
                     </div>
-                    <Button
-                      onClick={handleSendQuote}
-                      disabled={!price || sending}
-                      className="gap-2"
-                    >
-                      {sending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                      Send
-                    </Button>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium block mb-1.5">
+                      Diagnostic Fee{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        £
+                      </span>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={diagnosticFee}
+                        onChange={(e) => setDiagnosticFee(e.target.value)}
+                        className="pl-7"
+                        step="1"
+                        min="0"
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Send Button */}
+                <Button
+                  onClick={handleSendQuote}
+                  disabled={!price || sending}
+                  className="w-full gap-2"
+                >
+                  {sending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Send Quote
+                </Button>
 
                 {/* Message Preview */}
                 {price && (
