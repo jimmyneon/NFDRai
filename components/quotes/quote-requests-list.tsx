@@ -1,0 +1,346 @@
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Send,
+  Phone,
+  Mail,
+  Check,
+  Loader2,
+  Smartphone,
+  Clock,
+  Globe,
+} from "lucide-react";
+
+interface QuoteRequest {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  device_make: string;
+  device_model: string;
+  issue: string;
+  status: string;
+  quoted_price: number | null;
+  sms_sent: boolean;
+  source: string;
+  created_at: string;
+}
+
+interface QuoteRequestsListProps {
+  quoteRequests: QuoteRequest[];
+}
+
+export function QuoteRequestsList({ quoteRequests }: QuoteRequestsListProps) {
+  const [selectedRequest, setSelectedRequest] = useState<QuoteRequest | null>(
+    null
+  );
+  const [price, setPrice] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSelectRequest = (request: QuoteRequest) => {
+    setSelectedRequest(request);
+    setPrice(request.quoted_price?.toString() || "");
+  };
+
+  const buildQuoteMessage = () => {
+    if (!selectedRequest) return "";
+    const firstName = selectedRequest.name.split(" ")[0];
+
+    return `Hi ${firstName},
+
+Thanks for your repair enquiry!
+
+The quote for your ${selectedRequest.device_make} ${selectedRequest.device_model} (${selectedRequest.issue}) is £${price}.
+
+Just pop in during opening hours - no appointment needed.
+
+Many thanks,
+John
+New Forest Device Repairs`;
+  };
+
+  const handleSendQuote = async () => {
+    if (!selectedRequest || !price) return;
+
+    setSending(true);
+    setError(null);
+
+    try {
+      // Send SMS via the messaging provider
+      const response = await fetch("/api/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: selectedRequest.phone,
+          text: buildQuoteMessage(),
+          sender: "staff",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success || result.sent) {
+        // Update quote request status
+        await fetch(`/api/quotes/${selectedRequest.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "quoted",
+            quoted_price: parseFloat(price),
+          }),
+        });
+
+        setSent((prev) => new Set(prev).add(selectedRequest.id));
+        setPrice("");
+        setSelectedRequest(null);
+      } else {
+        setError(result.error || "Failed to send quote");
+      }
+    } catch (err) {
+      setError("Failed to send quote. Please try again.");
+      console.error("[QuoteRequests] Send error:", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const formatTime = (date: string) => {
+    const now = new Date();
+    const then = new Date(date);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return (
+          <Badge
+            variant="outline"
+            className="bg-yellow-50 text-yellow-700 border-yellow-200"
+          >
+            Pending
+          </Badge>
+        );
+      case "quoted":
+        return (
+          <Badge
+            variant="outline"
+            className="bg-blue-50 text-blue-700 border-blue-200"
+          >
+            Quoted
+          </Badge>
+        );
+      case "accepted":
+        return (
+          <Badge
+            variant="outline"
+            className="bg-green-50 text-green-700 border-green-200"
+          >
+            Accepted
+          </Badge>
+        );
+      case "completed":
+        return (
+          <Badge
+            variant="outline"
+            className="bg-gray-50 text-gray-700 border-gray-200"
+          >
+            Completed
+          </Badge>
+        );
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  if (quoteRequests.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Quote Requests List */}
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Globe className="w-5 h-5" />
+          Website Quote Requests ({quoteRequests.length})
+        </h2>
+
+        <div className="border rounded-lg divide-y">
+          {quoteRequests.map((request) => {
+            const isSent = sent.has(request.id) || request.status === "quoted";
+            const isSelected = selectedRequest?.id === request.id;
+
+            return (
+              <div
+                key={request.id}
+                className={`p-3 cursor-pointer transition-colors ${
+                  isSelected ? "bg-primary/10" : "hover:bg-accent/50"
+                } ${isSent ? "opacity-60" : ""}`}
+                onClick={() => handleSelectRequest(request)}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  {/* Name & Contact */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">
+                        {request.name}
+                      </span>
+                      {getStatusBadge(request.status)}
+                    </div>
+
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        {request.phone}
+                      </span>
+                      {request.email && (
+                        <span className="flex items-center gap-1 truncate">
+                          <Mail className="w-3 h-3" />
+                          {request.email}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Device & Issue */}
+                  <div className="text-right">
+                    <div className="flex items-center gap-1 text-sm">
+                      <Smartphone className="w-3 h-3 text-muted-foreground" />
+                      <span className="truncate max-w-[150px]">
+                        {request.device_make} {request.device_model}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground justify-end">
+                      <Clock className="w-3 h-3" />
+                      {formatTime(request.created_at)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Issue */}
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Issue: {request.issue}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Quote Panel */}
+      <div className="lg:sticky lg:top-24 h-fit">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>Send Quote</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedRequest ? (
+              <div className="space-y-4">
+                {/* Customer Summary */}
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium">{selectedRequest.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedRequest.phone}
+                  </p>
+                  {selectedRequest.email && (
+                    <p className="text-sm text-muted-foreground">
+                      {selectedRequest.email}
+                    </p>
+                  )}
+                </div>
+
+                {/* Device Info */}
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium">
+                    {selectedRequest.device_make} {selectedRequest.device_model}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedRequest.issue}
+                  </p>
+                </div>
+
+                {/* Price Input */}
+                <div>
+                  <label className="text-sm font-medium block mb-1.5">
+                    Quote Price
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        £
+                      </span>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        className="pl-7"
+                        step="1"
+                        min="0"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSendQuote}
+                      disabled={
+                        !price || sending || selectedRequest.status === "quoted"
+                      }
+                      className="gap-2"
+                    >
+                      {sending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                      Send
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Message Preview */}
+                {price && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm">
+                    <p className="font-medium text-blue-700 dark:text-blue-300 mb-2">
+                      Message Preview:
+                    </p>
+                    <p className="text-blue-600 dark:text-blue-400 whitespace-pre-line">
+                      {buildQuoteMessage()}
+                    </p>
+                  </div>
+                )}
+
+                {selectedRequest.status === "quoted" && (
+                  <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
+                    <Check className="w-4 h-4 inline mr-1" />
+                    Quote already sent (£{selectedRequest.quoted_price})
+                  </div>
+                )}
+
+                {error && <p className="text-sm text-red-600">{error}</p>}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Smartphone className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>Select a quote request to respond</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
