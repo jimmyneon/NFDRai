@@ -25,7 +25,7 @@ import {
 
 interface SmartResponseParams {
   customerMessage: string;
-  conversationId: string;
+  conversationId?: string | null; // Optional for stateless flows like repair flow
   customerPhone?: string;
   channel?: "sms" | "whatsapp" | "messenger" | "webchat"; // Channel type for context-aware responses
   modules?: string[]; // NEW: Specific modules to load (from unified analyzer)
@@ -360,13 +360,15 @@ export async function generateSmartResponse(
       result.response.toLowerCase().includes("pass this to"),
   });
 
-  // STEP 10: Learn from patterns (async, don't wait)
-  learnFromInteraction(
-    supabase,
-    params.conversationId,
-    context,
-    result.response
-  ).catch((err) => console.error("[Learning] Error:", err));
+  // STEP 10: Learn from patterns (async, don't wait) - only if we have a conversation
+  if (params.conversationId) {
+    learnFromInteraction(
+      supabase,
+      params.conversationId,
+      context,
+      result.response
+    ).catch((err) => console.error("[Learning] Error:", err));
+  }
 
   // STEP 10.5: Update customer history (async, don't wait)
   if (params.customerPhone) {

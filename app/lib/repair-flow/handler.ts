@@ -227,6 +227,7 @@ async function handleFreeTextQuestion(
   try {
     const aiResponse = await generateSmartResponse({
       customerMessage: message,
+      conversationId: null, // No conversation tracking for repair flow questions
       channel: "webchat",
       modules: ["core_identity", "common_scenarios", "pricing_guidance"],
       unifiedAnalysis: {
