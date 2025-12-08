@@ -139,12 +139,15 @@ export async function POST(request: NextRequest) {
       // Generate session ID if not provided
       const sessionId = body.session_id || `rf_${crypto.randomUUID()}`;
 
+      // Accept both "context" and "state" from frontend
+      const contextOverride = body.context || (body as any).state || undefined;
+
       // Use session-aware handler for persistence
       try {
         const repairResponse = await handleRepairFlowWithSession(
           sessionId,
           body.message,
-          body.context // Pass context for backwards compatibility
+          contextOverride
         );
         return NextResponse.json(repairResponse, { headers: corsHeaders });
       } catch (sessionError) {
