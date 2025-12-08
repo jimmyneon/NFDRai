@@ -79,7 +79,23 @@ export interface RepairFlowContext {
   issue?: IssueType | null;
   symptom?: SymptomType | null;
   selected_job?: string | null;
-  // For device identification flow
+
+  // For device identification flow - track what we've already asked
+  identification?: {
+    asked_settings?: boolean; // Already told them to check Settings
+    asked_port?: boolean; // Already asked Lightning vs USB-C
+    port_type?: "lightning" | "usbc" | null;
+    asked_cameras?: boolean; // Already asked camera count
+    camera_count?: 1 | 2 | 3 | null;
+    asked_faceid?: boolean; // Already asked Face ID vs Home Button
+    has_face_id?: boolean | null;
+    asked_size?: boolean; // Already asked screen size
+    screen_size?: "small" | "medium" | "large" | null;
+    asked_box?: boolean; // Already asked about box/receipt
+    attempts?: number; // How many identification attempts
+  } | null;
+
+  // Legacy fields (keep for backwards compatibility)
   has_face_id?: boolean | null;
   screen_size?: "small" | "medium" | "large" | null;
 }
@@ -127,6 +143,8 @@ export interface RepairFlowResponse {
   scene: RepairScene | null;
   quick_actions: QuickAction[] | null;
   morph_layout: boolean;
+  // Context updates for frontend to track state
+  next_context?: Partial<RepairFlowContext> | null;
 }
 
 // ============================================

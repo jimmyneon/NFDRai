@@ -566,6 +566,7 @@ function handleIdentifyResponse(
 
   // Lightning port = iPhone 14 or earlier
   if (action === "lightning") {
+    const id = context.identification || {};
     return {
       type: "repair_flow_response",
       messages: [
@@ -597,11 +598,20 @@ function handleIdentifyResponse(
         },
       ],
       morph_layout: true,
+      next_context: {
+        identification: {
+          ...id,
+          port_type: "lightning",
+          asked_port: true,
+          asked_cameras: true,
+        },
+      },
     };
   }
 
   // USB-C = iPhone 15 or later
   if (action === "usbc") {
+    const id = context.identification || {};
     return {
       type: "repair_flow_response",
       messages: [
@@ -642,11 +652,15 @@ function handleIdentifyResponse(
         },
       ],
       morph_layout: true,
+      next_context: {
+        identification: { ...id, port_type: "usbc", asked_port: true },
+      },
     };
   }
 
   // 1 camera (Lightning) = iPhone SE, XR, or older
   if (action === "1cam") {
+    const id = context.identification || {};
     return {
       type: "repair_flow_response",
       messages: ["One camera - is it a smaller phone or full-size?"],
@@ -683,11 +697,15 @@ function handleIdentifyResponse(
         },
       ],
       morph_layout: true,
+      next_context: {
+        identification: { ...id, camera_count: 1, asked_cameras: true },
+      },
     };
   }
 
   // 2 cameras (Lightning) = iPhone X, XS, 11 Pro, 12, 13, 14
   if (action === "2cam") {
+    const id = context.identification || {};
     return {
       type: "repair_flow_response",
       messages: [
@@ -712,11 +730,20 @@ function handleIdentifyResponse(
         { icon: "fa-circle", label: "Has home button", value: "iphone-8-plus" },
       ],
       morph_layout: true,
+      next_context: {
+        identification: {
+          ...id,
+          camera_count: 2,
+          asked_cameras: true,
+          asked_faceid: true,
+        },
+      },
     };
   }
 
   // 2 cameras + Face ID
   if (action === "2cam_faceid") {
+    const id = context.identification || {};
     return {
       type: "repair_flow_response",
       messages: ["Great! It's likely one of these - which looks right?"],
@@ -976,54 +1003,205 @@ function handleProceedWithoutModel(
 
 /**
  * User can't identify model - HELP them find it!
- * Don't just say "bring it in" - guide them through identification
+ * Uses context.identification to track what we've already asked
  */
 function handleModelUnknown(context: RepairFlowContext): RepairFlowResponse {
   const deviceType = context.device_type || "iphone";
+  const id = context.identification || {};
+  const attempts = (id.attempts || 0) + 1;
+
+  // After 3+ attempts, just proceed with range pricing
+  if (attempts >= 3) {
+    return handleProceedWithoutModel(context);
+  }
 
   // iPhone-specific identification help
   if (deviceType === "iphone") {
+    // First time: Tell them about Settings + ask about port
+    if (!id.asked_settings && !id.asked_port) {
+      return {
+        type: "repair_flow_response",
+        messages: [
+          "No problem! Let's figure it out together. 🔍",
+          "The easiest way: Go to Settings → General → About and look for 'Model Name' - it'll say exactly which iPhone you have!",
+          "Or I can help narrow it down - what type of charging port does it have?",
+        ],
+        scene: {
+          device_type: "iphone",
+          device_name: "iPhone (identifying...)",
+          device_image: "/images/devices/iphone-generic.png",
+          device_summary: "iPhone - Let's identify it",
+          jobs: null,
+          selected_job: null,
+          price_estimate: null,
+          show_book_cta: false,
+        },
+        quick_actions: [
+          {
+            icon: "fa-bolt",
+            label: "Lightning (old style)",
+            value: "identify_lightning",
+          },
+          {
+            icon: "fa-plug",
+            label: "USB-C (new style)",
+            value: "identify_usbc",
+          },
+          {
+            icon: "fa-box",
+            label: "I have the box/receipt",
+            value: "identify_box",
+          },
+          {
+            icon: "fa-cog",
+            label: "Found it in Settings!",
+            value: "identify_found",
+          },
+          {
+            icon: "fa-question-circle",
+            label: "Still not sure",
+            value: "identify_giveup",
+          },
+        ],
+        morph_layout: true,
+        next_context: {
+          identification: {
+            ...id,
+            asked_settings: true,
+            asked_port: true,
+            attempts,
+          },
+        },
+      };
+    }
+
+    // Already asked about port but not cameras - ask about cameras
+    if (id.asked_port && !id.asked_cameras && id.port_type === "lightning") {
+      return {
+        type: "repair_flow_response",
+        messages: [
+          "OK, let's try another way. How many cameras does it have on the back?",
+        ],
+        scene: {
+          device_type: "iphone",
+          device_name: "iPhone (Lightning)",
+          device_image: "/images/devices/iphone-generic.png",
+          device_summary: "iPhone with Lightning port",
+          jobs: null,
+          selected_job: null,
+          price_estimate: null,
+          show_book_cta: false,
+        },
+        quick_actions: [
+          { icon: "fa-circle", label: "1 camera", value: "identify_1cam" },
+          { icon: "fa-circle", label: "2 cameras", value: "identify_2cam" },
+          { icon: "fa-circle", label: "3 cameras", value: "identify_3cam" },
+          {
+            icon: "fa-arrow-right",
+            label: "Just give me a price range",
+            value: "identify_skip",
+          },
+        ],
+        morph_layout: true,
+        next_context: {
+          identification: { ...id, asked_cameras: true, attempts },
+        },
+      };
+    }
+
+    // Already asked cameras - ask about Face ID
+    if (id.asked_cameras && !id.asked_faceid && id.camera_count === 2) {
+      return {
+        type: "repair_flow_response",
+        messages: [
+          "Nearly there! Does it have Face ID (no home button) or a round home button?",
+        ],
+        scene: {
+          device_type: "iphone",
+          device_name: "iPhone (2 cameras)",
+          device_image: "/images/devices/iphone-generic.png",
+          device_summary: "iPhone with 2 cameras",
+          jobs: null,
+          selected_job: null,
+          price_estimate: null,
+          show_book_cta: false,
+        },
+        quick_actions: [
+          {
+            icon: "fa-expand",
+            label: "Face ID (no home button)",
+            value: "identify_faceid",
+          },
+          {
+            icon: "fa-circle",
+            label: "Has home button",
+            value: "identify_homebutton",
+          },
+          {
+            icon: "fa-arrow-right",
+            label: "Just give me a price range",
+            value: "identify_skip",
+          },
+        ],
+        morph_layout: true,
+        next_context: {
+          identification: { ...id, asked_faceid: true, attempts },
+        },
+      };
+    }
+
+    // We've tried everything - offer to proceed with range pricing
     return {
       type: "repair_flow_response",
       messages: [
-        "No problem! Let's figure it out together. 🔍",
-        "The easiest way: Go to Settings → General → About and look for 'Model Name' - it'll say exactly which iPhone you have!",
-        "Or I can help narrow it down - what type of charging port does it have?",
+        "No worries - we can identify it when you come in! 👍",
+        "In the meantime, what's wrong with it? I'll give you a price range:",
       ],
       scene: {
         device_type: "iphone",
-        device_name: "iPhone (identifying...)",
+        device_name: "iPhone (model TBC)",
         device_image: "/images/devices/iphone-generic.png",
-        device_summary: "iPhone - Let's identify it",
-        jobs: null,
+        device_summary: "iPhone (model TBC)",
+        jobs: [
+          {
+            id: "screen",
+            label: "Screen Repair",
+            price: "From £49*",
+            time: "30-60 mins",
+          },
+          {
+            id: "battery",
+            label: "Battery Replacement",
+            price: "From £35*",
+            time: "30 mins",
+          },
+          {
+            id: "charging",
+            label: "Charging Port",
+            price: "From £45*",
+            time: "45 mins",
+          },
+          {
+            id: "water",
+            label: "Water Damage",
+            price: "Assessment required",
+            time: "24-48 hrs",
+          },
+        ],
         selected_job: null,
         price_estimate: null,
         show_book_cta: false,
       },
       quick_actions: [
-        {
-          icon: "fa-bolt",
-          label: "Lightning (old style)",
-          value: "identify_lightning",
-        },
-        { icon: "fa-plug", label: "USB-C (new style)", value: "identify_usbc" },
-        {
-          icon: "fa-box",
-          label: "I have the box/receipt",
-          value: "identify_box",
-        },
-        {
-          icon: "fa-cog",
-          label: "Found it in Settings!",
-          value: "identify_found",
-        },
-        {
-          icon: "fa-question-circle",
-          label: "Still not sure",
-          value: "identify_giveup",
-        },
+        { icon: "fa-mobile-screen", label: "Screen Repair", value: "screen" },
+        { icon: "fa-battery-half", label: "Battery", value: "battery" },
+        { icon: "fa-plug", label: "Charging Port", value: "charging" },
+        { icon: "fa-question-circle", label: "Something else", value: "other" },
       ],
       morph_layout: true,
+      next_context: {
+        identification: { ...id, attempts },
+      },
     };
   }
 
