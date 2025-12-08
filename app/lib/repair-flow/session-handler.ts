@@ -120,6 +120,36 @@ async function updateSession(
 }
 
 /**
+ * Reset session to initial state (for "start again")
+ */
+async function resetSession(sessionId: string): Promise<void> {
+  const supabase = createServiceClient();
+
+  await supabase
+    .from("repair_flow_sessions")
+    .update({
+      step: "greeting",
+      device_type: null,
+      device_category: null,
+      device_model: null,
+      device_model_label: null,
+      issue: null,
+      symptom: null,
+      selected_job: null,
+      identification: {},
+      price_estimate: null,
+      turnaround: null,
+      needs_diagnostic: false,
+      scene: null,
+      // Keep messages for history, just add a separator
+      messages: [],
+    })
+    .eq("session_id", sessionId);
+
+  console.log("[Repair Flow] Session reset:", sessionId);
+}
+
+/**
  * Convert session to context for handler
  */
 function sessionToContext(session: RepairFlowSession): RepairFlowContext {
@@ -151,6 +181,27 @@ export async function handleRepairFlowWithSession(
   message: string,
   contextOverride?: Partial<RepairFlowContext>
 ): Promise<RepairFlowResponse> {
+  const msgLower = message.toLowerCase().trim();
+
+  // Handle reset/start over - clear session state
+  if (
+    msgLower === "start_again" ||
+    msgLower === "reset" ||
+    msgLower === "start_over" ||
+    msgLower === "start"
+  ) {
+    await resetSession(sessionId);
+    const context: RepairFlowContext = { step: "greeting", device_type: null };
+    const request: RepairFlowRequest = {
+      type: "repair_flow",
+      session_id: sessionId,
+      message,
+      context,
+    };
+    const response = await handleRepairFlow(request, sessionId);
+    return { ...response, session_id: sessionId };
+  }
+
   // Get or create session
   const session = await getOrCreateSession(sessionId);
 
@@ -213,22 +264,25 @@ export async function handleRepairFlowWithSession(
   }
 
   // Update from message value (button clicks)
-  const msgLower = message.toLowerCase();
-  if (context.step === "greeting" && !msgLower.includes("unknown")) {
+  const messageLower = message.toLowerCase();
+  if (context.step === "greeting" && !messageLower.includes("unknown")) {
     stateUpdates.step = "device_selected";
-    stateUpdates.device_type = msgLower;
+    stateUpdates.device_type = messageLower;
   }
-  if (context.step === "device_selected" && msgLower.startsWith("iphone-")) {
+  if (
+    context.step === "device_selected" &&
+    messageLower.startsWith("iphone-")
+  ) {
     stateUpdates.step = "model_selected";
-    stateUpdates.device_model = msgLower;
+    stateUpdates.device_model = messageLower;
   }
   if (
     ["screen", "battery", "charging", "water", "camera", "other"].includes(
-      msgLower
+      messageLower
     )
   ) {
     stateUpdates.step = "issue_selected";
-    stateUpdates.issue = msgLower;
+    stateUpdates.issue = messageLower;
   }
 
   // Save state updates
