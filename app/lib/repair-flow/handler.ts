@@ -99,6 +99,22 @@ export async function handleRepairFlow(
     return handleCallUs();
   }
 
+  // Handle price_estimate:device:model:issue format from frontend
+  if (msgLower.startsWith("price_estimate:")) {
+    const parts = message.split(":");
+    if (parts.length >= 4) {
+      const [, deviceType, model, issue] = parts;
+      const enrichedContext: RepairFlowContext = {
+        ...context,
+        step: "issue_selected",
+        device_type: deviceType as any,
+        device_model: model,
+        issue: issue as any,
+      };
+      return handleIssueSelected(issue, enrichedContext);
+    }
+  }
+
   // Standard step routing
   switch (context.step) {
     case "greeting":
