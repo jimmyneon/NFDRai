@@ -145,6 +145,8 @@ export interface RepairFlowResponse {
   scene: RepairScene | null;
   quick_actions: QuickAction[] | null;
   morph_layout: boolean;
+  // Tell frontend to change step (e.g. "outcome_price")
+  new_step?: RepairFlowStep | string;
   // Context updates for frontend to track state
   next_context?: Partial<RepairFlowContext> | null;
   // Error info for debugging (frontend can log/ignore)

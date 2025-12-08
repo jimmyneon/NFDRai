@@ -81,7 +81,7 @@ export async function handleRepairFlow(
     return handleIdentifyResponse(message, context);
   }
   if (msgLower === "model_unknown") {
-    return handleModelUnknown(context);
+    return handleModelUnknown(message, context);
   }
   if (msgLower.startsWith("symptom_")) {
     return handleSymptomSelected(message, context);
@@ -144,7 +144,7 @@ export async function handleRepairFlow(
       return handleModelSelected(message, context);
 
     case "model_unknown":
-      return handleModelUnknown(context);
+      return handleModelUnknown(message, context);
 
     case "identify_device":
       return handleIdentifyDevice(message, context);
@@ -1103,7 +1103,7 @@ function handleIdentifyResponse(
   }
 
   // Fallback
-  return handleModelUnknown(context);
+  return handleModelUnknown("", context);
 }
 
 /**
@@ -1170,11 +1170,94 @@ function handleProceedWithoutModel(
 /**
  * User can't identify model - HELP them find it!
  * Uses context.identification to track what we've already asked
+ * If user mentions an issue (screen, battery), skip to pricing
  */
-function handleModelUnknown(context: RepairFlowContext): RepairFlowResponse {
+function handleModelUnknown(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
   const deviceType = context.device_type || "iphone";
   const id = context.identification || {};
   const attempts = (id.attempts || 0) + 1;
+  const msgLower = message.toLowerCase();
+
+  // Check if user mentioned an issue - skip to pricing with range
+  const issueKeywords: Record<
+    string,
+    { label: string; priceRange: string; time: string }
+  > = {
+    screen: {
+      label: "Screen Repair",
+      priceRange: "£40 - £200",
+      time: "1-2 hours",
+    },
+    battery: {
+      label: "Battery Replacement",
+      priceRange: "£40 - £90",
+      time: "30-60 mins",
+    },
+    charging: {
+      label: "Charging Port",
+      priceRange: "around £50",
+      time: "45 mins",
+    },
+    charge: {
+      label: "Charging Port",
+      priceRange: "around £50",
+      time: "45 mins",
+    },
+    back: { label: "Back Glass", priceRange: "£80 - £150", time: "1-2 hours" },
+    camera: {
+      label: "Camera Repair",
+      priceRange: "£50 - £120",
+      time: "1-2 hours",
+    },
+    water: {
+      label: "Water Damage",
+      priceRange: "from £50",
+      time: "24-72 hours",
+    },
+  };
+
+  for (const [keyword, info] of Object.entries(issueKeywords)) {
+    if (msgLower.includes(keyword)) {
+      const deviceName =
+        context.device_type === "iphone"
+          ? "iPhone"
+          : context.device_type === "ipad"
+          ? "iPad"
+          : context.device_type === "samsung"
+          ? "Samsung"
+          : "device";
+      return {
+        type: "repair_flow_response",
+        messages: [
+          `${info.label} - got it! 💪`,
+          `For an unknown ${deviceName} model, that's typically ${info.priceRange}. Most repairs take ${info.time}.`,
+          "This is just an estimate - John will confirm the exact price when he sees your device.",
+        ],
+        new_step: "outcome_price",
+        scene: {
+          device_type: context.device_type || "iphone",
+          device_name: deviceName,
+          device_image: `/images/devices/${
+            context.device_type || "iphone"
+          }-generic.png`,
+          device_summary: `${deviceName} – ${info.label}`,
+          jobs: null,
+          selected_job: keyword,
+          price_estimate: info.priceRange,
+          show_book_cta: true,
+        },
+        quick_actions: BOOKING_ACTIONS,
+        morph_layout: true,
+        next_context: {
+          step: "final",
+          issue: keyword as any,
+        },
+      };
+    }
+  }
 
   // After 3+ attempts, just proceed with range pricing
   if (attempts >= 3) {
