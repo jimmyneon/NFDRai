@@ -1414,8 +1414,9 @@ async function handleIssueSelected(
   const job = jobId ? getJobFromDevice(context.device_type || "", jobId) : null;
 
   // Try to get actual price from database or iPhone model
-  let priceEstimate = job?.price || "Price on request";
-  let turnaround = job?.time || "TBC";
+  // Use sensible defaults if no specific price found
+  let priceEstimate = job?.price || getDefaultPriceRange(jobId || issue);
+  let turnaround = job?.time || getDefaultTurnaround(jobId || issue);
 
   console.log("[Repair Flow] Price lookup:", {
     device_model: context.device_model,
@@ -1897,6 +1898,74 @@ function getQuickAnswer(
   }
 
   return null;
+}
+
+// ============================================
+// DEFAULT PRICE HELPERS
+// ============================================
+
+/**
+ * Get default price range when specific price not known
+ * Based on typical repair costs for phones/tablets
+ */
+function getDefaultPriceRange(issueOrJobId: string): string {
+  const issue = issueOrJobId.toLowerCase();
+
+  if (issue === "battery" || issue.includes("battery")) {
+    return "£40 - £90 (most around £50)";
+  }
+
+  if (issue === "screen" || issue.includes("screen")) {
+    return "£40 - £200 (budget phones £40-£80, premium £80-£200)";
+  }
+
+  if (issue === "charging" || issue.includes("charg")) {
+    return "around £50";
+  }
+
+  if (
+    issue === "back" ||
+    issue.includes("back") ||
+    issue.includes("housing") ||
+    issue.includes("rear")
+  ) {
+    return "£80 - £150";
+  }
+
+  if (issue === "camera" || issue.includes("camera")) {
+    return "£50 - £120";
+  }
+
+  if (issue === "water" || issue.includes("water")) {
+    return "from £50 (diagnostic fee applies)";
+  }
+
+  return "Price on assessment";
+}
+
+/**
+ * Get default turnaround time when specific time not known
+ */
+function getDefaultTurnaround(issueOrJobId: string): string {
+  const issue = issueOrJobId.toLowerCase();
+
+  if (issue === "battery" || issue.includes("battery")) {
+    return "30-60 mins";
+  }
+
+  if (issue === "screen" || issue.includes("screen")) {
+    return "1-2 hours";
+  }
+
+  if (issue === "charging" || issue.includes("charg")) {
+    return "45 mins";
+  }
+
+  if (issue === "water" || issue.includes("water")) {
+    return "24-72 hours";
+  }
+
+  return "same day where possible";
 }
 
 // ============================================
