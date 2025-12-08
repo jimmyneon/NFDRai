@@ -14,6 +14,7 @@ export type RepairFlowStep =
   | "greeting"
   | "device_selected"
   | "model_selected"
+  | "model_unknown"
   | "identify_device"
   | "identify_model"
   | "issue_selected"

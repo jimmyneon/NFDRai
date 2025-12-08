@@ -107,6 +107,9 @@ export async function handleRepairFlow(
     case "model_selected":
       return handleModelSelected(message, context);
 
+    case "model_unknown":
+      return handleModelUnknown(context);
+
     case "identify_device":
       return handleIdentifyDevice(message, context);
 
