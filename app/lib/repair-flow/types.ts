@@ -105,6 +105,11 @@ export interface RepairFlowContext {
   // AI Takeover mode - AI has full conversational control
   ai_takeover?: boolean;
   full_state?: Record<string, any>; // Full frontend state for AI context
+
+  // Context from frontend for smarter parsing
+  selected_series?: string; // e.g. "galaxy-s-series" - helps parse "21" as S21
+  known_info_summary?: string; // Quick summary like "Samsung Galaxy S Series"
+  conversation?: Array<{ role: string; content: string }>; // Last 15 messages
 }
 
 export interface RepairFlowRequest {
@@ -156,6 +161,12 @@ export interface HandBackControl {
   message?: string; // What to say when resuming
 }
 
+// Model identified from user input
+export interface IdentifiedModel {
+  device_model: string;
+  device_model_label: string;
+}
+
 export interface RepairFlowResponse {
   type: "repair_flow_response";
   session_id?: string;
@@ -165,6 +176,8 @@ export interface RepairFlowResponse {
   morph_layout: boolean;
   // Tell frontend to change step (e.g. "outcome_price")
   new_step?: RepairFlowStep | string;
+  // Model identified - frontend handles model → issue transition
+  identified?: IdentifiedModel;
   // Context updates for frontend to track state
   next_context?: Partial<RepairFlowContext> | null;
   // Outcomes (end the flow)

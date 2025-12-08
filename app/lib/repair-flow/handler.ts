@@ -1425,30 +1425,48 @@ function handleProceedWithoutModel(
 
 /**
  * User can't identify model - HELP them find it!
- * Uses context.identification to track what we've already asked
- * If user mentions an issue (screen, battery), skip to pricing
+ * Uses context awareness: selected_series, known_info_summary
+ * Uses regex patterns for flexible model detection
  * If user types a model name, accept it and move to issue selection
+ * If user mentions an issue, skip to pricing with range
  */
 function handleModelUnknown(
   message: string,
   context: RepairFlowContext
 ): RepairFlowResponse {
   const deviceType = context.device_type || "iphone";
+  const series = context.selected_series || "";
+  const summary = context.known_info_summary || "";
   const id = context.identification || {};
   const attempts = (id.attempts || 0) + 1;
   const msgLower = message.toLowerCase().trim();
 
-  // Check if user typed a model name - accept it and move to issue selection
-  const modelDetected = detectModelFromText(msgLower, deviceType);
+  console.log("[Model Unknown] Parsing:", {
+    message: msgLower,
+    deviceType,
+    series,
+    summary,
+  });
+
+  // Try regex-based model detection with context awareness
+  const modelDetected = detectModelWithContext(
+    msgLower,
+    deviceType,
+    series,
+    summary
+  );
   if (modelDetected) {
-    const deviceName = getDeviceName(deviceType);
     return {
       type: "repair_flow_response",
       messages: [
         `${modelDetected.label} - got it! 👍`,
-        `What's the problem with your ${modelDetected.label}?`,
+        `What's wrong with it?`,
       ],
       new_step: "issue",
+      identified: {
+        device_model: modelDetected.id,
+        device_model_label: modelDetected.label,
+      },
       scene: {
         device_type: deviceType,
         device_name: modelDetected.label,
@@ -1465,20 +1483,9 @@ function handleModelUnknown(
         { icon: "fa-plug", label: "Charging Port", value: "charging" },
         { icon: "fa-camera", label: "Camera", value: "camera" },
         { icon: "fa-droplet", label: "Water Damage", value: "water" },
-        { icon: "fa-question", label: "Something else", value: "other" },
+        { icon: "fa-question", label: "Something Else", value: "other_issue" },
       ],
       morph_layout: true,
-      next_context: {
-        step: "issue_selected",
-        device_model: modelDetected.id,
-      },
-      hand_back_control: {
-        device_type: deviceType,
-        device_name: deviceName,
-        device_model: modelDetected.id,
-        device_model_label: modelDetected.label,
-        resume_step: "issue",
-      },
     };
   }
 
@@ -1558,6 +1565,36 @@ function handleModelUnknown(
         },
       };
     }
+  }
+
+  // Couldn't identify model - ask for clarification (don't restart flow!)
+  // If user typed something we didn't understand, be helpful
+  if (msgLower.length > 0 && msgLower !== "model_unknown") {
+    const deviceName = getDeviceName(deviceType);
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `I'm not sure which model "${message}" is. Could you be more specific?`,
+        `For example: "${
+          deviceType === "samsung"
+            ? "S21"
+            : deviceType === "iphone"
+            ? "iPhone 12"
+            : "the model number"
+        }"`,
+      ],
+      new_step: "model_unknown", // Stay on same step but don't loop
+      scene: null,
+      quick_actions: [
+        { icon: "fa-store", label: "I'll bring it in", value: "bring_in" },
+        {
+          icon: "fa-question",
+          label: "I really don't know",
+          value: "identify_giveup",
+        },
+      ],
+      morph_layout: false,
+    };
   }
 
   // After 3+ attempts, just proceed with range pricing
@@ -2163,7 +2200,165 @@ function handleDirections(): RepairFlowResponse {
 }
 
 /**
- * Detect model from user text input
+ * Detect model with context awareness using regex patterns
+ * Uses selected_series and known_info_summary to understand context
+ * e.g. "21" + series="galaxy-s-series" → Galaxy S21
+ */
+function detectModelWithContext(
+  text: string,
+  deviceType: string,
+  series: string,
+  summary: string
+): { id: string; label: string } | null {
+  const msgLower = text.toLowerCase().trim();
+
+  // Samsung patterns with regex
+  if (deviceType === "samsung" || summary.toLowerCase().includes("samsung")) {
+    // S series: s21, s20 fe, s23 ultra, etc.
+    const sMatch = msgLower.match(/s\s*(\d+)\s*(fe|ultra|plus|\+)?/i);
+    if (sMatch) {
+      const num = sMatch[1];
+      const variant = sMatch[2]?.toLowerCase();
+      const variantId = variant ? "-" + variant.replace("+", "plus") : "";
+      const variantLabel = variant
+        ? " " + variant.toUpperCase().replace("PLUS", "+")
+        : "";
+      return {
+        id: `galaxy-s${num}${variantId}`,
+        label: `Galaxy S${num}${variantLabel}`,
+      };
+    }
+
+    // If series is S and user just typed a number like "21"
+    if (
+      (series.includes("s-series") || series.includes("s series")) &&
+      /^\d+$/.test(msgLower)
+    ) {
+      return {
+        id: `galaxy-s${msgLower}`,
+        label: `Galaxy S${msgLower}`,
+      };
+    }
+
+    // A series: a54, a52, etc.
+    const aMatch = msgLower.match(/a\s*(\d+)\s*(5g)?/i);
+    if (aMatch) {
+      const num = aMatch[1];
+      const suffix = aMatch[2] ? " 5G" : "";
+      return {
+        id: `galaxy-a${num}`,
+        label: `Galaxy A${num}${suffix}`,
+      };
+    }
+
+    // If series is A and user just typed a number
+    if (
+      (series.includes("a-series") || series.includes("a series")) &&
+      /^\d+$/.test(msgLower)
+    ) {
+      return {
+        id: `galaxy-a${msgLower}`,
+        label: `Galaxy A${msgLower}`,
+      };
+    }
+
+    // Note series
+    const noteMatch = msgLower.match(/note\s*(\d+)\s*(ultra|\+)?/i);
+    if (noteMatch) {
+      const num = noteMatch[1];
+      const variant = noteMatch[2] ? " " + noteMatch[2] : "";
+      return {
+        id: `galaxy-note${num}`,
+        label: `Galaxy Note ${num}${variant}`,
+      };
+    }
+
+    // Z Flip/Fold
+    const zMatch = msgLower.match(/z?\s*(flip|fold)\s*(\d+)?/i);
+    if (zMatch) {
+      const type = zMatch[1].toLowerCase();
+      const num = zMatch[2] || "";
+      return {
+        id: `galaxy-z-${type}${num ? "-" + num : ""}`,
+        label: `Galaxy Z ${type.charAt(0).toUpperCase() + type.slice(1)}${
+          num ? " " + num : ""
+        }`,
+      };
+    }
+  }
+
+  // iPhone patterns with regex
+  if (deviceType === "iphone" || summary.toLowerCase().includes("iphone")) {
+    // Match patterns like "12", "12 pro", "12 pro max", "12pro", etc.
+    const iMatch = msgLower.match(/(\d+)\s*(pro\s*max|pro|plus|mini)?/i);
+    if (iMatch) {
+      const num = iMatch[1];
+      const variant = iMatch[2]?.toLowerCase().replace(/\s+/g, "-");
+      const variantId = variant ? "-" + variant : "";
+      const variantLabel = iMatch[2] ? " " + iMatch[2].replace(/-/g, " ") : "";
+      return {
+        id: `iphone-${num}${variantId}`,
+        label: `iPhone ${num}${variantLabel}`,
+      };
+    }
+
+    // SE models
+    const seMatch = msgLower.match(/se\s*(\d+|2020|2022)?/i);
+    if (seMatch) {
+      const gen = seMatch[1];
+      if (gen === "3" || gen === "2022") {
+        return { id: "iphone-se-3", label: "iPhone SE (3rd gen)" };
+      } else if (gen === "2" || gen === "2020") {
+        return { id: "iphone-se-2", label: "iPhone SE (2nd gen)" };
+      }
+      return { id: "iphone-se", label: "iPhone SE" };
+    }
+
+    // XR, XS, X
+    if (msgLower.includes("xr")) return { id: "iphone-xr", label: "iPhone XR" };
+    if (msgLower.includes("xs max"))
+      return { id: "iphone-xs-max", label: "iPhone XS Max" };
+    if (msgLower.includes("xs")) return { id: "iphone-xs", label: "iPhone XS" };
+    if (msgLower === "x" || msgLower === "iphone x")
+      return { id: "iphone-x", label: "iPhone X" };
+  }
+
+  // iPad patterns
+  if (deviceType === "ipad" || summary.toLowerCase().includes("ipad")) {
+    if (msgLower.includes("pro 12.9") || msgLower.includes("pro 129")) {
+      return { id: "ipad-pro-12.9", label: 'iPad Pro 12.9"' };
+    }
+    if (msgLower.includes("pro 11")) {
+      return { id: "ipad-pro-11", label: 'iPad Pro 11"' };
+    }
+    const airMatch = msgLower.match(/air\s*(\d+)?/i);
+    if (airMatch) {
+      const gen = airMatch[1] || "";
+      return {
+        id: `ipad-air${gen ? "-" + gen : ""}`,
+        label: `iPad Air${gen ? " " + gen : ""}`,
+      };
+    }
+    const miniMatch = msgLower.match(/mini\s*(\d+)?/i);
+    if (miniMatch) {
+      const gen = miniMatch[1] || "";
+      return {
+        id: `ipad-mini${gen ? "-" + gen : ""}`,
+        label: `iPad Mini${gen ? " " + gen : ""}`,
+      };
+    }
+    const genMatch = msgLower.match(/(\d+)(?:th|st|nd|rd)?\s*(?:gen)?/i);
+    if (genMatch) {
+      return { id: `ipad-${genMatch[1]}`, label: `iPad ${genMatch[1]}th Gen` };
+    }
+  }
+
+  // Fallback to old pattern matching
+  return detectModelFromText(text, deviceType);
+}
+
+/**
+ * Detect model from user text input (legacy pattern matching)
  */
 function detectModelFromText(
   text: string,
