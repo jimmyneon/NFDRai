@@ -151,15 +151,17 @@ export async function POST(request: NextRequest) {
         );
         return NextResponse.json(repairResponse, { headers: corsHeaders });
       } catch (sessionError) {
-        // Fallback to stateless handler if DB fails
-        console.warn(
-          "[Webchat] Session handler failed, using stateless:",
-          sessionError
-        );
-        const repairResponse = await handleRepairFlow(body, sessionId);
+        console.error("[Webchat] Repair flow session error:", sessionError);
         return NextResponse.json(
-          { ...repairResponse, session_id: sessionId },
-          { headers: corsHeaders }
+          {
+            error: "Repair flow session failed",
+            details:
+              sessionError instanceof Error
+                ? sessionError.message
+                : "Unknown error",
+            session_id: sessionId,
+          },
+          { status: 500, headers: corsHeaders }
         );
       }
     }
