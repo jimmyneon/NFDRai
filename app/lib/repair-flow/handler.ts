@@ -1781,7 +1781,11 @@ function getIssueMessages(
   );
 
   // Price and time info
-  if (price.includes("From")) {
+  if (
+    price.includes("From") ||
+    price.includes("-") ||
+    price.includes("around")
+  ) {
     messages.push(
       `The typical price is ${price.toLowerCase()} depending on your ${deviceName} model. Most repairs are done in ${turnaround}!`
     );
@@ -1790,6 +1794,11 @@ function getIssueMessages(
       `That would be ${price}, and we can usually have it done in ${turnaround}.`
     );
   }
+
+  // Always add disclaimer that John will confirm
+  messages.push(
+    "This is just an estimate - John will confirm the exact price when he sees your device."
+  );
 
   // Call to action
   messages.push(
