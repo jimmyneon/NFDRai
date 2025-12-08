@@ -13,7 +13,11 @@
 export type RepairFlowStep =
   | "greeting"
   | "device_selected"
+  | "model_selected"
+  | "identify_device"
+  | "identify_model"
   | "issue_selected"
+  | "diagnose_issue"
   | "final"
   | "question";
 
@@ -27,8 +31,17 @@ export type DeviceType =
   | "ps4"
   | "xbox"
   | "switch"
+  | "watch"
   | "other"
   | null;
+
+export type DeviceCategory =
+  | "phone"
+  | "tablet"
+  | "laptop"
+  | "console"
+  | "watch"
+  | "unknown";
 
 export type IssueType =
   | "screen"
@@ -39,16 +52,35 @@ export type IssueType =
   | "back-glass"
   | "speaker"
   | "button"
+  | "keyboard"
+  | "hdmi"
+  | "disc-drive"
+  | "overheating"
+  | "joycon"
   | "other"
   | null;
+
+export type SymptomType =
+  | "no_power"
+  | "screen_issues"
+  | "battery_issues"
+  | "sound_issues"
+  | "camera_issues"
+  | "water_damage"
+  | "other";
 
 export interface RepairFlowContext {
   page?: string;
   step: RepairFlowStep;
   device_type: DeviceType;
+  device_category?: DeviceCategory | null;
   device_model?: string | null;
   issue?: IssueType | null;
+  symptom?: SymptomType | null;
   selected_job?: string | null;
+  // For device identification flow
+  has_face_id?: boolean | null;
+  screen_size?: "small" | "medium" | "large" | null;
 }
 
 export interface RepairFlowRequest {
@@ -74,10 +106,11 @@ export interface RepairScene {
   device_name: string;
   device_image: string;
   device_summary: string;
-  jobs: RepairJob[];
+  jobs: RepairJob[] | null;
   selected_job: string | null;
   price_estimate: string | null;
   show_book_cta: boolean;
+  needs_diagnostic?: boolean;
 }
 
 export interface QuickAction {
