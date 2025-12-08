@@ -410,7 +410,7 @@ function handleAITakeover(
 /**
  * Handle price_estimate: command messages
  * Format: price_estimate:device_type:model:issue
- * Returns price_estimate object for frontend
+ * Returns price_estimate object AND messages for frontend
  */
 function handlePriceEstimateCommand(
   message: string,
@@ -427,18 +427,97 @@ function handlePriceEstimateCommand(
   const price = getPriceForModelAndIssue(model, issue, deviceType);
   const turnaround = getTurnaroundTime(issue);
 
+  // Format issue label
+  const issueLabel = formatIssueLabel(issue);
+
+  // Format device/model name
+  const deviceName = formatDeviceName(deviceType, model);
+
+  // Generate helpful messages
+  const messages = [
+    `${issueLabel} for ${deviceName} - we can help with that! 💪`,
+    `That's typically ${price}. Most repairs take ${turnaround}.`,
+    "This is just an estimate - John will confirm the exact price when he sees your device.",
+  ];
+
   return {
     type: "repair_flow_response",
-    messages: [], // No messages - just data
-    scene: null,
-    quick_actions: null,
-    morph_layout: false,
+    messages: messages,
+    new_step: "outcome_price",
+    scene: {
+      device_type: deviceType as any,
+      device_name: deviceName,
+      device_image: `/images/devices/${deviceType}-generic.png`,
+      device_summary: `${deviceName} – ${issueLabel}`,
+      jobs: null,
+      selected_job: issue,
+      price_estimate: price,
+      show_book_cta: true,
+    },
+    quick_actions: BOOKING_ACTIONS,
+    morph_layout: true,
     price_estimate: {
       price: price,
       turnaround: turnaround,
       warranty: "90 days",
     },
   };
+}
+
+/**
+ * Format issue into readable label
+ */
+function formatIssueLabel(issue: string): string {
+  const labels: Record<string, string> = {
+    screen: "Screen Repair",
+    battery: "Battery Replacement",
+    charging: "Charging Port Repair",
+    charge: "Charging Port Repair",
+    camera: "Camera Repair",
+    back: "Back Glass Repair",
+    glass: "Back Glass Repair",
+    water: "Water Damage Assessment",
+    speaker: "Speaker Repair",
+    mic: "Microphone Repair",
+    button: "Button Repair",
+  };
+  return (
+    labels[issue.toLowerCase()] ||
+    issue.charAt(0).toUpperCase() + issue.slice(1) + " Repair"
+  );
+}
+
+/**
+ * Format device type and model into readable name
+ */
+function formatDeviceName(deviceType: string, model: string): string {
+  if (model) {
+    // Convert model ID to readable name
+    const modelName = model
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .replace("Iphone", "iPhone")
+      .replace("Ipad", "iPad")
+      .replace("Galaxy ", "Galaxy ");
+    return modelName;
+  }
+
+  // Fallback to device type
+  const deviceNames: Record<string, string> = {
+    iphone: "iPhone",
+    ipad: "iPad",
+    samsung: "Samsung",
+    macbook: "MacBook",
+    laptop: "Laptop",
+    ps5: "PS5",
+    ps4: "PS4",
+    xbox: "Xbox",
+    switch: "Nintendo Switch",
+  };
+  return (
+    deviceNames[deviceType] ||
+    deviceType.charAt(0).toUpperCase() + deviceType.slice(1)
+  );
 }
 
 /**
