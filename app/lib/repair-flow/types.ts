@@ -17,6 +17,7 @@ export type RepairFlowStep =
   | "model_unknown"
   | "identify_device"
   | "identify_model"
+  | "identify_macbook"
   | "issue_selected"
   | "diagnose_issue"
   | "final"

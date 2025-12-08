@@ -99,11 +99,26 @@ export async function handleRepairFlow(
     return handleCallUs();
   }
 
+  // Handle macbook_year:model:year:issue format (MacBook year selection)
+  if (msgLower.startsWith("macbook_year:")) {
+    const parts = message.split(":");
+    if (parts.length >= 4) {
+      const [, model, year, issue] = parts;
+      return handleMacBookYearSelected(model, year, issue);
+    }
+  }
+
   // Handle price_estimate:device:model:issue format from frontend
   if (msgLower.startsWith("price_estimate:")) {
     const parts = message.split(":");
     if (parts.length >= 4) {
       const [, deviceType, model, issue] = parts;
+
+      // For MacBooks, we need more specific model info (year, chip type)
+      if (deviceType === "macbook" && needsMoreMacBookInfo(model)) {
+        return askMacBookDetails(model, issue);
+      }
+
       const enrichedContext: RepairFlowContext = {
         ...context,
         step: "issue_selected",
@@ -1874,6 +1889,271 @@ function getQuickAnswer(
   }
 
   return null;
+}
+
+// ============================================
+// MACBOOK IDENTIFICATION HELPERS
+// ============================================
+
+/**
+ * Handle MacBook year selection and return price
+ */
+async function handleMacBookYearSelected(
+  model: string,
+  year: string,
+  issue: string
+): Promise<RepairFlowResponse> {
+  const modelLabel = model
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const issueLabel = issue
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  // Build specific model ID with year
+  const specificModel = `${model}-${year}`;
+
+  // Get price based on year and model
+  const priceInfo = getMacBookPrice(model, year, issue);
+
+  if (year === "unknown") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `No problem! For a ${modelLabel} ${issueLabel}, prices typically range from ${priceInfo.range}.`,
+        "Bring it in and we'll identify the exact model and give you a firm quote. The assessment is free!",
+      ],
+      scene: {
+        device_type: "macbook",
+        device_name: model,
+        device_image: "/images/devices/macbook-generic.png",
+        device_summary: `${modelLabel} – ${issueLabel}`,
+        jobs: null,
+        selected_job: issue,
+        price_estimate: priceInfo.range,
+        show_book_cta: true,
+        needs_diagnostic: true,
+      },
+      quick_actions: BOOKING_ACTIONS,
+      morph_layout: true,
+    };
+  }
+
+  return {
+    type: "repair_flow_response",
+    messages: [
+      `${modelLabel} (${year}) ${issueLabel} - we can definitely help! 💪`,
+      `The price is ${priceInfo.price}, and it typically takes ${priceInfo.turnaround}.`,
+      "Would you like to book this repair?",
+    ],
+    scene: {
+      device_type: "macbook",
+      device_name: specificModel,
+      device_image: "/images/devices/macbook-generic.png",
+      device_summary: `${modelLabel} (${year}) – ${issueLabel}`,
+      jobs: null,
+      selected_job: issue,
+      price_estimate: priceInfo.price,
+      show_book_cta: true,
+    },
+    quick_actions: BOOKING_ACTIONS,
+    morph_layout: true,
+  };
+}
+
+/**
+ * Get MacBook price based on model, year, and issue
+ */
+function getMacBookPrice(
+  model: string,
+  year: string,
+  issue: string
+): { price: string; range: string; turnaround: string } {
+  // Screen repair prices by year/chip
+  const screenPrices: Record<string, Record<string, string>> = {
+    "macbook-pro-13": {
+      "2024": "£449",
+      "2023": "£399",
+      "2022": "£399",
+      "2021": "£379",
+      "2020": "£349",
+      "2019": "£299",
+    },
+    "macbook-pro-14": {
+      "2024": "£549",
+      "2023": "£499",
+      "2022": "£499",
+      "2021": "£479",
+    },
+    "macbook-pro-15": {
+      "2019": "£349",
+      "2018": "£329",
+      "2017": "£299",
+    },
+    "macbook-pro-16": {
+      "2024": "£599",
+      "2023": "£549",
+      "2022": "£549",
+      "2021": "£499",
+      "2020": "£449",
+      "2019": "£399",
+    },
+    "macbook-air-13": {
+      "2024": "£349",
+      "2023": "£299",
+      "2022": "£299",
+      "2020": "£279",
+      "2019": "£249",
+    },
+    "macbook-air-15": {
+      "2024": "£399",
+      "2023": "£379",
+    },
+  };
+
+  // Battery prices
+  const batteryPrices: Record<string, Record<string, string>> = {
+    "macbook-pro-13": {
+      "2024": "£199",
+      "2023": "£179",
+      "2022": "£179",
+      "2021": "£169",
+      "2020": "£149",
+      "2019": "£129",
+    },
+    "macbook-pro-14": {
+      "2024": "£229",
+      "2023": "£199",
+      "2022": "£199",
+      "2021": "£189",
+    },
+    "macbook-pro-16": {
+      "2024": "£249",
+      "2023": "£229",
+      "2022": "£229",
+      "2021": "£199",
+      "2020": "£179",
+      "2019": "£159",
+    },
+    "macbook-air-13": {
+      "2024": "£149",
+      "2023": "£129",
+      "2022": "£129",
+      "2020": "£119",
+      "2019": "£99",
+    },
+    "macbook-air-15": {
+      "2024": "£169",
+      "2023": "£149",
+    },
+  };
+
+  const prices = issue === "screen" ? screenPrices : batteryPrices;
+  const modelPrices = prices[model.toLowerCase()] || {};
+  const price = modelPrices[year] || "Price on assessment";
+
+  // Calculate range for unknown year
+  const allPrices = Object.values(modelPrices)
+    .map((p) => parseInt(p.replace("£", "")) || 0)
+    .filter((p) => p > 0);
+  const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 299;
+  const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 599;
+  const range = `£${minPrice} - £${maxPrice}`;
+
+  const turnaround = issue === "screen" ? "3-5 days" : "1-2 days";
+
+  return { price, range, turnaround };
+}
+
+/**
+ * Check if MacBook model needs more specific info
+ * Generic models like "macbook-pro-13" need year/chip type
+ */
+function needsMoreMacBookInfo(model: string): boolean {
+  const genericModels = [
+    "macbook-pro-13",
+    "macbook-pro-14",
+    "macbook-pro-15",
+    "macbook-pro-16",
+    "macbook-air-13",
+    "macbook-air-15",
+    "macbook",
+  ];
+  return genericModels.includes(model.toLowerCase());
+}
+
+/**
+ * Ask for more specific MacBook details
+ */
+function askMacBookDetails(model: string, issue: string): RepairFlowResponse {
+  const modelLabel = model
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const issueLabel = issue
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return {
+    type: "repair_flow_response",
+    messages: [
+      `For a ${modelLabel} ${issueLabel}, I need a bit more info to give you an accurate price.`,
+      "Could you tell me the year of your MacBook? You can find this by clicking the Apple menu > About This Mac.",
+    ],
+    scene: {
+      device_type: "macbook",
+      device_name: model,
+      device_image: "/images/devices/macbook-generic.png",
+      device_summary: `${modelLabel} - Identifying year`,
+      jobs: null,
+      selected_job: null,
+      price_estimate: null,
+      show_book_cta: false,
+    },
+    quick_actions: [
+      {
+        icon: "fa-calendar",
+        label: "2024 (M3)",
+        value: `macbook_year:${model}:2024:${issue}`,
+      },
+      {
+        icon: "fa-calendar",
+        label: "2023 (M2)",
+        value: `macbook_year:${model}:2023:${issue}`,
+      },
+      {
+        icon: "fa-calendar",
+        label: "2022 (M2)",
+        value: `macbook_year:${model}:2022:${issue}`,
+      },
+      {
+        icon: "fa-calendar",
+        label: "2021 (M1 Pro/Max)",
+        value: `macbook_year:${model}:2021:${issue}`,
+      },
+      {
+        icon: "fa-calendar",
+        label: "2020 (M1)",
+        value: `macbook_year:${model}:2020:${issue}`,
+      },
+      {
+        icon: "fa-calendar",
+        label: "2019 or older",
+        value: `macbook_year:${model}:2019:${issue}`,
+      },
+      {
+        icon: "fa-question",
+        label: "I'm not sure",
+        value: `macbook_year:${model}:unknown:${issue}`,
+      },
+    ],
+    morph_layout: true,
+    next_context: {
+      step: "identify_macbook",
+      device_type: "macbook",
+      device_model: model,
+      issue: issue as any,
+    },
+  };
 }
 
 // ============================================
