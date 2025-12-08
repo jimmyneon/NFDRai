@@ -61,8 +61,32 @@ export async function handleRepairFlow(
     ai_takeover: context.ai_takeover,
   });
 
+  const msgLower = message.toLowerCase();
+
+  // Check for special commands FIRST - these are always allowed regardless of step
+  const specialCommands = [
+    "price_estimate:",
+    "identify_",
+    "book_",
+    "confirm_",
+    "category_",
+  ];
+  const isSpecialCommand = specialCommands.some((cmd) =>
+    msgLower.startsWith(cmd)
+  );
+
+  // Handle price_estimate: messages - NOT greeting requests
+  if (msgLower.startsWith("price_estimate:")) {
+    return handlePriceEstimateCommand(message, context);
+  }
+
   // RULE: Never return greeting - frontend handles it
-  if (context.step === "greeting" && !context.ai_takeover) {
+  // But only block if NOT a special command
+  if (
+    !isSpecialCommand &&
+    context.step === "greeting" &&
+    !context.ai_takeover
+  ) {
     return {
       type: "repair_flow_response",
       messages: [],
@@ -77,9 +101,6 @@ export async function handleRepairFlow(
   if (context.step === "ai_takeover" || context.ai_takeover) {
     return handleAITakeover(message, context);
   }
-
-  // Route based on step AND message value for special actions
-  const msgLower = message.toLowerCase();
 
   // Handle special action values first
   if (
@@ -387,7 +408,173 @@ function handleAITakeover(
 }
 
 /**
- * Get specific price for known model + issue
+ * Handle price_estimate: command messages
+ * Format: price_estimate:device_type:model:issue
+ * Returns price_estimate object for frontend
+ */
+function handlePriceEstimateCommand(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
+  const parts = message.split(":");
+  const deviceType = parts[1] || context.device_type || "iphone";
+  const model = parts[2] || context.device_model || "";
+  const issue = parts[3] || context.issue || "";
+
+  console.log("[Price Estimate Command]", { deviceType, model, issue });
+
+  // Get price based on model and issue
+  const price = getPriceForModelAndIssue(model, issue, deviceType);
+  const turnaround = getTurnaroundTime(issue);
+
+  return {
+    type: "repair_flow_response",
+    messages: [], // No messages - just data
+    scene: null,
+    quick_actions: null,
+    morph_layout: false,
+    price_estimate: {
+      price: price,
+      turnaround: turnaround,
+      warranty: "90 days",
+    },
+  };
+}
+
+/**
+ * Get price for model and issue combination
+ */
+function getPriceForModelAndIssue(
+  model: string,
+  issue: string,
+  deviceType: string
+): string {
+  const issueLower = issue.toLowerCase();
+  const modelLower = model.toLowerCase();
+
+  // iPhone screen prices
+  if (deviceType === "iphone" && issueLower.includes("screen")) {
+    const screenPrices: Record<string, string> = {
+      "iphone-15-pro-max": "£329",
+      "iphone-15-pro": "£279",
+      "iphone-15": "£149",
+      "iphone-14-pro-max": "£299",
+      "iphone-14-pro": "£249",
+      "iphone-14": "£129",
+      "iphone-13-pro-max": "£249",
+      "iphone-13-pro": "£199",
+      "iphone-13": "£109",
+      "iphone-12-pro-max": "£179",
+      "iphone-12-pro": "£149",
+      "iphone-12": "£89",
+      "iphone-11-pro-max": "£149",
+      "iphone-11-pro": "£129",
+      "iphone-11": "£79",
+      "iphone-xr": "£69",
+      "iphone-xs-max": "£99",
+      "iphone-xs": "£89",
+      "iphone-x": "£69",
+      "iphone-se": "£59",
+      "iphone-8-plus": "£55",
+      "iphone-8": "£49",
+    };
+    return screenPrices[modelLower] || "£45 - £149";
+  }
+
+  // iPhone battery prices
+  if (deviceType === "iphone" && issueLower.includes("battery")) {
+    const batteryPrices: Record<string, string> = {
+      "iphone-15-pro-max": "£89",
+      "iphone-15-pro": "£89",
+      "iphone-15": "£79",
+      "iphone-14-pro-max": "£79",
+      "iphone-14-pro": "£79",
+      "iphone-14": "£69",
+      "iphone-13-pro-max": "£69",
+      "iphone-13-pro": "£69",
+      "iphone-13": "£59",
+      "iphone-12-pro-max": "£59",
+      "iphone-12-pro": "£59",
+      "iphone-12": "£55",
+      "iphone-11-pro-max": "£55",
+      "iphone-11-pro": "£55",
+      "iphone-11": "£49",
+      "iphone-xr": "£45",
+      "iphone-xs-max": "£49",
+      "iphone-xs": "£49",
+      "iphone-x": "£45",
+      "iphone-se": "£39",
+      "iphone-8-plus": "£39",
+      "iphone-8": "£35",
+    };
+    return batteryPrices[modelLower] || "£35 - £89";
+  }
+
+  // iPhone charging port
+  if (
+    deviceType === "iphone" &&
+    (issueLower.includes("charging") || issueLower.includes("charge"))
+  ) {
+    return "£55";
+  }
+
+  // Samsung screen prices
+  if (deviceType === "samsung" && issueLower.includes("screen")) {
+    const samsungScreenPrices: Record<string, string> = {
+      "galaxy-s24-ultra": "£299",
+      "galaxy-s24": "£199",
+      "galaxy-s23-ultra": "£279",
+      "galaxy-s23": "£179",
+      "galaxy-s22-ultra": "£249",
+      "galaxy-s22": "£149",
+      "galaxy-s21-ultra": "£199",
+      "galaxy-s21": "£129",
+      "galaxy-s20": "£109",
+      "galaxy-a54": "£99",
+      "galaxy-a53": "£89",
+      "galaxy-a52": "£79",
+    };
+    return samsungScreenPrices[modelLower] || "£79 - £299";
+  }
+
+  // Samsung battery
+  if (deviceType === "samsung" && issueLower.includes("battery")) {
+    return "£49 - £79";
+  }
+
+  // Default ranges by issue
+  if (issueLower.includes("screen")) return "£40 - £200";
+  if (issueLower.includes("battery")) return "£40 - £90";
+  if (issueLower.includes("charging") || issueLower.includes("charge"))
+    return "around £50";
+  if (issueLower.includes("back") || issueLower.includes("glass"))
+    return "£80 - £150";
+  if (issueLower.includes("camera")) return "£50 - £120";
+  if (issueLower.includes("water")) return "from £50";
+
+  return "Price on assessment";
+}
+
+/**
+ * Get turnaround time for issue type
+ */
+function getTurnaroundTime(issue: string): string {
+  const issueLower = issue.toLowerCase();
+
+  if (issueLower.includes("screen")) return "1-2 hours";
+  if (issueLower.includes("battery")) return "30-60 mins";
+  if (issueLower.includes("charging") || issueLower.includes("charge"))
+    return "45 mins";
+  if (issueLower.includes("back") || issueLower.includes("glass"))
+    return "1-2 hours";
+  if (issueLower.includes("camera")) return "1-2 hours";
+  if (issueLower.includes("water")) return "24-72 hours";
+
+  return "Same day";
+}
+
+/**
+ * Get specific price for known model + issue (legacy helper)
  */
 function getSpecificPrice(model: string, issueLabel: string): string {
   const issue = issueLabel.toLowerCase();

@@ -167,6 +167,13 @@ export interface IdentifiedModel {
   device_model_label: string;
 }
 
+// Price estimate response from price_estimate: command
+export interface PriceEstimateData {
+  price: string;
+  turnaround: string;
+  warranty: string;
+}
+
 export interface RepairFlowResponse {
   type: "repair_flow_response";
   session_id?: string;
@@ -178,6 +185,8 @@ export interface RepairFlowResponse {
   new_step?: RepairFlowStep | string;
   // Model identified - frontend handles model → issue transition
   identified?: IdentifiedModel;
+  // Price estimate from price_estimate: command
+  price_estimate?: PriceEstimateData;
   // Context updates for frontend to track state
   next_context?: Partial<RepairFlowContext> | null;
   // Outcomes (end the flow)
