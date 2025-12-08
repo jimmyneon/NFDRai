@@ -9,6 +9,7 @@ import {
   formatPhoneNumber,
 } from "@/app/lib/contact-extractor";
 import { extractQuoteInfoSmart } from "@/app/lib/webchat-quote-extractor";
+import { handleRepairFlow, isRepairFlowRequest } from "@/app/lib/repair-flow";
 import crypto from "crypto";
 
 /**
@@ -19,6 +20,7 @@ import crypto from "crypto";
  *
  * Authentication: API key in header (X-API-Key) or query param (?api_key=xxx)
  *
+ * STANDARD CHAT:
  * POST /api/webchat
  * {
  *   "message": "Customer message text",
@@ -29,12 +31,19 @@ import crypto from "crypto";
  *   "referrer": "https://google.com"
  * }
  *
- * Response:
+ * REPAIR FLOW (Guided repair journey):
+ * POST /api/webchat
  * {
- *   "success": true,
- *   "session_id": "session-uuid",
- *   "response": "AI Steve's response",
- *   "conversation_id": "conv-uuid"
+ *   "type": "repair_flow",
+ *   "session_id": "optional-existing-session-id",
+ *   "message": "User's text message or selection",
+ *   "context": {
+ *     "step": "greeting | device_selected | issue_selected | final",
+ *     "device_type": "iphone | ipad | samsung | macbook | laptop | ps5 | ps4 | xbox | switch | null",
+ *     "device_model": "iPhone 14 Pro | null",
+ *     "issue": "screen | battery | charging | water | etc | null",
+ *     "selected_job": "screen_repair | null"
+ *   }
  * }
  */
 
@@ -111,6 +120,15 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
+
+    // Check if this is a repair flow request
+    if (isRepairFlowRequest(body)) {
+      console.log("[Webchat] Repair flow request detected");
+      const repairResponse = await handleRepairFlow(body, body.session_id);
+      return NextResponse.json(repairResponse, { headers: corsHeaders });
+    }
+
+    // Standard chat flow
     const {
       message,
       session_id,
