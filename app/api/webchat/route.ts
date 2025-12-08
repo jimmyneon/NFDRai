@@ -62,6 +62,25 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: corsHeaders });
 }
 
+// Debug endpoint - GET /api/webchat?debug=1
+export async function GET(request: NextRequest) {
+  const debug = request.nextUrl.searchParams.get("debug");
+  if (debug) {
+    return NextResponse.json(
+      {
+        version: "2.1.0-repair-flow-sessions",
+        timestamp: new Date().toISOString(),
+        features: ["repair_flow", "session_persistence", "error_on_failure"],
+      },
+      { headers: corsHeaders }
+    );
+  }
+  return NextResponse.json(
+    { error: "Use POST for chat" },
+    { status: 405, headers: corsHeaders }
+  );
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
