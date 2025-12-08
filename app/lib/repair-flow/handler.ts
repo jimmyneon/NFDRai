@@ -542,7 +542,7 @@ function handleIdentifyResponse(
       modelActions.push({
         icon: "fa-question-circle",
         label: "Still not sure",
-        value: "model_unknown",
+        value: "identify_giveup",
       });
 
       return {
@@ -564,29 +564,376 @@ function handleIdentifyResponse(
     }
   }
 
+  // Lightning port = iPhone 14 or earlier
+  if (action === "lightning") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Lightning port - that means iPhone 14 or earlier. 👍",
+        "How many cameras does it have on the back?",
+      ],
+      scene: {
+        device_type: "iphone",
+        device_name: "iPhone (Lightning)",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "iPhone with Lightning port",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        { icon: "fa-circle", label: "1 camera", value: "identify_1cam" },
+        {
+          icon: "fa-circle",
+          label: "2 cameras (diagonal)",
+          value: "identify_2cam",
+        },
+        { icon: "fa-circle", label: "3 cameras", value: "identify_3cam" },
+        {
+          icon: "fa-cog",
+          label: "Found it in Settings!",
+          value: "identify_found",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // USB-C = iPhone 15 or later
+  if (action === "usbc") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "USB-C - that's an iPhone 15 or newer! 🎉",
+        "Which one is it?",
+      ],
+      scene: {
+        device_type: "iphone",
+        device_name: "iPhone 15 series",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "iPhone 15 series",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        { icon: "fa-mobile-alt", label: "iPhone 15", value: "iphone-15" },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 15 Plus",
+          value: "iphone-15-plus",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 15 Pro",
+          value: "iphone-15-pro",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 15 Pro Max",
+          value: "iphone-15-pro-max",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 16 series",
+          value: "identify_iphone16",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // 1 camera (Lightning) = iPhone SE, XR, or older
+  if (action === "1cam") {
+    return {
+      type: "repair_flow_response",
+      messages: ["One camera - is it a smaller phone or full-size?"],
+      scene: {
+        device_type: "iphone",
+        device_name: "iPhone (1 camera)",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "iPhone with 1 camera",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone SE (small, home button)",
+          value: "iphone-se-3",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone XR (colourful, no home button)",
+          value: "iphone-xr",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 11 (colourful, no home button)",
+          value: "iphone-11",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 8 or older (home button)",
+          value: "iphone-8",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // 2 cameras (Lightning) = iPhone X, XS, 11 Pro, 12, 13, 14
+  if (action === "2cam") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Two cameras - does it have Face ID (no home button) or a home button?",
+      ],
+      scene: {
+        device_type: "iphone",
+        device_name: "iPhone (2 cameras)",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "iPhone with 2 cameras",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        {
+          icon: "fa-expand",
+          label: "Face ID (no home button)",
+          value: "identify_2cam_faceid",
+        },
+        { icon: "fa-circle", label: "Has home button", value: "iphone-8-plus" },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // 2 cameras + Face ID
+  if (action === "2cam_faceid") {
+    return {
+      type: "repair_flow_response",
+      messages: ["Great! It's likely one of these - which looks right?"],
+      scene: {
+        device_type: "iphone",
+        device_name: "iPhone (2 cam, Face ID)",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "iPhone with 2 cameras + Face ID",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 14 / 14 Plus",
+          value: "iphone-14",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 13 / 13 Mini",
+          value: "iphone-13",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 12 / 12 Mini",
+          value: "iphone-12",
+        },
+        { icon: "fa-mobile-alt", label: "iPhone 11", value: "iphone-11" },
+        { icon: "fa-mobile-alt", label: "iPhone X / XS", value: "iphone-x" },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // 3 cameras = Pro models
+  if (action === "3cam") {
+    return {
+      type: "repair_flow_response",
+      messages: ["Three cameras - that's a Pro model! Which one?"],
+      scene: {
+        device_type: "iphone",
+        device_name: "iPhone Pro",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "iPhone Pro (3 cameras)",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 14 Pro / Pro Max",
+          value: "iphone-14-pro",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 13 Pro / Pro Max",
+          value: "iphone-13-pro",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 12 Pro / Pro Max",
+          value: "iphone-12-pro",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 11 Pro / Pro Max",
+          value: "iphone-11-pro",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // iPhone 16 series
+  if (action === "iphone16") {
+    return {
+      type: "repair_flow_response",
+      messages: ["iPhone 16 - the latest! Which model?"],
+      scene: {
+        device_type: "iphone",
+        device_name: "iPhone 16 series",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "iPhone 16 series",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        { icon: "fa-mobile-alt", label: "iPhone 16", value: "iphone-16" },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 16 Plus",
+          value: "iphone-16-plus",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 16 Pro",
+          value: "iphone-16-pro",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "iPhone 16 Pro Max",
+          value: "iphone-16-pro-max",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // User has box/receipt
+  if (action === "box") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Perfect! The model name should be printed on the box. 📦",
+        "Just type it in below, or pick from the list if you see it:",
+      ],
+      scene: {
+        device_type: context.device_type || "iphone",
+        device_name: "Checking box...",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "Checking box/receipt",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        ...getRecentIPhoneActions(),
+        {
+          icon: "fa-keyboard",
+          label: "Let me type it",
+          value: "identify_type",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // User found it in settings
+  if (action === "found") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Brilliant! What does it say? 📱",
+        "Type the model name, or pick from the list:",
+      ],
+      scene: {
+        device_type: context.device_type || "iphone",
+        device_name: "Found in Settings",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "Model found in Settings",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        ...getRecentIPhoneActions(),
+        {
+          icon: "fa-keyboard",
+          label: "Let me type it",
+          value: "identify_type",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // User wants to type model
+  if (action === "type") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "No problem! Just type your model (e.g. 'iPhone 13 Pro' or 'Galaxy S23'):",
+      ],
+      scene: null,
+      quick_actions: null,
+      morph_layout: false,
+    };
+  }
+
+  // User gives up - proceed with range pricing
+  if (action === "giveup" || action === "skip") {
+    return handleProceedWithoutModel(context);
+  }
+
   // Fallback
   return handleModelUnknown(context);
 }
 
 /**
- * User can't identify model - proceed with range pricing
+ * Proceed without knowing exact model - give range pricing
  */
-function handleModelUnknown(context: RepairFlowContext): RepairFlowResponse {
+function handleProceedWithoutModel(
+  context: RepairFlowContext
+): RepairFlowResponse {
+  const deviceType = context.device_type || "iphone";
+
   return {
     type: "repair_flow_response",
     messages: [
-      "No worries! We can identify it when you bring it in. 👍",
-      "What seems to be wrong with it? I can give you a rough price range.",
+      "No worries! We'll identify it when you come in. 👍",
+      "What seems to be wrong with it? I can give you a price range:",
     ],
     scene: {
-      device_type: context.device_type || "iphone",
+      device_type: deviceType,
       device_name:
-        context.device_type === "iphone" ? "iPhone (model TBC)" : "Device",
+        deviceType === "iphone" ? "iPhone (model TBC)" : "Device (model TBC)",
       device_image: "/images/devices/iphone-generic.png",
       device_summary:
-        context.device_type === "iphone"
-          ? "iPhone (model TBC)"
-          : "Device (model TBC)",
+        deviceType === "iphone" ? "iPhone (model TBC)" : "Device (model TBC)",
       jobs: [
         {
           id: "screen",
@@ -622,6 +969,182 @@ function handleModelUnknown(context: RepairFlowContext): RepairFlowResponse {
       { icon: "fa-battery-half", label: "Battery", value: "battery" },
       { icon: "fa-plug", label: "Charging Port", value: "charging" },
       { icon: "fa-question-circle", label: "Something else", value: "other" },
+    ],
+    morph_layout: true,
+  };
+}
+
+/**
+ * User can't identify model - HELP them find it!
+ * Don't just say "bring it in" - guide them through identification
+ */
+function handleModelUnknown(context: RepairFlowContext): RepairFlowResponse {
+  const deviceType = context.device_type || "iphone";
+
+  // iPhone-specific identification help
+  if (deviceType === "iphone") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "No problem! Let's figure it out together. 🔍",
+        "The easiest way: Go to Settings → General → About and look for 'Model Name' - it'll say exactly which iPhone you have!",
+        "Or I can help narrow it down - what type of charging port does it have?",
+      ],
+      scene: {
+        device_type: "iphone",
+        device_name: "iPhone (identifying...)",
+        device_image: "/images/devices/iphone-generic.png",
+        device_summary: "iPhone - Let's identify it",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        {
+          icon: "fa-bolt",
+          label: "Lightning (old style)",
+          value: "identify_lightning",
+        },
+        { icon: "fa-plug", label: "USB-C (new style)", value: "identify_usbc" },
+        {
+          icon: "fa-box",
+          label: "I have the box/receipt",
+          value: "identify_box",
+        },
+        {
+          icon: "fa-cog",
+          label: "Found it in Settings!",
+          value: "identify_found",
+        },
+        {
+          icon: "fa-question-circle",
+          label: "Still not sure",
+          value: "identify_giveup",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // iPad identification help
+  if (deviceType === "ipad") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "No problem! Let's work it out. 🔍",
+        "Go to Settings → General → About and look for 'Model Name'.",
+        "Or tell me - does it have a Home button, or is it all-screen with Face ID?",
+      ],
+      scene: {
+        device_type: "ipad",
+        device_name: "iPad (identifying...)",
+        device_image: "/images/devices/ipad-generic.png",
+        device_summary: "iPad - Let's identify it",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        {
+          icon: "fa-circle",
+          label: "Has Home Button",
+          value: "identify_homebutton",
+        },
+        {
+          icon: "fa-expand",
+          label: "All-screen (Face ID)",
+          value: "identify_faceid",
+        },
+        {
+          icon: "fa-box",
+          label: "I have the box/receipt",
+          value: "identify_box",
+        },
+        {
+          icon: "fa-cog",
+          label: "Found it in Settings!",
+          value: "identify_found",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // Samsung identification help
+  if (deviceType === "samsung") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Let's find out which Samsung you have! 🔍",
+        "Go to Settings → About Phone → Model Name.",
+        "Or check the back of the phone - Samsung usually prints the model there too!",
+      ],
+      scene: {
+        device_type: "samsung",
+        device_name: "Samsung (identifying...)",
+        device_image: "/images/devices/samsung-generic.png",
+        device_summary: "Samsung - Let's identify it",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        { icon: "fa-mobile-alt", label: "Galaxy S series", value: "samsung-s" },
+        { icon: "fa-mobile-alt", label: "Galaxy A series", value: "samsung-a" },
+        {
+          icon: "fa-mobile-alt",
+          label: "Galaxy Note/Fold/Flip",
+          value: "samsung-premium",
+        },
+        {
+          icon: "fa-cog",
+          label: "Found it in Settings!",
+          value: "identify_found",
+        },
+        { icon: "fa-box", label: "I have the box", value: "identify_box" },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  // Generic fallback with helpful guidance
+  return {
+    type: "repair_flow_response",
+    messages: [
+      "No problem! Here's how to find your model: 🔍",
+      "Check Settings → About (or About Phone/Device) for the model name.",
+      "You can also check the original box, receipt, or invoice if you have it!",
+    ],
+    scene: {
+      device_type: deviceType,
+      device_name: "Device (identifying...)",
+      device_image: "/images/devices/device-generic.png",
+      device_summary: "Device - Let's identify it",
+      jobs: null,
+      selected_job: null,
+      price_estimate: null,
+      show_book_cta: false,
+    },
+    quick_actions: [
+      {
+        icon: "fa-cog",
+        label: "Found it in Settings!",
+        value: "identify_found",
+      },
+      {
+        icon: "fa-box",
+        label: "I have the box/receipt",
+        value: "identify_box",
+      },
+      { icon: "fa-keyboard", label: "Let me type it", value: "identify_type" },
+      {
+        icon: "fa-arrow-right",
+        label: "Skip - give me a range",
+        value: "identify_skip",
+      },
     ],
     morph_layout: true,
   };
