@@ -1437,6 +1437,11 @@ async function handleIssueSelected(
     if (iphoneModel) {
       if (jobId === "screen") priceEstimate = iphoneModel.screenPrice;
       if (jobId === "battery") priceEstimate = iphoneModel.batteryPrice;
+      if (jobId === "charging") {
+        // Charging port prices based on model generation
+        priceEstimate = getIPhoneChargingPrice(context.device_model);
+        turnaround = "45 mins";
+      }
     }
   }
 
@@ -1889,6 +1894,53 @@ function getQuickAnswer(
   }
 
   return null;
+}
+
+// ============================================
+// IPHONE PRICE HELPERS
+// ============================================
+
+/**
+ * Get iPhone charging port price based on model
+ */
+function getIPhoneChargingPrice(model: string): string {
+  const modelLower = model.toLowerCase();
+
+  // iPhone 15 series uses USB-C - different repair
+  if (modelLower.includes("iphone-15") || modelLower.includes("iphone-16")) {
+    return "£65";
+  }
+
+  // iPhone 12-14 series (Lightning)
+  if (
+    modelLower.includes("iphone-14") ||
+    modelLower.includes("iphone-13") ||
+    modelLower.includes("iphone-12")
+  ) {
+    return "£55";
+  }
+
+  // iPhone 11 series
+  if (modelLower.includes("iphone-11")) {
+    return "£49";
+  }
+
+  // iPhone X series
+  if (modelLower.includes("iphone-x")) {
+    return "£45";
+  }
+
+  // Older models (iPhone 8 and below)
+  if (
+    modelLower.includes("iphone-8") ||
+    modelLower.includes("iphone-7") ||
+    modelLower.includes("iphone-6") ||
+    modelLower.includes("iphone-se")
+  ) {
+    return "£39";
+  }
+
+  return "£45"; // Default
 }
 
 // ============================================
