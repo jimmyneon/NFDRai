@@ -10,6 +10,7 @@ import {
 } from "@/app/lib/contact-extractor";
 import { extractQuoteInfoSmart } from "@/app/lib/webchat-quote-extractor";
 import { handleRepairFlow, isRepairFlowRequest } from "@/app/lib/repair-flow";
+import { handleRepairFlowWithSession } from "@/app/lib/repair-flow/session-handler";
 import crypto from "crypto";
 
 /**
@@ -125,8 +126,30 @@ export async function POST(request: NextRequest) {
     // Check if this is a repair flow request
     if (isRepairFlowRequest(body)) {
       console.log("[Webchat] Repair flow request detected");
-      const repairResponse = await handleRepairFlow(body, body.session_id);
-      return NextResponse.json(repairResponse, { headers: corsHeaders });
+
+      // Generate session ID if not provided
+      const sessionId = body.session_id || `rf_${crypto.randomUUID()}`;
+
+      // Use session-aware handler for persistence
+      try {
+        const repairResponse = await handleRepairFlowWithSession(
+          sessionId,
+          body.message,
+          body.context // Pass context for backwards compatibility
+        );
+        return NextResponse.json(repairResponse, { headers: corsHeaders });
+      } catch (sessionError) {
+        // Fallback to stateless handler if DB fails
+        console.warn(
+          "[Webchat] Session handler failed, using stateless:",
+          sessionError
+        );
+        const repairResponse = await handleRepairFlow(body, sessionId);
+        return NextResponse.json(
+          { ...repairResponse, session_id: sessionId },
+          { headers: corsHeaders }
+        );
+      }
     }
 
     // Standard chat flow
