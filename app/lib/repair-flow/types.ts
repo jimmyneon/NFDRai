@@ -19,6 +19,7 @@ export type RepairFlowStep =
   | "identify_model"
   | "identify_macbook"
   | "other_device"
+  | "ai_takeover"
   | "issue_selected"
   | "diagnose_issue"
   | "final"
@@ -100,6 +101,10 @@ export interface RepairFlowContext {
   // Legacy fields (keep for backwards compatibility)
   has_face_id?: boolean | null;
   screen_size?: "small" | "medium" | "large" | null;
+
+  // AI Takeover mode - AI has full conversational control
+  ai_takeover?: boolean;
+  full_state?: Record<string, any>; // Full frontend state for AI context
 }
 
 export interface RepairFlowRequest {
@@ -138,6 +143,19 @@ export interface QuickAction {
   value: string;
 }
 
+// Hand back control to frontend after AI takeover
+export interface HandBackControl {
+  device_type?: string;
+  device_name?: string;
+  device_model?: string;
+  device_model_label?: string;
+  issue?: string;
+  issue_label?: string;
+  price?: string;
+  resume_step: string; // Where to resume: 'model', 'issue', 'outcome_price', 'collect_contact'
+  message?: string; // What to say when resuming
+}
+
 export interface RepairFlowResponse {
   type: "repair_flow_response";
   session_id?: string;
@@ -149,6 +167,10 @@ export interface RepairFlowResponse {
   new_step?: RepairFlowStep | string;
   // Context updates for frontend to track state
   next_context?: Partial<RepairFlowContext> | null;
+  // Outcomes (end the flow)
+  outcome?: "book" | "request" | "bring_in" | "diagnostics";
+  // AI Takeover - hand back control to frontend
+  hand_back_control?: HandBackControl;
   // Error info for debugging (frontend can log/ignore)
   error?: string;
 }

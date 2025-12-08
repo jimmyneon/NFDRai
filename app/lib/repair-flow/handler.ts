@@ -58,7 +58,25 @@ export async function handleRepairFlow(
     device: context.device_type,
     model: context.device_model,
     issue: context.issue,
+    ai_takeover: context.ai_takeover,
   });
+
+  // RULE: Never return greeting - frontend handles it
+  if (context.step === "greeting" && !context.ai_takeover) {
+    return {
+      type: "repair_flow_response",
+      messages: [],
+      scene: null,
+      quick_actions: null,
+      morph_layout: false,
+      error: "greeting_not_allowed",
+    };
+  }
+
+  // Handle AI Takeover mode - AI has full conversational control
+  if (context.step === "ai_takeover" || context.ai_takeover) {
+    return handleAITakeover(message, context);
+  }
 
   // Route based on step AND message value for special actions
   const msgLower = message.toLowerCase();
@@ -133,9 +151,12 @@ export async function handleRepairFlow(
   // Standard step routing
   switch (context.step) {
     case "greeting":
-      // Frontend handles greeting - AI should never return greeting
-      // If we get here with greeting step, return error
+      // Already handled above - return error
       return handleInvalidRequest("greeting", message);
+
+    case "ai_takeover" as any:
+      // Already handled above
+      return handleAITakeover(message, context);
 
     case "device_selected":
       return handleDeviceSelected(message, context);
@@ -170,6 +191,241 @@ export async function handleRepairFlow(
       // Unknown step - return error, not greeting
       return handleInvalidRequest(context.step || "unknown", message);
   }
+}
+
+// ============================================
+// AI TAKEOVER HANDLER
+// ============================================
+
+/**
+ * AI Takeover mode - AI has full conversational control
+ * Parse user message, understand intent, and either:
+ * 1. Ask clarifying questions
+ * 2. Provide price and offer booking
+ * 3. Hand back control to frontend with collected data
+ */
+function handleAITakeover(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
+  const msgLower = message.toLowerCase();
+  const fullState = context.full_state || {};
+
+  console.log("[Repair Flow] AI Takeover:", { message, fullState });
+
+  // Issue keywords with prices
+  const issues: Record<string, { label: string; range: string; time: string }> =
+    {
+      screen: {
+        label: "Screen Repair",
+        range: "£45 - £149",
+        time: "1-2 hours",
+      },
+      battery: {
+        label: "Battery Replacement",
+        range: "£35 - £89",
+        time: "30-60 mins",
+      },
+      charging: { label: "Charging Port", range: "£45 - £79", time: "45 mins" },
+      charge: { label: "Charging Port", range: "£45 - £79", time: "45 mins" },
+      back: { label: "Back Glass", range: "£39 - £99", time: "1-2 hours" },
+      camera: {
+        label: "Camera Repair",
+        range: "£49 - £129",
+        time: "1-2 hours",
+      },
+      water: { label: "Water Damage", range: "£49 - £99", time: "24-72 hours" },
+    };
+
+  // Device keywords
+  const devices: Record<string, { type: string; name: string }> = {
+    iphone: { type: "iphone", name: "iPhone" },
+    ipad: { type: "ipad", name: "iPad" },
+    samsung: { type: "samsung", name: "Samsung" },
+    macbook: { type: "macbook", name: "MacBook" },
+    mac: { type: "macbook", name: "MacBook" },
+    laptop: { type: "laptop", name: "Laptop" },
+  };
+
+  // Model patterns
+  const modelPatterns: Record<string, { model: string; label: string }> = {
+    "iphone 15": { model: "iphone-15", label: "iPhone 15" },
+    "iphone 14": { model: "iphone-14", label: "iPhone 14" },
+    "iphone 13": { model: "iphone-13", label: "iPhone 13" },
+    "iphone 12": { model: "iphone-12", label: "iPhone 12" },
+    "iphone 11": { model: "iphone-11", label: "iPhone 11" },
+    "iphone x": { model: "iphone-x", label: "iPhone X" },
+    "iphone se": { model: "iphone-se", label: "iPhone SE" },
+  };
+
+  // Try to extract device, model, and issue from message
+  let detectedDevice: { type: string; name: string } | null = null;
+  let detectedModel: { model: string; label: string } | null = null;
+  let detectedIssue: { label: string; range: string; time: string } | null =
+    null;
+
+  // Check for device
+  for (const [keyword, device] of Object.entries(devices)) {
+    if (msgLower.includes(keyword)) {
+      detectedDevice = device;
+      break;
+    }
+  }
+
+  // Check for model
+  for (const [pattern, model] of Object.entries(modelPatterns)) {
+    if (msgLower.includes(pattern)) {
+      detectedModel = model;
+      if (!detectedDevice) {
+        detectedDevice = { type: "iphone", name: "iPhone" };
+      }
+      break;
+    }
+  }
+
+  // Check for issue
+  for (const [keyword, issue] of Object.entries(issues)) {
+    if (msgLower.includes(keyword)) {
+      detectedIssue = issue;
+      break;
+    }
+  }
+
+  // If we have device + issue (with or without model), hand back control
+  if (detectedDevice && detectedIssue) {
+    const price = detectedModel
+      ? getSpecificPrice(detectedModel.model, detectedIssue.label)
+      : detectedIssue.range;
+
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `Got it! ${
+          detectedModel?.label || detectedDevice.name
+        } ${detectedIssue.label.toLowerCase()} - I've got all the details.`,
+        `That's typically ${price}. Most repairs take ${detectedIssue.time}.`,
+        "This is just an estimate - John will confirm the exact price when he sees your device.",
+      ],
+      scene: {
+        device_type: detectedDevice.type as any,
+        device_name: detectedModel?.label || detectedDevice.name,
+        device_image: `/images/devices/${detectedDevice.type}-generic.png`,
+        device_summary: `${detectedModel?.label || detectedDevice.name} – ${
+          detectedIssue.label
+        }`,
+        jobs: null,
+        selected_job: detectedIssue.label,
+        price_estimate: price,
+        show_book_cta: true,
+      },
+      quick_actions: BOOKING_ACTIONS,
+      morph_layout: true,
+      new_step: "outcome_price",
+      hand_back_control: {
+        device_type: detectedDevice.type,
+        device_name: detectedDevice.name,
+        device_model: detectedModel?.model,
+        device_model_label: detectedModel?.label,
+        issue: detectedIssue.label.toLowerCase().replace(" ", "_"),
+        issue_label: detectedIssue.label,
+        price: price,
+        resume_step: "collect_contact",
+        message: "Now I just need your contact details to book this in!",
+      },
+    };
+  }
+
+  // If we only have device, ask for issue
+  if (detectedDevice && !detectedIssue) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `Got it, a ${
+          detectedModel?.label || detectedDevice.name
+        }! What seems to be the problem?`,
+      ],
+      scene: null,
+      quick_actions: [
+        { icon: "fa-mobile-screen", label: "Screen", value: "screen" },
+        { icon: "fa-battery-quarter", label: "Battery", value: "battery" },
+        { icon: "fa-plug", label: "Charging", value: "charging" },
+        { icon: "fa-droplet", label: "Water damage", value: "water" },
+        {
+          icon: "fa-question",
+          label: "Something else",
+          value: "describe_issue",
+        },
+      ],
+      morph_layout: false,
+    };
+  }
+
+  // If we only have issue, ask for device
+  if (detectedIssue && !detectedDevice) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `${detectedIssue.label} - I can help with that! What device is it?`,
+      ],
+      scene: null,
+      quick_actions: DEVICE_SELECTION_ACTIONS,
+      morph_layout: false,
+    };
+  }
+
+  // Couldn't understand - ask for clarification
+  return {
+    type: "repair_flow_response",
+    messages: [
+      "I'd love to help! Could you tell me what device you have and what's wrong with it?",
+      "For example: 'iPhone 12 screen cracked' or 'Samsung battery dying'",
+    ],
+    scene: null,
+    quick_actions: DEVICE_SELECTION_ACTIONS,
+    morph_layout: false,
+  };
+}
+
+/**
+ * Get specific price for known model + issue
+ */
+function getSpecificPrice(model: string, issueLabel: string): string {
+  const issue = issueLabel.toLowerCase();
+
+  // Screen prices by model
+  if (issue.includes("screen")) {
+    const screenPrices: Record<string, string> = {
+      "iphone-15": "£149",
+      "iphone-14": "£129",
+      "iphone-13": "£109",
+      "iphone-12": "£89",
+      "iphone-11": "£79",
+      "iphone-x": "£69",
+      "iphone-se": "£59",
+    };
+    return screenPrices[model] || "£45 - £149";
+  }
+
+  // Battery prices
+  if (issue.includes("battery")) {
+    const batteryPrices: Record<string, string> = {
+      "iphone-15": "£79",
+      "iphone-14": "£69",
+      "iphone-13": "£59",
+      "iphone-12": "£55",
+      "iphone-11": "£49",
+      "iphone-x": "£45",
+      "iphone-se": "£39",
+    };
+    return batteryPrices[model] || "£35 - £89";
+  }
+
+  // Charging port
+  if (issue.includes("charging")) {
+    return "£55";
+  }
+
+  return "Price on assessment";
 }
 
 // ============================================
