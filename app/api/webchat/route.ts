@@ -49,9 +49,10 @@ import crypto from "crypto";
 
 // CORS headers for widget
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*", // Will be restricted by domain validation
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-API-Key",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, X-API-Key, Authorization",
+  "Access-Control-Max-Age": "86400", // Cache preflight for 24 hours
   "Content-Type": "application/json; charset=utf-8",
 };
 
