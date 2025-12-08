@@ -126,12 +126,17 @@ export async function POST(request: NextRequest) {
     console.log("[Webchat] Request body:", {
       type: body.type,
       hasMessage: !!body.message,
+      messageType: typeof body.message,
       hasContext: !!body.context,
+      hasState: !!(body as any).state,
       session_id: body.session_id,
     });
 
+    const isRepairFlow = isRepairFlowRequest(body);
+    console.log("[Webchat] isRepairFlowRequest result:", isRepairFlow);
+
     // Check if this is a repair flow request
-    if (isRepairFlowRequest(body)) {
+    if (isRepairFlow) {
       console.log(
         "[Webchat] Repair flow request detected - routing to repair handler"
       );
