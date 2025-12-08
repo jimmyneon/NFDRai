@@ -123,9 +123,18 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json();
 
+    console.log("[Webchat] Request body:", {
+      type: body.type,
+      hasMessage: !!body.message,
+      hasContext: !!body.context,
+      session_id: body.session_id,
+    });
+
     // Check if this is a repair flow request
     if (isRepairFlowRequest(body)) {
-      console.log("[Webchat] Repair flow request detected");
+      console.log(
+        "[Webchat] Repair flow request detected - routing to repair handler"
+      );
 
       // Generate session ID if not provided
       const sessionId = body.session_id || `rf_${crypto.randomUUID()}`;

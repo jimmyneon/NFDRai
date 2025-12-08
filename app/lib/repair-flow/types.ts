@@ -104,7 +104,7 @@ export interface RepairFlowRequest {
   type: "repair_flow";
   session_id?: string;
   message: string;
-  context: RepairFlowContext;
+  context?: RepairFlowContext; // Optional - session handler loads from DB
 }
 
 // ============================================
@@ -163,12 +163,13 @@ export interface DeviceConfig {
 // TYPE GUARDS
 // ============================================
 
+/**
+ * Check if request is a repair flow request
+ * With session persistence, context is optional - backend gets it from DB
+ */
 export function isRepairFlowRequest(body: any): body is RepairFlowRequest {
   return (
-    body &&
-    body.type === "repair_flow" &&
-    typeof body.message === "string" &&
-    body.context &&
-    typeof body.context.step === "string"
+    body && body.type === "repair_flow" && typeof body.message === "string"
+    // context is now optional - session handler will load from DB
   );
 }
