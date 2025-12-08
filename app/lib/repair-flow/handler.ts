@@ -47,7 +47,10 @@ export async function handleRepairFlow(
   request: RepairFlowRequest,
   sessionId?: string
 ): Promise<RepairFlowResponse> {
-  const { message, context } = request;
+  const { message } = request;
+
+  // Default context if not provided (session handler should always provide it)
+  const context = request.context || { step: "greeting", device_type: null };
 
   console.log("[Repair Flow] Processing:", {
     step: context.step,
