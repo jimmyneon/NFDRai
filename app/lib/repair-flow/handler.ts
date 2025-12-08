@@ -1427,6 +1427,7 @@ function handleProceedWithoutModel(
  * User can't identify model - HELP them find it!
  * Uses context.identification to track what we've already asked
  * If user mentions an issue (screen, battery), skip to pricing
+ * If user types a model name, accept it and move to issue selection
  */
 function handleModelUnknown(
   message: string,
@@ -1435,7 +1436,51 @@ function handleModelUnknown(
   const deviceType = context.device_type || "iphone";
   const id = context.identification || {};
   const attempts = (id.attempts || 0) + 1;
-  const msgLower = message.toLowerCase();
+  const msgLower = message.toLowerCase().trim();
+
+  // Check if user typed a model name - accept it and move to issue selection
+  const modelDetected = detectModelFromText(msgLower, deviceType);
+  if (modelDetected) {
+    const deviceName = getDeviceName(deviceType);
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `${modelDetected.label} - got it! 👍`,
+        `What's the problem with your ${modelDetected.label}?`,
+      ],
+      new_step: "issue",
+      scene: {
+        device_type: deviceType,
+        device_name: modelDetected.label,
+        device_image: `/images/devices/${deviceType}-generic.png`,
+        device_summary: modelDetected.label,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        { icon: "fa-mobile-screen", label: "Screen Repair", value: "screen" },
+        { icon: "fa-battery-half", label: "Battery", value: "battery" },
+        { icon: "fa-plug", label: "Charging Port", value: "charging" },
+        { icon: "fa-camera", label: "Camera", value: "camera" },
+        { icon: "fa-droplet", label: "Water Damage", value: "water" },
+        { icon: "fa-question", label: "Something else", value: "other" },
+      ],
+      morph_layout: true,
+      next_context: {
+        step: "issue_selected",
+        device_model: modelDetected.id,
+      },
+      hand_back_control: {
+        device_type: deviceType,
+        device_name: deviceName,
+        device_model: modelDetected.id,
+        device_model_label: modelDetected.label,
+        resume_step: "issue",
+      },
+    };
+  }
 
   // Check if user mentioned an issue - skip to pricing with range
   const issueKeywords: Record<
@@ -2115,6 +2160,246 @@ function handleDirections(): RepairFlowResponse {
     ],
     morph_layout: false,
   };
+}
+
+/**
+ * Detect model from user text input
+ */
+function detectModelFromText(
+  text: string,
+  deviceType: string
+): { id: string; label: string } | null {
+  const textLower = text.toLowerCase().replace(/[^a-z0-9\s]/g, "");
+
+  // Samsung models
+  if (deviceType === "samsung") {
+    const samsungPatterns: Array<{
+      patterns: string[];
+      id: string;
+      label: string;
+    }> = [
+      {
+        patterns: ["s24 ultra", "s24ultra"],
+        id: "galaxy-s24-ultra",
+        label: "Galaxy S24 Ultra",
+      },
+      {
+        patterns: ["s24+", "s24 plus"],
+        id: "galaxy-s24-plus",
+        label: "Galaxy S24+",
+      },
+      { patterns: ["s24"], id: "galaxy-s24", label: "Galaxy S24" },
+      {
+        patterns: ["s23 ultra", "s23ultra"],
+        id: "galaxy-s23-ultra",
+        label: "Galaxy S23 Ultra",
+      },
+      {
+        patterns: ["s23+", "s23 plus"],
+        id: "galaxy-s23-plus",
+        label: "Galaxy S23+",
+      },
+      { patterns: ["s23"], id: "galaxy-s23", label: "Galaxy S23" },
+      {
+        patterns: ["s22 ultra", "s22ultra"],
+        id: "galaxy-s22-ultra",
+        label: "Galaxy S22 Ultra",
+      },
+      {
+        patterns: ["s22+", "s22 plus"],
+        id: "galaxy-s22-plus",
+        label: "Galaxy S22+",
+      },
+      { patterns: ["s22"], id: "galaxy-s22", label: "Galaxy S22" },
+      {
+        patterns: ["s21 ultra", "s21ultra"],
+        id: "galaxy-s21-ultra",
+        label: "Galaxy S21 Ultra",
+      },
+      {
+        patterns: ["s21+", "s21 plus"],
+        id: "galaxy-s21-plus",
+        label: "Galaxy S21+",
+      },
+      { patterns: ["s21 fe"], id: "galaxy-s21-fe", label: "Galaxy S21 FE" },
+      { patterns: ["s21"], id: "galaxy-s21", label: "Galaxy S21" },
+      {
+        patterns: ["s20 ultra", "s20ultra"],
+        id: "galaxy-s20-ultra",
+        label: "Galaxy S20 Ultra",
+      },
+      {
+        patterns: ["s20+", "s20 plus"],
+        id: "galaxy-s20-plus",
+        label: "Galaxy S20+",
+      },
+      { patterns: ["s20 fe"], id: "galaxy-s20-fe", label: "Galaxy S20 FE" },
+      { patterns: ["s20"], id: "galaxy-s20", label: "Galaxy S20" },
+      { patterns: ["a54"], id: "galaxy-a54", label: "Galaxy A54" },
+      { patterns: ["a53"], id: "galaxy-a53", label: "Galaxy A53" },
+      { patterns: ["a52"], id: "galaxy-a52", label: "Galaxy A52" },
+      { patterns: ["a34"], id: "galaxy-a34", label: "Galaxy A34" },
+      { patterns: ["a33"], id: "galaxy-a33", label: "Galaxy A33" },
+      { patterns: ["a14"], id: "galaxy-a14", label: "Galaxy A14" },
+      { patterns: ["a13"], id: "galaxy-a13", label: "Galaxy A13" },
+      {
+        patterns: ["z fold 5", "zfold5", "fold 5", "fold5"],
+        id: "galaxy-z-fold-5",
+        label: "Galaxy Z Fold 5",
+      },
+      {
+        patterns: ["z fold 4", "zfold4", "fold 4", "fold4"],
+        id: "galaxy-z-fold-4",
+        label: "Galaxy Z Fold 4",
+      },
+      {
+        patterns: ["z flip 5", "zflip5", "flip 5", "flip5"],
+        id: "galaxy-z-flip-5",
+        label: "Galaxy Z Flip 5",
+      },
+      {
+        patterns: ["z flip 4", "zflip4", "flip 4", "flip4"],
+        id: "galaxy-z-flip-4",
+        label: "Galaxy Z Flip 4",
+      },
+    ];
+
+    for (const model of samsungPatterns) {
+      for (const pattern of model.patterns) {
+        if (textLower.includes(pattern)) {
+          return { id: model.id, label: model.label };
+        }
+      }
+    }
+  }
+
+  // iPhone models
+  if (deviceType === "iphone") {
+    const iphonePatterns: Array<{
+      patterns: string[];
+      id: string;
+      label: string;
+    }> = [
+      {
+        patterns: ["15 pro max", "15promax"],
+        id: "iphone-15-pro-max",
+        label: "iPhone 15 Pro Max",
+      },
+      { patterns: ["15 pro"], id: "iphone-15-pro", label: "iPhone 15 Pro" },
+      { patterns: ["15 plus"], id: "iphone-15-plus", label: "iPhone 15 Plus" },
+      { patterns: ["15"], id: "iphone-15", label: "iPhone 15" },
+      {
+        patterns: ["14 pro max", "14promax"],
+        id: "iphone-14-pro-max",
+        label: "iPhone 14 Pro Max",
+      },
+      { patterns: ["14 pro"], id: "iphone-14-pro", label: "iPhone 14 Pro" },
+      { patterns: ["14 plus"], id: "iphone-14-plus", label: "iPhone 14 Plus" },
+      { patterns: ["14"], id: "iphone-14", label: "iPhone 14" },
+      {
+        patterns: ["13 pro max", "13promax"],
+        id: "iphone-13-pro-max",
+        label: "iPhone 13 Pro Max",
+      },
+      { patterns: ["13 pro"], id: "iphone-13-pro", label: "iPhone 13 Pro" },
+      { patterns: ["13 mini"], id: "iphone-13-mini", label: "iPhone 13 Mini" },
+      { patterns: ["13"], id: "iphone-13", label: "iPhone 13" },
+      {
+        patterns: ["12 pro max", "12promax"],
+        id: "iphone-12-pro-max",
+        label: "iPhone 12 Pro Max",
+      },
+      { patterns: ["12 pro"], id: "iphone-12-pro", label: "iPhone 12 Pro" },
+      { patterns: ["12 mini"], id: "iphone-12-mini", label: "iPhone 12 Mini" },
+      { patterns: ["12"], id: "iphone-12", label: "iPhone 12" },
+      {
+        patterns: ["11 pro max", "11promax"],
+        id: "iphone-11-pro-max",
+        label: "iPhone 11 Pro Max",
+      },
+      { patterns: ["11 pro"], id: "iphone-11-pro", label: "iPhone 11 Pro" },
+      { patterns: ["11"], id: "iphone-11", label: "iPhone 11" },
+      { patterns: ["xr"], id: "iphone-xr", label: "iPhone XR" },
+      { patterns: ["xs max"], id: "iphone-xs-max", label: "iPhone XS Max" },
+      { patterns: ["xs"], id: "iphone-xs", label: "iPhone XS" },
+      { patterns: ["x"], id: "iphone-x", label: "iPhone X" },
+      {
+        patterns: ["se 3", "se3", "se 2022"],
+        id: "iphone-se-3",
+        label: "iPhone SE (3rd gen)",
+      },
+      {
+        patterns: ["se 2", "se2", "se 2020"],
+        id: "iphone-se-2",
+        label: "iPhone SE (2nd gen)",
+      },
+      { patterns: ["se"], id: "iphone-se", label: "iPhone SE" },
+      { patterns: ["8 plus"], id: "iphone-8-plus", label: "iPhone 8 Plus" },
+      { patterns: ["8"], id: "iphone-8", label: "iPhone 8" },
+    ];
+
+    for (const model of iphonePatterns) {
+      for (const pattern of model.patterns) {
+        if (textLower.includes(pattern)) {
+          return { id: model.id, label: model.label };
+        }
+      }
+    }
+  }
+
+  // iPad models
+  if (deviceType === "ipad") {
+    const ipadPatterns: Array<{
+      patterns: string[];
+      id: string;
+      label: string;
+    }> = [
+      {
+        patterns: ["pro 12.9", "pro 129"],
+        id: "ipad-pro-12.9",
+        label: 'iPad Pro 12.9"',
+      },
+      { patterns: ["pro 11"], id: "ipad-pro-11", label: 'iPad Pro 11"' },
+      { patterns: ["air 5", "air5"], id: "ipad-air-5", label: "iPad Air 5" },
+      { patterns: ["air 4", "air4"], id: "ipad-air-4", label: "iPad Air 4" },
+      {
+        patterns: ["mini 6", "mini6"],
+        id: "ipad-mini-6",
+        label: "iPad Mini 6",
+      },
+      { patterns: ["10th", "10 gen"], id: "ipad-10", label: "iPad 10th Gen" },
+      { patterns: ["9th", "9 gen"], id: "ipad-9", label: "iPad 9th Gen" },
+    ];
+
+    for (const model of ipadPatterns) {
+      for (const pattern of model.patterns) {
+        if (textLower.includes(pattern)) {
+          return { id: model.id, label: model.label };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get friendly device name from type
+ */
+function getDeviceName(deviceType: string): string {
+  const names: Record<string, string> = {
+    iphone: "iPhone",
+    ipad: "iPad",
+    samsung: "Samsung",
+    macbook: "MacBook",
+    laptop: "Laptop",
+    ps5: "PS5",
+    ps4: "PS4",
+    xbox: "Xbox",
+    switch: "Nintendo Switch",
+    watch: "Watch",
+  };
+  return names[deviceType] || "device";
 }
 
 /**
