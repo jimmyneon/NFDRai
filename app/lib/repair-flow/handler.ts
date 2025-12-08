@@ -1402,9 +1402,23 @@ async function handleIssueSelected(
   let priceEstimate = job?.price || "Price on request";
   let turnaround = job?.time || "TBC";
 
+  console.log("[Repair Flow] Price lookup:", {
+    device_model: context.device_model,
+    device_type: context.device_type,
+    issue,
+    jobId,
+    initialPrice: priceEstimate,
+  });
+
   // If we have a specific iPhone model, use those prices
   if (context.device_model && context.device_type === "iphone") {
     const iphoneModel = getIPhoneModel(context.device_model);
+    console.log("[Repair Flow] iPhone model lookup:", {
+      model: context.device_model,
+      found: !!iphoneModel,
+      screenPrice: iphoneModel?.screenPrice,
+      batteryPrice: iphoneModel?.batteryPrice,
+    });
     if (iphoneModel) {
       if (jobId === "screen") priceEstimate = iphoneModel.screenPrice;
       if (jobId === "battery") priceEstimate = iphoneModel.batteryPrice;
