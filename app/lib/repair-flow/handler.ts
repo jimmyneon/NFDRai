@@ -264,21 +264,22 @@ function handleCompletelyUnknown(): RepairFlowResponse {
 
 /**
  * Step 2: Device selected - ask for model or show issues
+ * Note: device_type comes from message (user's selection) OR context.device_type
  */
 function handleDeviceSelected(
   message: string,
   context: RepairFlowContext
 ): RepairFlowResponse {
-  const deviceConfig = context.device_type
-    ? getDeviceConfig(context.device_type)
-    : null;
+  // Device type can come from message (button click) or context
+  const deviceType = context.device_type || message.toLowerCase();
+  const deviceConfig = getDeviceConfig(deviceType);
 
   if (!deviceConfig) {
     return handleUnknownDevice();
   }
 
   // For iPhones, ask for model
-  if (context.device_type === "iphone") {
+  if (deviceType === "iphone") {
     return {
       type: "repair_flow_response",
       messages: ["Great! An iPhone. 📱", "Do you know which model you have?"],
@@ -349,12 +350,14 @@ function handleDeviceSelected(
 
 /**
  * Step 2b: Model selected (for iPhones)
+ * Note: model comes from message (button click) OR context.device_model
  */
 function handleModelSelected(
   message: string,
   context: RepairFlowContext
 ): RepairFlowResponse {
-  const modelId = message.toLowerCase();
+  // Model can come from message (button click) or context
+  const modelId = (context.device_model || message).toLowerCase();
 
   // Check if user selected "not sure" / "other"
   if (modelId === "iphone-other" || modelId === "not sure") {
