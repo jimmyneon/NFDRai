@@ -133,7 +133,9 @@ export async function handleRepairFlow(
   // Standard step routing
   switch (context.step) {
     case "greeting":
-      return handleGreeting();
+      // Frontend handles greeting - AI should never return greeting
+      // If we get here with greeting step, return error
+      return handleInvalidRequest("greeting", message);
 
     case "device_selected":
       return handleDeviceSelected(message, context);
@@ -156,13 +158,52 @@ export async function handleRepairFlow(
     case "diagnose_issue":
       return handleDiagnoseIssue(message, context);
 
+    case "other_device":
+      // User clicked "Other" and described their device
+      return handleOtherDevice(message, context);
+
     case "question":
     case "final":
       return await handleFreeTextQuestion(message, context);
 
     default:
-      return handleGreeting();
+      // Unknown step - return error, not greeting
+      return handleInvalidRequest(context.step || "unknown", message);
   }
+}
+
+// ============================================
+// ERROR HANDLERS
+// ============================================
+
+/**
+ * Handle invalid/unexpected requests
+ * Frontend handles greeting - AI should never return greeting
+ */
+function handleInvalidRequest(
+  step: string,
+  message: string
+): RepairFlowResponse {
+  console.log(
+    "[Repair Flow] Invalid request - step:",
+    step,
+    "message:",
+    message
+  );
+
+  // If they sent a message with greeting step, try to be helpful
+  // but don't send a greeting
+  return {
+    type: "repair_flow_response",
+    messages: [
+      "I received your message but I'm not sure what step we're on.",
+      "Please select a device to get started, or describe what you need help with.",
+    ],
+    scene: null,
+    quick_actions: DEVICE_SELECTION_ACTIONS,
+    morph_layout: false,
+    error: `Unexpected step: ${step}`,
+  };
 }
 
 // ============================================
@@ -171,6 +212,7 @@ export async function handleRepairFlow(
 
 /**
  * Step 1: Initial greeting - show device selection
+ * NOTE: Frontend handles this - AI should rarely call this
  */
 function handleGreeting(): RepairFlowResponse {
   return {
@@ -182,6 +224,96 @@ function handleGreeting(): RepairFlowResponse {
     scene: null,
     quick_actions: DEVICE_SELECTION_ACTIONS,
     morph_layout: false,
+  };
+}
+
+/**
+ * User clicked "Other" and described their device
+ * e.g. "I have a Kindle with a cracked screen"
+ */
+function handleOtherDevice(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
+  const msgLower = message.toLowerCase();
+
+  // Try to identify device type from message
+  const deviceKeywords: Record<string, string> = {
+    kindle: "e-reader",
+    kobo: "e-reader",
+    fitbit: "smartwatch",
+    garmin: "smartwatch",
+    "apple watch": "smartwatch",
+    airpods: "earbuds",
+    switch: "games console",
+    nintendo: "games console",
+    playstation: "games console",
+    xbox: "games console",
+    ps5: "games console",
+    ps4: "games console",
+    drone: "drone",
+    dji: "drone",
+    gopro: "camera",
+    camera: "camera",
+  };
+
+  let deviceType = "device";
+  for (const [keyword, type] of Object.entries(deviceKeywords)) {
+    if (msgLower.includes(keyword)) {
+      deviceType = type;
+      break;
+    }
+  }
+
+  // Try to identify issue from message
+  const issueKeywords = [
+    "screen",
+    "battery",
+    "charging",
+    "broken",
+    "cracked",
+    "water",
+    "not working",
+  ];
+  const hasIssue = issueKeywords.some((k) => msgLower.includes(k));
+
+  if (hasIssue) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `Thanks for the details! We can take a look at your ${deviceType}. 👍`,
+        "For non-standard devices, we'll need to assess it in person to give you an accurate quote.",
+        "The assessment is free - just bring it in and John will take a look!",
+      ],
+      scene: null,
+      quick_actions: BOOKING_ACTIONS,
+      morph_layout: true,
+      next_context: {
+        step: "final",
+        device_type: "other",
+      },
+    };
+  }
+
+  // Need more info
+  return {
+    type: "repair_flow_response",
+    messages: [
+      `Got it - a ${deviceType}! What seems to be the problem with it?`,
+    ],
+    scene: null,
+    quick_actions: [
+      { icon: "fa-mobile-screen", label: "Screen issue", value: "screen" },
+      { icon: "fa-battery-quarter", label: "Battery issue", value: "battery" },
+      { icon: "fa-plug", label: "Won't charge", value: "charging" },
+      { icon: "fa-droplet", label: "Water damage", value: "water" },
+      { icon: "fa-question", label: "Something else", value: "describe_issue" },
+    ],
+    morph_layout: false,
+    next_context: {
+      step: "diagnose_issue",
+      device_type: "other",
+    },
   };
 }
 

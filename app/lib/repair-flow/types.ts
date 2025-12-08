@@ -18,6 +18,7 @@ export type RepairFlowStep =
   | "identify_device"
   | "identify_model"
   | "identify_macbook"
+  | "other_device"
   | "issue_selected"
   | "diagnose_issue"
   | "final"
@@ -146,6 +147,8 @@ export interface RepairFlowResponse {
   morph_layout: boolean;
   // Context updates for frontend to track state
   next_context?: Partial<RepairFlowContext> | null;
+  // Error info for debugging (frontend can log/ignore)
+  error?: string;
 }
 
 // ============================================
