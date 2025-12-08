@@ -1434,14 +1434,17 @@ async function handleIssueSelected(
       screenPrice: iphoneModel?.screenPrice,
       batteryPrice: iphoneModel?.batteryPrice,
     });
+
+    // Screen and battery need exact model match
     if (iphoneModel) {
       if (jobId === "screen") priceEstimate = iphoneModel.screenPrice;
       if (jobId === "battery") priceEstimate = iphoneModel.batteryPrice;
-      if (jobId === "charging") {
-        // Charging port prices based on model generation
-        priceEstimate = getIPhoneChargingPrice(context.device_model);
-        turnaround = "45 mins";
-      }
+    }
+
+    // Charging port price works with partial model match (iphone-12, iphone-14-pro, etc.)
+    if (jobId === "charging") {
+      priceEstimate = getIPhoneChargingPrice(context.device_model);
+      turnaround = "45 mins";
     }
   }
 
