@@ -418,10 +418,19 @@ function handlePriceEstimateCommand(
 ): RepairFlowResponse {
   const parts = message.split(":");
   const deviceType = parts[1] || context.device_type || "iphone";
-  const model = parts[2] || context.device_model || "";
+  // Use model from message, but fall back to context if "null" or empty
+  let model = parts[2];
+  if (!model || model === "null" || model === "undefined") {
+    model = context.device_model || "";
+  }
   const issue = parts[3] || context.issue || "";
 
-  console.log("[Price Estimate Command]", { deviceType, model, issue });
+  console.log("[Price Estimate Command]", {
+    deviceType,
+    model,
+    issue,
+    contextModel: context.device_model,
+  });
 
   // Get price based on model and issue
   const price = getPriceForModelAndIssue(model, issue, deviceType);
@@ -430,14 +439,17 @@ function handlePriceEstimateCommand(
   // Format issue label
   const issueLabel = formatIssueLabel(issue);
 
-  // Format device/model name
+  // Format device/model name - NEVER returns "Null"
   const deviceName = formatDeviceName(deviceType, model);
+
+  // Get model label for response
+  const modelLabel = context.device_model_label || deviceName;
 
   // Generate helpful messages
   const messages = [
     `${issueLabel} for ${deviceName} - we can help with that! 💪`,
     `That's typically ${price}. Most repairs take ${turnaround}.`,
-    "This is just an estimate - John will confirm the exact price when he sees your device.",
+    "This is just an estimate - John will confirm the exact price after your repair request.",
   ];
 
   return {
@@ -447,6 +459,8 @@ function handlePriceEstimateCommand(
     scene: {
       device_type: deviceType as any,
       device_name: deviceName,
+      device_model: model || null,
+      device_model_label: modelLabel,
       device_image: `/images/devices/${deviceType}-generic.png`,
       device_summary: `${deviceName} – ${issueLabel}`,
       jobs: null,
@@ -489,20 +503,10 @@ function formatIssueLabel(issue: string): string {
 
 /**
  * Format device type and model into readable name
+ * NEVER returns "Null" - always uses actual device/model names
  */
 function formatDeviceName(deviceType: string, model: string): string {
-  if (model) {
-    // Convert model ID to readable name
-    const modelName = model
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase())
-      .replace("Iphone", "iPhone")
-      .replace("Ipad", "iPad")
-      .replace("Galaxy ", "Galaxy ");
-    return modelName;
-  }
-
-  // Fallback to device type
+  // Device type fallback names
   const deviceNames: Record<string, string> = {
     iphone: "iPhone",
     ipad: "iPad",
@@ -514,6 +518,23 @@ function formatDeviceName(deviceType: string, model: string): string {
     xbox: "Xbox",
     switch: "Nintendo Switch",
   };
+
+  // Check if model is valid (not null, "null", empty, or undefined)
+  const hasValidModel =
+    model && model !== "null" && model !== "undefined" && model.trim() !== "";
+
+  if (hasValidModel) {
+    // Convert model ID to readable name
+    const modelName = model
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .replace("Iphone", "iPhone")
+      .replace("Ipad", "iPad")
+      .replace("Galaxy ", "Galaxy ");
+    return modelName;
+  }
+
+  // Fallback to device type - NEVER return "Null"
   return (
     deviceNames[deviceType] ||
     deviceType.charAt(0).toUpperCase() + deviceType.slice(1)

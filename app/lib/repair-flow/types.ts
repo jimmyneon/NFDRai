@@ -79,7 +79,10 @@ export interface RepairFlowContext {
   device_type: DeviceType;
   device_category?: DeviceCategory | null;
   device_model?: string | null;
+  device_model_label?: string | null;
+  device_name?: string | null;
   issue?: IssueType | null;
+  issue_label?: string | null;
   symptom?: SymptomType | null;
   selected_job?: string | null;
 
@@ -135,6 +138,8 @@ export interface RepairJob {
 export interface RepairScene {
   device_type: DeviceType;
   device_name: string;
+  device_model?: string | null;
+  device_model_label?: string | null;
   device_image: string;
   device_summary: string;
   jobs: RepairJob[] | null;
