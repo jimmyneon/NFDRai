@@ -879,6 +879,108 @@ async function handleAIInstructions(
     device_name: context.device_name,
   });
 
+  // SPECIAL CASE: User clicked "turns_on" - tell them how to find model in Settings
+  if (msgLower === "turns_on" && context.device_type) {
+    console.log("[AI Instructions] Device turns on - directing to Settings");
+
+    let settingsPath = "Settings > About";
+    const deviceTypeLower = (context.device_type || "").toLowerCase();
+    if (deviceTypeLower === "iphone" || deviceTypeLower === "ipad") {
+      settingsPath = "Settings > General > About";
+    } else if (
+      deviceTypeLower === "samsung" ||
+      deviceTypeLower === "android" ||
+      deviceTypeLower === "phone"
+    ) {
+      settingsPath = "Settings > About Phone";
+    }
+
+    const deviceName = context.device_name || context.device_type || "device";
+
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `Great! Since your ${deviceName} turns on, you can find the exact model in the settings.`,
+        `Go to ${settingsPath} - it will show your model name there.`,
+        `Let me know what it says, or if you can't find it, I can help identify it another way!`,
+      ],
+      new_step: "identify_model",
+      scene: {
+        device_type: context.device_type as any,
+        device_name: deviceName,
+        device_image: `/images/devices/${context.device_type}-generic.png`,
+        device_summary: `${deviceName} - Checking Settings`,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        { icon: "fa-check", label: "Found it!", value: "found_model" },
+        {
+          icon: "fa-question",
+          label: "Can't find it",
+          value: "cant_find_model",
+        },
+      ],
+      morph_layout: false,
+    };
+  }
+
+  // SPECIAL CASE: User clicked "wont_turn_on" - ask about physical features
+  if (msgLower === "wont_turn_on" && context.device_type) {
+    console.log(
+      "[AI Instructions] Device won't turn on - asking about physical features"
+    );
+
+    const deviceName = context.device_name || context.device_type || "device";
+
+    let physicalButtons: QuickAction[] = [];
+    if (context.device_type === "iphone") {
+      physicalButtons = [
+        {
+          icon: "fa-face-smile",
+          label: "Face ID (no home button)",
+          value: "face_id",
+        },
+        { icon: "fa-circle", label: "Home Button", value: "home_button" },
+      ];
+    } else if (context.device_type === "samsung") {
+      physicalButtons = [
+        { icon: "fa-star", label: "S Series", value: "samsung_s" },
+        { icon: "fa-a", label: "A Series", value: "samsung_a" },
+        {
+          icon: "fa-mobile-screen-button",
+          label: "Fold/Flip",
+          value: "samsung_fold",
+        },
+      ];
+    }
+
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `No problem! Let's identify it by looking at the physical features.`,
+        context.device_type === "iphone"
+          ? `Does your iPhone have Face ID (no home button) or a home button at the bottom?`
+          : `What series is it - can you see any branding or model number on the back?`,
+      ],
+      new_step: "identify_model",
+      scene: {
+        device_type: context.device_type as any,
+        device_name: deviceName,
+        device_image: `/images/devices/${context.device_type}-generic.png`,
+        device_summary: `${deviceName} - Physical identification`,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: physicalButtons.length > 0 ? physicalButtons : null,
+      morph_layout: false,
+    };
+  }
+
   // SPECIAL CASE: User says "not sure" about MODEL - help them identify it!
   const isDontKnowModel =
     /(not sure|don't know|dont know|dunno|no idea).*(model|which)/i.test(
