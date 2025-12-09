@@ -981,14 +981,64 @@ async function handleAIInstructions(
     };
   }
 
+  // SPECIAL CASE: User says "dunno" about BRAND (device_type is generic like "phone" or "other")
+  const isDontKnow =
+    /^(dunno|dont know|don't know|not sure|no idea|i'm not sure|im not sure|idk)$/i.test(
+      msgLower.trim()
+    );
+  const deviceTypeStr = (context.device_type || "").toLowerCase();
+  const isGenericDevice =
+    deviceTypeStr === "phone" ||
+    deviceTypeStr === "other" ||
+    deviceTypeStr === "android";
+
+  if (isDontKnow && isGenericDevice) {
+    console.log(
+      "[AI Instructions] User doesn't know phone brand - helping identify"
+    );
+
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `No worries! Let's figure it out together.`,
+        `Is there a logo on the back of the phone? An Apple logo means iPhone, Samsung logo means Samsung.`,
+        `Or does the phone have a home button at the bottom?`,
+      ],
+      new_step: "identify_brand",
+      scene: {
+        device_type: "phone" as any,
+        device_name: "Phone",
+        device_image: `/images/devices/phone-generic.png`,
+        device_summary: "Phone - Identifying brand",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        { icon: "fa-apple", label: "Apple logo", value: "iphone" },
+        { icon: "fa-mobile", label: "Samsung logo", value: "samsung" },
+        {
+          icon: "fa-circle",
+          label: "Has home button",
+          value: "has_home_button",
+        },
+        {
+          icon: "fa-mobile-alt",
+          label: "Other/Not sure",
+          value: "other_phone",
+        },
+      ],
+      morph_layout: false,
+    };
+  }
+
   // SPECIAL CASE: User says "not sure" about MODEL - help them identify it!
   const isDontKnowModel =
     /(not sure|don't know|dont know|dunno|no idea).*(model|which)/i.test(
       msgLower
     ) ||
-    /^(not sure|don't know|dont know|dunno|no idea|i'm not sure|im not sure)$/i.test(
-      msgLower.trim()
-    );
+    (isDontKnow && context.device_type && !isGenericDevice);
 
   if (isDontKnowModel && context.device_type && missing.includes("model")) {
     console.log("[AI Instructions] User unsure about MODEL - helping identify");
