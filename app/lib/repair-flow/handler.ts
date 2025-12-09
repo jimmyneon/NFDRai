@@ -40,6 +40,116 @@ import {
 } from "./device-config";
 
 // ============================================
+// LLM PROMPT BUILDER
+// ============================================
+
+/**
+ * Build the system prompt for Steve's repair flow conversation.
+ * This is the "brain" that guides how Steve responds.
+ */
+function buildRepairFlowPrompt(
+  userMessage: string,
+  chatHistory: string,
+  context: {
+    deviceType?: string | null;
+    deviceName?: string | null;
+    deviceModel?: string | null;
+    issue?: string | null;
+    issueLabel?: string | null;
+    needsAssessment?: boolean;
+    stillMissing: string[];
+    isOutcome?: boolean;
+  }
+): string {
+  // Determine what stage we're at
+  const hasDevice = !context.stillMissing.includes("device");
+  const hasModel = !context.stillMissing.includes("model");
+  const hasIssue = !context.stillMissing.includes("issue");
+
+  // Build context-aware task instructions
+  let taskInstructions = "";
+
+  if (context.isOutcome) {
+    // We have everything - confirm and wrap up
+    if (context.needsAssessment) {
+      taskInstructions = `CONFIRM the repair request. We have: ${
+        context.deviceName || context.deviceType
+      } with ${context.issueLabel || context.issue}.
+This needs in-person assessment - let them know we'll need to see it for an accurate quote.
+Be warm and reassuring. Mention they can pop in anytime.`;
+    } else {
+      taskInstructions = `CONFIRM the repair request. We have: ${
+        context.deviceName || context.deviceType
+      } with ${context.issueLabel || context.issue}.
+Acknowledge what they need and sound helpful. The frontend will show pricing next.`;
+    }
+  } else if (!hasDevice && !hasIssue) {
+    // Need both device and issue
+    taskInstructions = `You need to find out: WHAT DEVICE and WHAT'S WRONG WITH IT.
+Ask naturally - don't sound like a form. Examples:
+- "Hey! What device are you having trouble with?"
+- "Hi there! What's giving you grief today?"
+- "What device needs some TLC?"
+If they said something random, acknowledge it briefly then ask about their device.`;
+  } else if (!hasDevice) {
+    // Have issue, need device
+    taskInstructions = `You know the issue (${
+      context.issueLabel || context.issue
+    }) but need to know WHAT DEVICE.
+Ask which device has this problem. Be specific based on the issue.`;
+  } else if (!hasIssue) {
+    // Have device, need issue
+    taskInstructions = `You know the device (${
+      context.deviceName || context.deviceType
+    }) but need to know WHAT'S WRONG.
+Ask what the problem is. You can suggest common issues:
+- Phones/Tablets: screen, battery, charging, water damage, camera
+- Laptops: screen, battery, keyboard, won't turn on
+- Consoles: HDMI, disc drive, overheating, power issues
+- Switch: Joy-Con drift, screen, charging`;
+  } else if (!hasModel) {
+    // Have device + issue, need model for pricing
+    taskInstructions = `You have device (${context.deviceName}) and issue (${context.issueLabel}) but need the MODEL for accurate pricing.
+Help them figure it out:
+- iPhones: "Does it have Face ID or a home button?" / "Is it a newer model?"
+- Samsung: "Is it an S series, A series, or a foldable?"
+- If they're unsure after 2 tries, say we can check when they bring it in.`;
+  }
+
+  return `You are Steve, a friendly repair technician at New Forest Device Repairs.
+You're chatting with a customer who needs a repair. Be helpful, warm, and conversational.
+
+CONVERSATION SO FAR:
+${chatHistory || "(Just started)"}
+
+CUSTOMER JUST SAID: "${userMessage}"
+
+CURRENT STATUS:
+- Device: ${context.deviceName || context.deviceType || "Unknown"}
+- Model: ${context.deviceModel || "Not specified yet"}  
+- Issue: ${context.issueLabel || context.issue || "Unknown"}
+- Still need: ${
+    context.stillMissing.length > 0
+      ? context.stillMissing.join(", ")
+      : "Nothing!"
+  }
+
+YOUR TASK:
+${taskInstructions}
+
+STYLE RULES:
+- Keep it SHORT: 1-2 sentences max, SMS-style
+- Be friendly and human, use casual language
+- Use emojis sparingly (max 1 per message)
+- NEVER repeat the same question twice - vary your wording
+- If they go off-topic, briefly acknowledge then steer back
+- Don't be pushy - if they seem stuck, offer to help them figure it out
+- Walk-ins are always welcome for free assessment
+
+RESPOND WITH ONLY YOUR MESSAGE (no quotes, no explanation):`;
+}
+
+// ============================================
 // MAIN HANDLER
 // ============================================
 
@@ -312,46 +422,7 @@ async function generateRepairFlowMessage(
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n");
 
-    const prompt = `You are Steve, a friendly AI repair assistant for New Forest Device Repairs.
-
-CONVERSATION SO FAR:
-${chatHistory || "(Start of conversation)"}
-
-CUSTOMER JUST SAID: "${userMessage}"
-
-WHAT WE KNOW:
-- Device: ${context.deviceName || context.deviceType || "Unknown"}
-- Model: ${context.deviceModel || "Unknown"}
-- Issue: ${context.issueLabel || context.issue || "Unknown"}
-- Needs assessment: ${context.needsAssessment ? "Yes" : "No"}
-
-STILL NEED: ${
-      context.stillMissing.length > 0
-        ? context.stillMissing.join(", ")
-        : "Nothing - we have everything!"
-    }
-
-YOUR TASK:
-${
-  context.isOutcome
-    ? `Confirm what we understood. ${
-        context.needsAssessment
-          ? "Let them know we'll need to see it in person for an accurate quote."
-          : "Let them know we can help."
-      }`
-    : `1. Briefly acknowledge what they said (don't ignore them).
-2. Ask for: ${context.stillMissing.join(" and ")}.
-3. Keep it SHORT (1-2 sentences, SMS-style).
-4. Be natural and varied - don't repeat the same phrases.
-5. If off-topic (like "what time is it"), briefly acknowledge, then steer back to repair.`
-}
-
-RULES:
-- Be friendly and human, not robotic.
-- Max 2 short sentences.
-- Your job is to get device + issue info.
-
-Respond with ONLY the message (no quotes, no explanation):`;
+    const prompt = buildRepairFlowPrompt(userMessage, chatHistory, context);
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
