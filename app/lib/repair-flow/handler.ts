@@ -170,6 +170,8 @@ export async function handleRepairFlow(
   }
 
   // Standard step routing
+  // Note: Frontend sends steps like "model", "issue" but backend used "model_selected", "issue_selected"
+  // We handle both for compatibility
   switch (context.step) {
     case "greeting":
       // Already handled above - return error
@@ -182,6 +184,7 @@ export async function handleRepairFlow(
     case "device_selected":
       return handleDeviceSelected(message, context);
 
+    case "model":
     case "model_selected":
       return handleModelSelected(message, context);
 
@@ -194,11 +197,29 @@ export async function handleRepairFlow(
     case "identify_model":
       return handleIdentifyModel(message, context);
 
+    case "issue":
     case "issue_selected":
+      return await handleIssueSelected(message, context);
+
+    case "issue_unknown":
+      // User described an unusual issue - try to understand it
       return await handleIssueSelected(message, context);
 
     case "diagnose_issue":
       return handleDiagnoseIssue(message, context);
+
+    case "outcome_price":
+    case "outcome_assessment":
+      // User is on outcome screen - handle booking actions or questions
+      return handleOutcomeStep(message, context);
+
+    case "collect_contact":
+      // User is providing contact info
+      return handleCollectContact(message, context);
+
+    case "confirmation":
+      // User is confirming before submit
+      return handleConfirmation(message, context);
 
     case "other_device":
       // User clicked "Other" and described their device
@@ -209,8 +230,13 @@ export async function handleRepairFlow(
       return await handleFreeTextQuestion(message, context);
 
     default:
-      // Unknown step - return error, not greeting
-      return handleInvalidRequest(context.step || "unknown", message);
+      // Unknown step - try to be helpful based on context
+      console.log(
+        "[Repair Flow] Unknown step:",
+        context.step,
+        "- trying to help based on context"
+      );
+      return handleUnknownStep(message, context);
   }
 }
 
@@ -752,6 +778,274 @@ function handleInvalidRequest(
 // ============================================
 // STEP HANDLERS
 // ============================================
+
+/**
+ * Handle outcome step - user is on price/assessment screen
+ * They might ask questions, request booking, or want directions
+ */
+function handleOutcomeStep(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
+  const msgLower = message.toLowerCase();
+  const deviceName =
+    context.device_model_label ||
+    context.device_name ||
+    formatDeviceName(
+      context.device_type || "device",
+      context.device_model || ""
+    );
+  const issueLabel =
+    context.issue_label || formatIssueLabel(context.issue || "repair");
+
+  // Handle booking request
+  if (
+    msgLower === "request" ||
+    msgLower.includes("book") ||
+    msgLower.includes("request")
+  ) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Great! Let's get your repair booked in. 📋",
+        "I just need a few details to complete your request.",
+      ],
+      new_step: "collect_contact",
+      scene: {
+        device_type: context.device_type,
+        device_name: deviceName,
+        device_image: `/images/devices/${context.device_type}-generic.png`,
+        device_summary: `${deviceName} – ${issueLabel}`,
+        jobs: null,
+        selected_job: context.issue || null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: null,
+      morph_layout: true,
+    };
+  }
+
+  // Handle directions request
+  if (
+    msgLower === "directions" ||
+    msgLower.includes("direction") ||
+    msgLower.includes("where")
+  ) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "We're located at: New Forest Device Repairs, Ringwood, Hampshire 📍",
+        "You can find us on Google Maps for directions.",
+      ],
+      new_step: context.step,
+      scene: null,
+      quick_actions: BOOKING_ACTIONS,
+      morph_layout: false,
+    };
+  }
+
+  // Handle restart
+  if (
+    msgLower === "restart" ||
+    msgLower.includes("start again") ||
+    msgLower.includes("different")
+  ) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "No problem! Let's start fresh. What device do you need help with?",
+      ],
+      new_step: "greeting",
+      scene: null,
+      quick_actions: DEVICE_SELECTION_ACTIONS,
+      morph_layout: false,
+    };
+  }
+
+  // Default - offer booking options
+  return {
+    type: "repair_flow_response",
+    messages: [
+      `I've got your ${deviceName} ${issueLabel.toLowerCase()} quote ready.`,
+      "Would you like to request a repair, or is there anything else I can help with?",
+    ],
+    new_step: context.step,
+    scene: null,
+    quick_actions: BOOKING_ACTIONS,
+    morph_layout: false,
+  };
+}
+
+/**
+ * Handle contact collection step
+ */
+function handleCollectContact(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
+  // For now, just acknowledge - frontend handles the form
+  return {
+    type: "repair_flow_response",
+    messages: [
+      "Thanks! Please fill in your contact details and we'll be in touch to confirm your booking.",
+    ],
+    new_step: "collect_contact",
+    scene: null,
+    quick_actions: null,
+    morph_layout: false,
+  };
+}
+
+/**
+ * Handle confirmation step
+ */
+function handleConfirmation(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
+  const msgLower = message.toLowerCase();
+
+  if (
+    msgLower === "confirm" ||
+    msgLower.includes("yes") ||
+    msgLower.includes("submit")
+  ) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Your repair request has been submitted! 🎉",
+        "John will be in touch shortly to confirm the details.",
+      ],
+      new_step: "final",
+      scene: null,
+      quick_actions: [
+        {
+          icon: "fa-rotate-left",
+          label: "Start New Request",
+          value: "restart",
+        },
+      ],
+      morph_layout: false,
+    };
+  }
+
+  // User wants to go back or change something
+  return {
+    type: "repair_flow_response",
+    messages: ["No problem! What would you like to change?"],
+    new_step: "outcome_price",
+    scene: null,
+    quick_actions: BOOKING_ACTIONS,
+    morph_layout: false,
+  };
+}
+
+/**
+ * Handle unknown step - try to be helpful based on context
+ */
+function handleUnknownStep(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
+  console.log("[Repair Flow] Unknown step handler:", {
+    step: context.step,
+    message,
+    context,
+  });
+
+  // If we have device info, try to continue the flow
+  if (context.device_type && context.device_model) {
+    // We have device and model - probably need issue
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `I see you have a ${
+          context.device_model_label ||
+          context.device_name ||
+          context.device_type
+        }.`,
+        "What's wrong with it?",
+      ],
+      new_step: "issue",
+      scene: {
+        device_type: context.device_type,
+        device_name:
+          context.device_model_label ||
+          context.device_name ||
+          context.device_type,
+        device_image: `/images/devices/${context.device_type}-generic.png`,
+        device_summary:
+          context.device_model_label ||
+          context.device_name ||
+          context.device_type,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: getIssueActionsForDevice(context.device_type),
+      morph_layout: true,
+    };
+  }
+
+  if (context.device_type) {
+    // We have device type but no model - ask for model
+    const deviceName = formatDeviceName(context.device_type, "");
+    return {
+      type: "repair_flow_response",
+      messages: [`Which ${deviceName} model do you have?`],
+      new_step: "model",
+      scene: {
+        device_type: context.device_type,
+        device_name: deviceName,
+        device_image: `/images/devices/${context.device_type}-generic.png`,
+        device_summary: deviceName,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: null,
+      morph_layout: true,
+    };
+  }
+
+  // No context - start fresh
+  return {
+    type: "repair_flow_response",
+    messages: ["What device do you need help with today?"],
+    new_step: "greeting",
+    scene: null,
+    quick_actions: DEVICE_SELECTION_ACTIONS,
+    morph_layout: false,
+  };
+}
+
+/**
+ * Get issue quick actions for a device type
+ */
+function getIssueActionsForDevice(deviceType: string): QuickAction[] {
+  const commonIssues: QuickAction[] = [
+    { icon: "fa-mobile-screen", label: "Screen Repair", value: "screen" },
+    { icon: "fa-battery-half", label: "Battery", value: "battery" },
+    { icon: "fa-plug", label: "Charging Port", value: "charging" },
+  ];
+
+  if (deviceType === "iphone" || deviceType === "samsung") {
+    return [
+      ...commonIssues,
+      { icon: "fa-camera", label: "Camera", value: "camera" },
+      { icon: "fa-droplet", label: "Water Damage", value: "water" },
+      { icon: "fa-question-circle", label: "Other Issue", value: "other" },
+    ];
+  }
+
+  return [
+    ...commonIssues,
+    { icon: "fa-question-circle", label: "Other Issue", value: "other" },
+  ];
+}
 
 /**
  * Step 1: Initial greeting - show device selection

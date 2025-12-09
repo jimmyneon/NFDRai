@@ -13,6 +13,7 @@
 export type RepairFlowStep =
   | "greeting"
   | "device_selected"
+  | "model" // Frontend step: asking which model
   | "model_selected"
   | "model_unknown"
   | "identify_device"
@@ -20,8 +21,14 @@ export type RepairFlowStep =
   | "identify_macbook"
   | "other_device"
   | "ai_takeover"
+  | "issue" // Frontend step: asking what's wrong
   | "issue_selected"
+  | "issue_unknown" // User described unusual issue
   | "diagnose_issue"
+  | "outcome_price" // Showing price estimate
+  | "outcome_assessment" // Needs in-person assessment
+  | "collect_contact" // Getting user contact info
+  | "confirmation" // Confirming before submit
   | "final"
   | "question";
 
