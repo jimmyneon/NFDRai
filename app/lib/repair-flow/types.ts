@@ -230,6 +230,7 @@ export interface PriceEstimateData {
   price: string;
   turnaround: string;
   warranty: string;
+  breakdown?: string[]; // For multiple issues, shows individual prices
 }
 
 export interface RepairFlowResponse {
