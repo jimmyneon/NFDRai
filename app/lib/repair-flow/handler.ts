@@ -1771,10 +1771,16 @@ ${chatHistory || "(none)"}
 
 LATEST MESSAGE FROM CUSTOMER: "${message}"
 
-WHAT WE ALREADY KNOW (from context):
+WHAT WE ALREADY KNOW (from context - PRESERVE THIS!):
 - Device type: ${context.device_type || "not yet identified"}
+- Device name: ${context.device_name || "not yet identified"}
 - Device model: ${context.device_model || "not yet identified"}
 - Issue: ${context.issue || "not yet identified"}
+- Issue label: ${context.issue_label || "not yet identified"}
+
+CRITICAL: If we already know something from context, KEEP IT! Don't return null for things we already know.
+For example, if device_type is "phone" in context, return "phone" (or upgrade to "iphone"/"samsung" if they clarified).
+If issue is "screen" in context, KEEP issue as "screen" even if latest message is just "cracked" (which confirms screen issue).
 
 YOUR JOB: Extract what we NOW know from the ENTIRE conversation (not just the last message).
 
