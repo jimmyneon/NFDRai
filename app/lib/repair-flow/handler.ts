@@ -1856,7 +1856,7 @@ Return ONLY valid JSON:
 
 /**
  * Handle price_estimate: command messages
- * Format: price_estimate:device_type:model:issue
+ * Format: price_estimate:device_type:model:issue (issue can be comma-separated for multiple)
  * Returns price_estimate object AND messages for frontend
  */
 function handlePriceEstimateCommand(
@@ -1870,34 +1870,69 @@ function handlePriceEstimateCommand(
   if (!model || model === "null" || model === "undefined") {
     model = context.device_model || "";
   }
-  const issue = parts[3] || context.issue || "";
+  const issueString = parts[3] || context.issue || "";
+
+  // Handle multiple issues (comma-separated)
+  const issues = issueString
+    .split(",")
+    .map((i) => i.trim())
+    .filter(Boolean);
 
   console.log("[Price Estimate Command]", {
     deviceType,
     model,
-    issue,
+    issues,
     contextModel: context.device_model,
   });
 
-  // Get price based on model and issue
-  const price = getPriceForModelAndIssue(model, issue, deviceType);
-  const turnaround = getTurnaroundTime(issue);
-
-  // Format issue label
-  const issueLabel = formatIssueLabel(issue);
-
   // Format device/model name - NEVER returns "Null"
   const deviceName = formatDeviceName(deviceType, model);
-
-  // Get model label for response
   const modelLabel = context.device_model_label || deviceName;
 
+  // Calculate prices for all issues
+  let totalPrice = 0;
+  let maxTurnaround = "";
+  const issueLabels: string[] = [];
+  const priceBreakdown: string[] = [];
+
+  for (const issue of issues) {
+    const price = getPriceForModelAndIssue(model, issue, deviceType);
+    const turnaround = getTurnaroundTime(issue);
+    const label = formatIssueLabel(issue);
+
+    // Extract numeric price (e.g., "£79" -> 79)
+    const priceNum = parseInt(price.replace(/[^0-9]/g, "")) || 0;
+    totalPrice += priceNum;
+
+    issueLabels.push(label);
+    priceBreakdown.push(`${label}: ${price}`);
+
+    // Keep the longest turnaround
+    if (!maxTurnaround || turnaround > maxTurnaround) {
+      maxTurnaround = turnaround;
+    }
+  }
+
+  const totalPriceStr = `£${totalPrice}`;
+  const combinedIssueLabel = issueLabels.join(" + ");
+
   // Generate helpful messages
-  const messages = [
-    `${issueLabel} for ${deviceName} - we can help with that! 💪`,
-    `That's typically ${price}. Most repairs take ${turnaround}.`,
-    "This is just an estimate - John will confirm the exact price after your repair request.",
-  ];
+  let messages: string[];
+  if (issues.length > 1) {
+    messages = [
+      `${combinedIssueLabel} for ${deviceName} - we can help with that! 💪`,
+      `Here's the breakdown:`,
+      ...priceBreakdown,
+      `Total: ${totalPriceStr}. Most repairs take ${maxTurnaround}.`,
+      "This is just an estimate - John will confirm the exact price after your repair request.",
+    ];
+  } else {
+    messages = [
+      `${combinedIssueLabel} for ${deviceName} - we can help with that! 💪`,
+      `That's typically ${totalPriceStr}. Most repairs take ${maxTurnaround}.`,
+      "This is just an estimate - John will confirm the exact price after your repair request.",
+    ];
+  }
 
   return {
     type: "repair_flow_response",
@@ -1909,18 +1944,19 @@ function handlePriceEstimateCommand(
       device_model: model || null,
       device_model_label: modelLabel,
       device_image: `/images/devices/${deviceType}-generic.png`,
-      device_summary: `${deviceName} – ${issueLabel}`,
+      device_summary: `${deviceName} – ${combinedIssueLabel}`,
       jobs: null,
-      selected_job: issue,
-      price_estimate: price,
+      selected_job: issueString,
+      price_estimate: totalPriceStr,
       show_book_cta: true,
     },
     quick_actions: BOOKING_ACTIONS,
     morph_layout: true,
     price_estimate: {
-      price: price,
-      turnaround: turnaround,
+      price: totalPriceStr,
+      turnaround: maxTurnaround,
       warranty: "90 days",
+      breakdown: issues.length > 1 ? priceBreakdown : undefined,
     },
   };
 }
