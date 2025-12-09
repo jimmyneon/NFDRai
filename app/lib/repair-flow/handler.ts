@@ -853,6 +853,80 @@ async function handleAIInstructions(
     device_name: context.device_name,
   });
 
+  // SPECIAL CASE: User says "not sure" about MODEL - help them identify it!
+  const isDontKnowModel =
+    /(not sure|don't know|dont know|dunno|no idea).*(model|which)/i.test(
+      msgLower
+    ) ||
+    /^(not sure|don't know|dont know|dunno|no idea|i'm not sure|im not sure)$/i.test(
+      msgLower.trim()
+    );
+
+  if (isDontKnowModel && context.device_type && missing.includes("model")) {
+    console.log("[AI Instructions] User unsure about MODEL - helping identify");
+
+    // Generate model identification help message
+    const modelHelpMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType: context.device_type,
+        deviceName: context.device_name || context.device_type,
+        deviceModel: null,
+        issue: context.issue,
+        issueLabel: context.issue_label,
+        needsAssessment: false,
+        stillMissing: ["model"],
+        isOutcome: false,
+      }
+    );
+
+    // Show model identification buttons based on device type
+    let modelButtons: QuickAction[] = [];
+    if (context.device_type === "iphone") {
+      modelButtons = [
+        { icon: "fa-power-off", label: "It turns on", value: "turns_on" },
+        { icon: "fa-ban", label: "Won't turn on", value: "wont_turn_on" },
+        { icon: "fa-face-smile", label: "Has Face ID", value: "face_id" },
+        { icon: "fa-circle", label: "Has Home Button", value: "home_button" },
+      ];
+    } else if (context.device_type === "samsung") {
+      modelButtons = [
+        { icon: "fa-power-off", label: "It turns on", value: "turns_on" },
+        { icon: "fa-star", label: "S Series", value: "samsung_s" },
+        { icon: "fa-a", label: "A Series", value: "samsung_a" },
+        {
+          icon: "fa-mobile-screen-button",
+          label: "Fold/Flip",
+          value: "samsung_fold",
+        },
+      ];
+    } else {
+      modelButtons = [
+        { icon: "fa-power-off", label: "It turns on", value: "turns_on" },
+        { icon: "fa-ban", label: "Won't turn on", value: "wont_turn_on" },
+      ];
+    }
+
+    return {
+      type: "repair_flow_response",
+      messages: modelHelpMessages,
+      new_step: "identify_model",
+      scene: {
+        device_type: context.device_type as any,
+        device_name: context.device_name || context.device_type || "Device",
+        device_image: `/images/devices/${context.device_type}-generic.png`,
+        device_summary: context.device_name || context.device_type || "Device",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: modelButtons,
+      morph_layout: false,
+    };
+  }
+
   // First try simple pattern extraction
   let extracted = extractInfoFromMessage(msgLower, context);
   let extractionStrategy: "pattern" | "ai" = "pattern";
