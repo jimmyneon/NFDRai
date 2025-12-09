@@ -279,18 +279,32 @@ async function generateRepairFlowMessage(
     isOutcome?: boolean;
   }
 ): Promise<string[]> {
+  console.log("[Repair Flow LLM] Called with:", {
+    userMessage,
+    stillMissing: context.stillMissing,
+    isOutcome: context.isOutcome,
+    deviceName: context.deviceName,
+  });
+
   try {
     const supabase = createServiceClient();
-    const { data: aiSettings } = await supabase
+    const { data: aiSettings, error: settingsError } = await supabase
       .from("ai_settings")
       .select("api_key, model")
-      .eq("is_active", true)
+      .eq("active", true)
       .single();
 
-    if (!aiSettings?.api_key) {
-      console.log("[Repair Flow LLM] No API key, using fallback");
-      return generateFallbackMessage(context);
+    if (settingsError) {
+      console.error("[Repair Flow LLM] Settings error:", settingsError);
+      throw new Error(`LLM_SETTINGS_ERROR: ${settingsError.message}`);
     }
+
+    if (!aiSettings?.api_key) {
+      console.error("[Repair Flow LLM] No API key found in ai_settings");
+      throw new Error("LLM_NO_API_KEY");
+    }
+
+    console.log("[Repair Flow LLM] Got API key, calling OpenAI...");
 
     const chatHistory = (conversation || [])
       .slice(-10)
@@ -353,61 +367,31 @@ Respond with ONLY the message (no quotes, no explanation):`;
     });
 
     if (!response.ok) {
-      console.error("[Repair Flow LLM] API error:", response.status);
-      return generateFallbackMessage(context);
+      const errorText = await response.text();
+      console.error("[Repair Flow LLM] API error:", response.status, errorText);
+      throw new Error(`LLM_API_ERROR: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log(
+      "[Repair Flow LLM] OpenAI response:",
+      JSON.stringify(data).slice(0, 200)
+    );
     const aiMessage = data.choices?.[0]?.message?.content?.trim() || "";
 
     if (aiMessage) {
-      console.log("[Repair Flow LLM] Generated:", aiMessage);
+      console.log("[Repair Flow LLM] ✅ Generated:", aiMessage);
       const sentences = aiMessage.split(/(?<=[.!?])\s+/).filter(Boolean);
       return sentences.length > 1 ? sentences : [aiMessage];
+    } else {
+      console.log("[Repair Flow LLM] ⚠️ Empty response from OpenAI");
     }
   } catch (error) {
-    console.error("[Repair Flow LLM] Error:", error);
+    console.error("[Repair Flow LLM] ❌ Error:", error);
   }
 
-  return generateFallbackMessage(context);
-}
-
-/**
- * Fallback messages when LLM is unavailable
- */
-function generateFallbackMessage(context: {
-  stillMissing: string[];
-  deviceName?: string | null;
-  issueLabel?: string | null;
-  needsAssessment?: boolean;
-  isOutcome?: boolean;
-}): string[] {
-  if (context.isOutcome) {
-    if (context.needsAssessment) {
-      return [
-        `${context.deviceName || "Your device"} - we can take a look at that!`,
-        "We'll need to see it in person to give you an accurate quote.",
-      ];
-    }
-    return [`${context.deviceName} ${context.issueLabel} - got it! 👍`];
-  }
-
-  if (
-    context.stillMissing.includes("device") &&
-    context.stillMissing.includes("issue")
-  ) {
-    return ["What device do you need help with, and what's wrong with it?"];
-  }
-  if (context.stillMissing.includes("device")) {
-    return ["What device is it?"];
-  }
-  if (context.stillMissing.includes("issue")) {
-    return [`What's the problem with your ${context.deviceName || "device"}?`];
-  }
-  if (context.stillMissing.includes("model")) {
-    return [`Which ${context.deviceName || "device"} model do you have?`];
-  }
-  return ["How can I help with your repair?"];
+  // No fallback - throw error so we can see what's wrong
+  throw new Error("LLM_GENERATION_FAILED");
 }
 
 /**
@@ -433,7 +417,7 @@ async function extractWithAI(
     const { data: aiSettings } = await supabase
       .from("ai_settings")
       .select("api_key, model")
-      .eq("is_active", true)
+      .eq("active", true)
       .single();
 
     if (!aiSettings?.api_key) {
