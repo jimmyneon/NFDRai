@@ -527,11 +527,22 @@ async function handleAIInstructions(
   // If we've already tried AI extraction and still don't meet requirements,
   // and we effectively have no useful device or issue info, stop clarifying
   // and fall back to an "unknown device, needs assessment" outcome.
+  //
+  // IMPORTANT: don't do this for very short, greeting-like messages such as
+  // "hi", "hello", etc. Those should go through the normal greeting/device
+  // question flow instead of jumping straight to assessment.
+  const isShortGreeting =
+    msgLower.trim().length <= 12 &&
+    !msgLower.match(
+      /(screen|battery|charge|charging|water|crack|broken|broke|dead|won't turn on|wont turn on|problem|issue)/
+    );
+
   if (
     extractionStrategy === "ai" &&
     !meetsMinRequired &&
     !hasDevice &&
-    !hasIssue
+    !hasIssue &&
+    !isShortGreeting
   ) {
     console.log(
       "[AI Instructions] Loop guard triggered - unable to identify device/issue, falling back to assessment."
