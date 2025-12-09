@@ -389,49 +389,11 @@ Respond with ONLY the message (no quotes, no explanation):`;
     }
   } catch (error) {
     console.error("[Repair Flow LLM] ❌ Error:", error);
+    throw error;
   }
 
-  // Fallback messages when LLM fails - keeps the flow working
-  console.log("[Repair Flow LLM] Using fallback message");
-  return generateFallbackMessage(context);
-}
-
-/**
- * Fallback messages when LLM is unavailable
- */
-function generateFallbackMessage(context: {
-  stillMissing: string[];
-  deviceName?: string | null;
-  issueLabel?: string | null;
-  needsAssessment?: boolean;
-  isOutcome?: boolean;
-}): string[] {
-  if (context.isOutcome) {
-    if (context.needsAssessment) {
-      return [
-        `${context.deviceName || "Your device"} - we can take a look at that!`,
-        "We'll need to see it in person to give you an accurate quote.",
-      ];
-    }
-    return [`${context.deviceName} ${context.issueLabel} - got it! 👍`];
-  }
-
-  if (
-    context.stillMissing.includes("device") &&
-    context.stillMissing.includes("issue")
-  ) {
-    return ["What device do you need help with, and what's wrong with it?"];
-  }
-  if (context.stillMissing.includes("device")) {
-    return ["What device is it?"];
-  }
-  if (context.stillMissing.includes("issue")) {
-    return [`What's the problem with your ${context.deviceName || "device"}?`];
-  }
-  if (context.stillMissing.includes("model")) {
-    return [`Which ${context.deviceName || "device"} model do you have?`];
-  }
-  return ["How can I help with your repair?"];
+  // No fallback - throw error for frontend to handle
+  throw new Error("LLM_EMPTY_RESPONSE");
 }
 
 /**
