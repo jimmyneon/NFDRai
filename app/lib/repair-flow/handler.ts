@@ -279,6 +279,7 @@ async function generateRepairFlowMessage(
     isOutcome?: boolean;
   }
 ): Promise<string[]> {
+  console.log("🔥🔥🔥 [Repair Flow LLM] FUNCTION CALLED 🔥🔥🔥");
   console.log("[Repair Flow LLM] Called with:", {
     userMessage,
     stillMissing: context.stillMissing,
@@ -290,7 +291,7 @@ async function generateRepairFlowMessage(
     const supabase = createServiceClient();
     const { data: aiSettings, error: settingsError } = await supabase
       .from("ai_settings")
-      .select("api_key, model")
+      .select("api_key")
       .eq("active", true)
       .single();
 
@@ -455,7 +456,7 @@ async function extractWithAI(
     const supabase = createServiceClient();
     const { data: aiSettings } = await supabase
       .from("ai_settings")
-      .select("api_key, model")
+      .select("api_key")
       .eq("active", true)
       .single();
 
