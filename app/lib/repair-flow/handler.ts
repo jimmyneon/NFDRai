@@ -99,7 +99,7 @@ export async function handleRepairFlow(
 
   // Handle AI Instructions - frontend is asking backend to gather missing info
   if (context.ai_instructions) {
-    return handleAIInstructions(message, context);
+    return await handleAIInstructions(message, context);
   }
 
   // Handle AI Takeover mode - AI has full conversational control
@@ -250,14 +250,113 @@ export async function handleRepairFlow(
 // ============================================
 
 /**
+ * Use AI to extract device/model/issue from a message with typo correction
+ */
+async function extractWithAI(
+  message: string,
+  contextSummary: string
+): Promise<{
+  device_type?: string;
+  device_name?: string;
+  device_model?: string;
+  device_model_label?: string;
+  issue?: string;
+  issue_label?: string;
+  needs_assessment?: boolean;
+}> {
+  try {
+    // Get AI settings from database
+    const supabase = createServiceClient();
+    const { data: aiSettings } = await supabase
+      .from("ai_settings")
+      .select("api_key, model")
+      .eq("is_active", true)
+      .single();
+
+    if (!aiSettings?.api_key) {
+      console.log("[AI Extraction] No API key available");
+      return {};
+    }
+
+    const prompt = `Extract device and issue information from this customer message. Correct any obvious typos.
+
+Customer message: "${message}"
+${contextSummary ? `Context: ${contextSummary}` : ""}
+Return ONLY valid JSON (no markdown, no explanation):
+{
+  "device_type": "iphone|ipad|samsung|macbook|laptop|console|tablet|other|null",
+  "device_name": "Human readable name like 'iPhone' or 'Xbox 360' or null",
+  "device_model": "Model identifier like 'iphone-14-pro' or null",
+  "device_model_label": "Human readable model like 'iPhone 14 Pro' or null", 
+  "issue": "screen|battery|charging|camera|water|power|display|other|null",
+  "issue_label": "Human readable issue like 'Screen Repair' or 'Power Issue' or null",
+  "needs_assessment": true/false (true for: power issues, water damage, won't turn on, complex issues)
+}
+
+Examples:
+- "my ipone has died" → {"device_type":"iphone","device_name":"iPhone","issue":"power","issue_label":"Power Issue","needs_assessment":true}
+- "samsng screen craked" → {"device_type":"samsung","device_name":"Samsung","issue":"screen","issue_label":"Screen Repair","needs_assessment":false}
+- "macbok wont charge" → {"device_type":"macbook","device_name":"MacBook","issue":"charging","issue_label":"Charging Issue","needs_assessment":false}`;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${aiSettings.api_key}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 200,
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[AI Extraction] API error:", response.status);
+      return {};
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    // Parse the JSON response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log("[AI Extraction] Parsed:", parsed);
+      return {
+        device_type:
+          parsed.device_type === "null" ? undefined : parsed.device_type,
+        device_name:
+          parsed.device_name === "null" ? undefined : parsed.device_name,
+        device_model:
+          parsed.device_model === "null" ? undefined : parsed.device_model,
+        device_model_label:
+          parsed.device_model_label === "null"
+            ? undefined
+            : parsed.device_model_label,
+        issue: parsed.issue === "null" ? undefined : parsed.issue,
+        issue_label:
+          parsed.issue_label === "null" ? undefined : parsed.issue_label,
+        needs_assessment: parsed.needs_assessment || false,
+      };
+    }
+  } catch (error) {
+    console.error("[AI Extraction] Error:", error);
+  }
+  return {};
+}
+
+/**
  * Handle AI Instructions - frontend asks backend to gather missing info
  * Parse user message, extract device/model/issue info, and hand back control
  * with structured data when we have enough info
  */
-function handleAIInstructions(
+async function handleAIInstructions(
   message: string,
   context: RepairFlowContext
-): RepairFlowResponse {
+): Promise<RepairFlowResponse> {
   const instructions = context.ai_instructions!;
   const msgLower = message.toLowerCase();
   const missing = instructions.missing || [];
@@ -270,8 +369,19 @@ function handleAIInstructions(
     device_name: context.device_name,
   });
 
-  // Extract info from the message
-  const extracted = extractInfoFromMessage(msgLower, context);
+  // First try simple pattern extraction
+  let extracted = extractInfoFromMessage(msgLower, context);
+
+  // If we didn't extract much, use AI for typo correction
+  if (!extracted.device_type && !extracted.issue) {
+    console.log(
+      "[AI Instructions] Pattern matching failed, using AI extraction..."
+    );
+    extracted = await extractWithAI(
+      message,
+      instructions.context_summary || ""
+    );
+  }
 
   // Merge with existing context
   const deviceType = extracted.device_type || context.device_type;
