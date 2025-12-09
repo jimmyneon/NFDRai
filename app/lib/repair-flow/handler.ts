@@ -155,51 +155,40 @@ Ask ONE helpful question to narrow it down. Be conversational, not interrogating
   }
 
   return `You are Steve, a friendly repair technician at New Forest Device Repairs.
-You're chatting with a customer who needs a repair. Be helpful, warm, and conversational.
 
-WHAT WE REPAIR:
-✅ Phones (iPhone, Samsung, Android, Pixel, Motorola, OnePlus, etc.)
-✅ Tablets (iPad, Samsung tablets, etc.)
-✅ Laptops & MacBooks
-✅ Game consoles (PS5, PS4, Xbox, Nintendo Switch)
-✅ Cameras & Drones (DC battery powered devices)
-✅ Some printer issues (bring to shop)
-
-WHAT WE DON'T REPAIR:
-❌ TVs - Sorry, we don't repair televisions
-❌ Washing machines, fridges, or large appliances
-❌ Network/WiFi issues - We don't do home visits
-❌ Desktop PCs (we focus on portable devices)
-
-If someone asks about something we don't repair, politely explain and suggest they try a local appliance repair service or TV specialist.
+CRITICAL: READ THE FULL CONVERSATION BEFORE RESPONDING!
+Do NOT ask about things the customer already told you.
 
 CONVERSATION SO FAR:
 ${chatHistory || "(Just started)"}
 
 CUSTOMER JUST SAID: "${userMessage}"
 
-CURRENT STATUS:
-- Device: ${context.deviceName || context.deviceType || "Unknown"}
-- Model: ${context.deviceModel || "Not specified yet"}  
-- Issue: ${context.issueLabel || context.issue || "Unknown"}
+WHAT WE'VE ESTABLISHED:
+- Device: ${context.deviceName || context.deviceType || "Not yet known"}
+- Model: ${context.deviceModel || "Not yet identified"}  
+- Issue: ${context.issueLabel || context.issue || "Not yet known"}
 - Still need: ${
     context.stillMissing.length > 0
       ? context.stillMissing.join(", ")
-      : "Nothing!"
+      : "Nothing - ready to quote!"
   }
 
 YOUR TASK:
 ${taskInstructions}
 
-STYLE RULES:
-- Keep it SHORT: 1-2 sentences max, SMS-style
-- Be friendly and human, use casual language
-- Use emojis sparingly (max 1 per message)
-- NEVER repeat the same question twice - vary your wording
-- If they go off-topic, briefly acknowledge then steer back
-- NEVER say "just bring it in" - always try to help identify the model first
-- Ask helpful questions to narrow down the model (cameras, Face ID, size, etc.)
-- Only after 4-5 attempts should you offer a price range instead of giving up
+CRITICAL RULES:
+1. READ THE CONVERSATION - Don't ask what they already told you!
+2. If they said "iPhone" earlier, you KNOW it's an iPhone - don't ask again
+3. If they said "cracked", you KNOW it's a screen issue - don't ask again
+4. If they said "Face ID", use that to narrow down the model
+5. Be a HELPFUL TECHNICIAN - guide them through identifying their model
+6. Ask ONE specific question at a time
+7. Keep responses SHORT (1-2 sentences)
+8. NEVER say "bring it in" until you've tried to identify the model
+
+WHAT WE REPAIR: Phones, Tablets, Laptops, MacBooks, Consoles, Cameras, Drones
+WHAT WE DON'T: TVs, washing machines, fridges, network issues
 
 RESPOND WITH ONLY YOUR MESSAGE (no quotes, no explanation):`;
 }
@@ -1312,13 +1301,13 @@ async function handleAITakeover(
       morph_layout: true,
       new_step: "outcome_price",
       hand_back_control: {
-        device_type: analysis.deviceType,
-        device_name: analysis.deviceName,
-        device_model: analysis.deviceModel,
-        device_model_label: analysis.deviceModelLabel,
-        issue: analysis.issue,
-        issue_label: analysis.issueLabel,
-        price: analysis.priceRange,
+        device_type: analysis.deviceType || undefined,
+        device_name: analysis.deviceName || undefined,
+        device_model: analysis.deviceModel || undefined,
+        device_model_label: analysis.deviceModelLabel || undefined,
+        issue: analysis.issue || undefined,
+        issue_label: analysis.issueLabel || undefined,
+        price: analysis.priceRange || undefined,
         resume_step: "collect_contact",
         message: "Now I just need your contact details to book this in!",
       },
@@ -1397,49 +1386,50 @@ async function analyzeMessageWithAI(
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n");
 
-    const prompt = `Analyze this repair conversation and extract structured information.
+    const prompt = `You are analyzing a repair conversation. READ THE FULL CONVERSATION CAREFULLY.
 
-CONVERSATION:
+FULL CONVERSATION HISTORY:
 ${chatHistory || "(none)"}
 
-LATEST MESSAGE: "${message}"
+LATEST MESSAGE FROM CUSTOMER: "${message}"
 
-CURRENT CONTEXT:
-- Device: ${context.device_type || "unknown"}
-- Model: ${context.device_model || "unknown"}
-- Issue: ${context.issue || "unknown"}
+WHAT WE ALREADY KNOW (from context):
+- Device type: ${context.device_type || "not yet identified"}
+- Device model: ${context.device_model || "not yet identified"}
+- Issue: ${context.issue || "not yet identified"}
 
-WHAT WE REPAIR:
-- Phones (iPhone, Samsung, Android, Pixel, etc.)
-- Tablets (iPad, Samsung tablets)
-- Laptops & MacBooks
-- Game consoles (PS5, PS4, Xbox, Nintendo Switch)
-- Cameras, Drones (DC battery powered)
-- Some printer issues
+YOUR JOB: Extract what we NOW know from the ENTIRE conversation (not just the last message).
 
-WHAT WE DON'T REPAIR:
-- TVs, washing machines, fridges, large appliances
-- Network/WiFi issues (no home visits)
-- Desktop PCs
+READ THE CONVERSATION CAREFULLY:
+- If customer said "iphone" earlier, device_type = "iphone" (don't forget this!)
+- If customer said "cracked" or "screen", issue = "screen"
+- If customer said "face id", they have iPhone X or newer
+- If customer said "home button", they have iPhone 8/SE or older
 
-IMPORTANT:
-- "phone" alone is NOT specific enough - need to know iPhone, Samsung, Android, etc.
-- "broken" alone is NOT an issue - need to know screen, battery, charging, etc.
-- If they say "phone broken" you need to ask WHICH phone (iPhone? Samsung? Android?)
+WHAT WE REPAIR: Phones, Tablets, Laptops, MacBooks, Game consoles, Cameras, Drones
+WHAT WE DON'T: TVs, washing machines, fridges, network issues, desktop PCs
+
+IMPORTANT - PRESERVE CONTEXT:
+- If we already know it's an iPhone from earlier messages, keep device_type as "iphone"
+- If we already know the issue is screen from earlier, keep issue as "screen"
+- NEVER lose information that was already established
 
 Return ONLY valid JSON:
 {
-  "device_type": "iphone|samsung|android|ipad|macbook|laptop|ps5|ps4|xbox|switch|camera|drone|printer|null",
-  "device_name": "iPhone 14 Pro|Samsung Galaxy S24|etc|null",
-  "device_model": "iphone-14-pro|galaxy-s24|etc|null",
-  "device_model_label": "iPhone 14 Pro|Galaxy S24|etc|null",
-  "issue": "screen|battery|charging|water|camera|power|hdmi|etc|null",
+  "device_type": "iphone|samsung|android|ipad|macbook|laptop|ps5|ps4|xbox|switch|null",
+  "device_name": "iPhone|Samsung Galaxy|etc|null",
+  "device_model": "iphone-14-pro|iphone-x|etc|null (only if we can identify specific model)",
+  "device_model_label": "iPhone 14 Pro|iPhone X|etc|null",
+  "issue": "screen|battery|charging|water|camera|power|null",
   "issue_label": "Screen Repair|Battery Replacement|etc|null",
-  "needs_model": true/false (do we need to identify specific model for pricing?),
-  "needs_assessment": true/false (is this a complex issue needing diagnosis?),
-  "price_range": "£45-£89|null",
-  "not_supported": true/false (is this something we don't repair?),
-  "not_supported_reason": "We don't repair TVs|null"
+  "needs_model": true/false,
+  "needs_assessment": false,
+  "price_range": null,
+  "not_supported": false,
+  "not_supported_reason": null,
+  "face_id_answer": "yes|no|null (if they mentioned Face ID)",
+  "camera_count": "1|2|3|null (if they mentioned cameras)",
+  "reasoning": "Brief explanation of what you extracted and why"
 }`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
