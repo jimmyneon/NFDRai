@@ -108,12 +108,50 @@ Ask what the problem is. You can suggest common issues:
 - Consoles: HDMI, disc drive, overheating, power issues
 - Switch: Joy-Con drift, screen, charging`;
   } else if (!hasModel) {
-    // Have device + issue, need model for pricing
-    taskInstructions = `You have device (${context.deviceName}) and issue (${context.issueLabel}) but need the MODEL for accurate pricing.
-Help them figure it out:
-- iPhones: "Does it have Face ID or a home button?" / "Is it a newer model?"
-- Samsung: "Is it an S series, A series, or a foldable?"
-- If they're unsure after 2 tries, say we can check when they bring it in.`;
+    // Have device + issue, need model for pricing - HELP THEM IDENTIFY IT
+    const deviceType = (context.deviceType || "").toLowerCase();
+
+    let modelHelpTips = "";
+    if (deviceType === "iphone") {
+      modelHelpTips = `Help them identify their iPhone model. Ask ONE question at a time:
+1. "Does it have Face ID (no home button) or a home button?"
+   - Face ID = iPhone X or newer (X, 11, 12, 13, 14, 15 series)
+   - Home button = iPhone 8 or older, or SE
+2. "How many cameras on the back? 1, 2, or 3?"
+   - 3 cameras = Pro model
+   - 2 cameras = standard model (11, 12, 13, 14, 15)
+   - 1 camera = SE, 8, or older
+3. "Is it a larger or smaller size?"
+   - Larger = Plus/Max model
+   - Smaller = standard or Mini
+4. "What's the charging port - Lightning or USB-C?"
+   - USB-C = iPhone 15 series
+   - Lightning = iPhone 14 or older
+5. "Can you check Settings > General > About? The model name is there."`;
+    } else if (deviceType === "samsung") {
+      modelHelpTips = `Help them identify their Samsung. Ask:
+1. "Is it an S series (flagship), A series (mid-range), or a foldable?"
+2. "Does it have a curved screen or flat?"
+3. "How many cameras on the back?"
+4. "Check Settings > About Phone for the model number"`;
+    } else if (deviceType === "ipad") {
+      modelHelpTips = `Help them identify their iPad. Ask:
+1. "Does it have Face ID or a home button?"
+2. "Is it a regular iPad, Air, Mini, or Pro?"
+3. "What size is the screen roughly - smaller (8-10 inch) or larger (11-13 inch)?"`;
+    } else {
+      modelHelpTips = `Help them identify the model. Ask about:
+- Physical features (size, buttons, ports)
+- Check Settings/About for model info
+- Year they bought it`;
+    }
+
+    taskInstructions = `You have ${context.deviceName} with ${context.issueLabel} - now help them figure out the MODEL.
+NEVER say "just bring it in" - your job is to help identify the model for an accurate quote.
+
+${modelHelpTips}
+
+Ask ONE helpful question to narrow it down. Be conversational, not interrogating.`;
   }
 
   return `You are Steve, a friendly repair technician at New Forest Device Repairs.
@@ -143,8 +181,9 @@ STYLE RULES:
 - Use emojis sparingly (max 1 per message)
 - NEVER repeat the same question twice - vary your wording
 - If they go off-topic, briefly acknowledge then steer back
-- Don't be pushy - if they seem stuck, offer to help them figure it out
-- Walk-ins are always welcome for free assessment
+- NEVER say "just bring it in" - always try to help identify the model first
+- Ask helpful questions to narrow down the model (cameras, Face ID, size, etc.)
+- Only after 4-5 attempts should you offer a price range instead of giving up
 
 RESPOND WITH ONLY YOUR MESSAGE (no quotes, no explanation):`;
 }
