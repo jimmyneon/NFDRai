@@ -97,6 +97,11 @@ export async function handleRepairFlow(
     };
   }
 
+  // Handle AI Instructions - frontend is asking backend to gather missing info
+  if (context.ai_instructions) {
+    return handleAIInstructions(message, context);
+  }
+
   // Handle AI Takeover mode - AI has full conversational control
   if (context.step === "ai_takeover" || context.ai_takeover) {
     return handleAITakeover(message, context);
@@ -238,6 +243,321 @@ export async function handleRepairFlow(
       );
       return handleUnknownStep(message, context);
   }
+}
+
+// ============================================
+// AI INSTRUCTIONS HANDLER
+// ============================================
+
+/**
+ * Handle AI Instructions - frontend asks backend to gather missing info
+ * Parse user message, extract device/model/issue info, and hand back control
+ * with structured data when we have enough info
+ */
+function handleAIInstructions(
+  message: string,
+  context: RepairFlowContext
+): RepairFlowResponse {
+  const instructions = context.ai_instructions!;
+  const msgLower = message.toLowerCase();
+  const missing = instructions.missing || [];
+
+  console.log("[AI Instructions] Processing:", {
+    message,
+    missing,
+    context_summary: instructions.context_summary,
+    device_type: context.device_type,
+    device_name: context.device_name,
+  });
+
+  // Extract info from the message
+  const extracted = extractInfoFromMessage(msgLower, context);
+
+  // Merge with existing context
+  const deviceType = extracted.device_type || context.device_type;
+  const deviceName =
+    extracted.device_name || context.device_name || context.device_model_label;
+  const deviceModel = extracted.device_model || context.device_model;
+  const deviceModelLabel =
+    extracted.device_model_label || context.device_model_label;
+  const issue = extracted.issue || context.issue;
+  const issueLabel = extracted.issue_label || context.issue_label;
+  const needsAssessment = extracted.needs_assessment || false;
+
+  console.log("[AI Instructions] Extracted:", {
+    deviceType,
+    deviceName,
+    deviceModel,
+    deviceModelLabel,
+    issue,
+    issueLabel,
+    needsAssessment,
+  });
+
+  // Check what we still need
+  const stillMissing: string[] = [];
+  if (!deviceType && missing.includes("device")) stillMissing.push("device");
+  if (!deviceModel && !deviceModelLabel && missing.includes("model"))
+    stillMissing.push("model");
+  if (!issue && missing.includes("issue")) stillMissing.push("issue");
+
+  // If we have everything (or enough), hand back control
+  if (stillMissing.length === 0 || (deviceType && issue)) {
+    console.log("[AI Instructions] Handing back control with:", {
+      deviceType,
+      deviceName: deviceModelLabel || deviceName,
+      issue,
+      issueLabel,
+      needsAssessment,
+    });
+
+    return {
+      type: "repair_flow_response",
+      messages: needsAssessment
+        ? [
+            `${deviceModelLabel || deviceName || deviceType} with ${
+              issueLabel || issue || "an issue"
+            } - we can take a look at that!`,
+            "This will need an in-person assessment to give you an accurate quote.",
+          ]
+        : [
+            `${deviceModelLabel || deviceName || deviceType} ${
+              issueLabel || issue || ""
+            } - got it! 👍`,
+          ],
+      new_step: needsAssessment ? "outcome_assessment" : "outcome_price",
+      hand_back_control: {
+        device_type: deviceType || "other",
+        device_name: deviceModelLabel || deviceName || deviceType || "Device",
+        device_model: deviceModel ?? undefined,
+        device_model_label: (deviceModelLabel || deviceName) ?? undefined,
+        issue: issue || "assessment",
+        issue_label: issueLabel || "Assessment Required",
+        needs_assessment: needsAssessment,
+      },
+      scene: {
+        device_type: (deviceType || "other") as any,
+        device_name: deviceModelLabel || deviceName || deviceType || "Device",
+        device_model: deviceModel || null,
+        device_model_label: deviceModelLabel || deviceName,
+        device_image: `/images/devices/${deviceType || "other"}-generic.png`,
+        device_summary: `${deviceModelLabel || deviceName || deviceType} – ${
+          issueLabel || issue || "Assessment"
+        }`,
+        jobs: null,
+        selected_job: issue || null,
+        price_estimate: null,
+        show_book_cta: true,
+        needs_diagnostic: needsAssessment,
+      },
+      quick_actions: BOOKING_ACTIONS,
+      morph_layout: true,
+    };
+  }
+
+  // Still missing info - ask for it
+  if (stillMissing.includes("model") && deviceType) {
+    const deviceDisplayName = formatDeviceName(deviceType, "");
+    return {
+      type: "repair_flow_response",
+      messages: [`Which ${deviceDisplayName} model do you have?`],
+      new_step: "model",
+      scene: {
+        device_type: deviceType as any,
+        device_name: deviceDisplayName,
+        device_image: `/images/devices/${deviceType}-generic.png`,
+        device_summary: deviceDisplayName,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        {
+          icon: "fa-question-circle",
+          label: "I'm not sure",
+          value: "model_unknown",
+        },
+      ],
+      morph_layout: true,
+    };
+  }
+
+  if (stillMissing.includes("issue")) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        `What's wrong with your ${
+          deviceModelLabel || deviceName || deviceType || "device"
+        }?`,
+      ],
+      new_step: "issue",
+      scene: {
+        device_type: (deviceType || "other") as any,
+        device_name: deviceModelLabel || deviceName || deviceType || "Device",
+        device_image: `/images/devices/${deviceType || "other"}-generic.png`,
+        device_summary:
+          deviceModelLabel || deviceName || deviceType || "Device",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: getIssueActionsForDevice(deviceType || "other"),
+      morph_layout: true,
+    };
+  }
+
+  // Fallback - ask what they need help with
+  return {
+    type: "repair_flow_response",
+    messages: ["What device do you need help with?"],
+    new_step: "greeting",
+    scene: null,
+    quick_actions: DEVICE_SELECTION_ACTIONS,
+    morph_layout: false,
+  };
+}
+
+/**
+ * Extract device, model, and issue info from a message
+ */
+function extractInfoFromMessage(
+  message: string,
+  context: RepairFlowContext
+): {
+  device_type?: string;
+  device_name?: string;
+  device_model?: string;
+  device_model_label?: string;
+  issue?: string;
+  issue_label?: string;
+  needs_assessment?: boolean;
+} {
+  const result: any = {};
+
+  // Device patterns
+  const devicePatterns: Record<string, { type: string; name: string }> = {
+    iphone: { type: "iphone", name: "iPhone" },
+    ipad: { type: "ipad", name: "iPad" },
+    samsung: { type: "samsung", name: "Samsung" },
+    galaxy: { type: "samsung", name: "Samsung Galaxy" },
+    macbook: { type: "macbook", name: "MacBook" },
+    mac: { type: "macbook", name: "Mac" },
+    laptop: { type: "laptop", name: "Laptop" },
+    xbox: { type: "console", name: "Xbox" },
+    playstation: { type: "console", name: "PlayStation" },
+    ps4: { type: "console", name: "PS4" },
+    ps5: { type: "console", name: "PS5" },
+    switch: { type: "console", name: "Nintendo Switch" },
+    nintendo: { type: "console", name: "Nintendo" },
+  };
+
+  // Check for device type
+  for (const [keyword, info] of Object.entries(devicePatterns)) {
+    if (message.includes(keyword)) {
+      result.device_type = info.type;
+      result.device_name = info.name;
+      break;
+    }
+  }
+
+  // Xbox model patterns
+  if (message.includes("xbox")) {
+    if (message.includes("360")) {
+      result.device_model_label = "Xbox 360";
+    } else if (message.includes("one")) {
+      result.device_model_label = "Xbox One";
+    } else if (message.includes("series x") || message.includes("series s")) {
+      result.device_model_label = message.includes("series x")
+        ? "Xbox Series X"
+        : "Xbox Series S";
+    }
+    result.device_type = "console";
+    result.device_name = result.device_model_label || "Xbox";
+  }
+
+  // PlayStation model patterns
+  if (message.includes("ps") || message.includes("playstation")) {
+    if (message.includes("ps5") || message.includes("playstation 5")) {
+      result.device_model_label = "PS5";
+    } else if (message.includes("ps4") || message.includes("playstation 4")) {
+      result.device_model_label = "PS4";
+    } else if (message.includes("ps3") || message.includes("playstation 3")) {
+      result.device_model_label = "PS3";
+    }
+    result.device_type = "console";
+    result.device_name = result.device_model_label || "PlayStation";
+  }
+
+  // Issue patterns
+  const issuePatterns: Record<
+    string,
+    { issue: string; label: string; needsAssessment?: boolean }
+  > = {
+    screen: { issue: "screen", label: "Screen Repair" },
+    cracked: { issue: "screen", label: "Screen Repair" },
+    "broken screen": { issue: "screen", label: "Screen Repair" },
+    battery: { issue: "battery", label: "Battery Replacement" },
+    charging: { issue: "charging", label: "Charging Port Repair" },
+    "won't charge": { issue: "charging", label: "Charging Port Repair" },
+    "not charging": { issue: "charging", label: "Charging Port Repair" },
+    camera: { issue: "camera", label: "Camera Repair" },
+    water: { issue: "water", label: "Water Damage", needsAssessment: true },
+    wet: { issue: "water", label: "Water Damage", needsAssessment: true },
+    power: { issue: "power", label: "Power Issue", needsAssessment: true },
+    "won't turn on": {
+      issue: "power",
+      label: "Power Issue",
+      needsAssessment: true,
+    },
+    "doesn't turn on": {
+      issue: "power",
+      label: "Power Issue",
+      needsAssessment: true,
+    },
+    "not turning on": {
+      issue: "power",
+      label: "Power Issue",
+      needsAssessment: true,
+    },
+    dead: { issue: "power", label: "Power Issue", needsAssessment: true },
+    "no image": {
+      issue: "display",
+      label: "Display Issue",
+      needsAssessment: true,
+    },
+    "no picture": {
+      issue: "display",
+      label: "Display Issue",
+      needsAssessment: true,
+    },
+    "black screen": {
+      issue: "display",
+      label: "Display Issue",
+      needsAssessment: true,
+    },
+    hdmi: { issue: "hdmi", label: "HDMI Port Repair", needsAssessment: true },
+    disc: { issue: "disc", label: "Disc Drive Issue", needsAssessment: true },
+    overheating: {
+      issue: "overheating",
+      label: "Overheating Issue",
+      needsAssessment: true,
+    },
+    loud: { issue: "fan", label: "Fan Issue", needsAssessment: true },
+    noisy: { issue: "fan", label: "Fan Issue", needsAssessment: true },
+  };
+
+  for (const [keyword, info] of Object.entries(issuePatterns)) {
+    if (message.includes(keyword)) {
+      result.issue = info.issue;
+      result.issue_label = info.label;
+      result.needs_assessment = info.needsAssessment || false;
+      break;
+    }
+  }
+
+  return result;
 }
 
 // ============================================

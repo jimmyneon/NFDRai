@@ -122,6 +122,13 @@ export interface RepairFlowContext {
   selected_series?: string; // e.g. "galaxy-s-series" - helps parse "21" as S21
   known_info_summary?: string; // Quick summary like "Samsung Galaxy S Series"
   conversation?: Array<{ role: string; content: string }>; // Last 15 messages
+
+  // AI Instructions - tells backend to take control and gather missing info
+  ai_instructions?: {
+    action: "gather_info"; // What AI should do
+    missing: string[]; // What's missing: ["model", "issue"]
+    context_summary: string; // Summary of what we know
+  };
 }
 
 export interface RepairFlowRequest {
@@ -166,12 +173,13 @@ export interface QuickAction {
 export interface HandBackControl {
   device_type?: string;
   device_name?: string;
-  device_model?: string;
-  device_model_label?: string;
+  device_model?: string | null | undefined;
+  device_model_label?: string | null | undefined;
   issue?: string;
   issue_label?: string;
   price?: string;
-  resume_step: string; // Where to resume: 'model', 'issue', 'outcome_price', 'collect_contact'
+  needs_assessment?: boolean; // True if device needs in-person assessment
+  resume_step?: string; // Where to resume: 'model', 'issue', 'outcome_price', 'collect_contact'
   message?: string; // What to say when resuming
 }
 
