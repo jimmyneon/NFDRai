@@ -40,6 +40,93 @@ import {
 } from "./device-config";
 
 // ============================================
+// DATABASE PRICE LOOKUP
+// ============================================
+
+/**
+ * Fetch prices from database for a device type and issue
+ */
+async function fetchPricesFromDB(
+  deviceType: string | null,
+  issue: string | null
+): Promise<string> {
+  try {
+    const supabase = createServiceClient();
+
+    let query = supabase
+      .from("prices")
+      .select("device, repair_type, price, turnaround")
+      .eq("active", true)
+      .order("device", { ascending: true });
+
+    // Filter by device type if provided
+    if (deviceType) {
+      const devicePatterns: Record<string, string[]> = {
+        iphone: ["iphone", "iPhone"],
+        samsung: ["samsung", "Samsung", "galaxy", "Galaxy"],
+        ipad: ["ipad", "iPad"],
+        macbook: ["macbook", "MacBook"],
+        laptop: ["laptop", "Laptop"],
+        ps5: ["ps5", "PS5", "playstation 5"],
+        ps4: ["ps4", "PS4", "playstation 4"],
+        xbox: ["xbox", "Xbox"],
+        switch: ["switch", "Switch", "nintendo"],
+      };
+
+      const patterns = devicePatterns[deviceType.toLowerCase()];
+      if (patterns) {
+        query = query.or(patterns.map((p) => `device.ilike.%${p}%`).join(","));
+      }
+    }
+
+    // Filter by issue/repair type if provided
+    if (issue) {
+      const issuePatterns: Record<string, string[]> = {
+        screen: ["screen", "display", "lcd"],
+        battery: ["battery"],
+        charging: ["charging", "port", "charge"],
+        camera: ["camera"],
+        water: ["water", "liquid"],
+        speaker: ["speaker", "audio"],
+        hdmi: ["hdmi"],
+      };
+
+      const patterns = issuePatterns[issue.toLowerCase()];
+      if (patterns) {
+        query = query.or(
+          patterns.map((p) => `repair_type.ilike.%${p}%`).join(",")
+        );
+      }
+    }
+
+    const { data: prices, error } = await query.limit(30);
+
+    if (error || !prices || prices.length === 0) {
+      console.log("[Price Lookup] No prices found or error:", error);
+      return "No specific prices found in database.";
+    }
+
+    // Format prices for AI
+    const priceList = prices
+      .map(
+        (p) =>
+          `- ${p.device} ${p.repair_type}: ${p.price} (${
+            p.turnaround || "same day"
+          })`
+      )
+      .join("\n");
+
+    console.log(
+      `[Price Lookup] Found ${prices.length} prices for ${deviceType}/${issue}`
+    );
+    return priceList;
+  } catch (error) {
+    console.error("[Price Lookup] Error:", error);
+    return "Unable to fetch prices from database.";
+  }
+}
+
+// ============================================
 // LLM PROMPT BUILDER
 // ============================================
 
@@ -59,7 +146,8 @@ function buildRepairFlowPrompt(
     needsAssessment?: boolean;
     stillMissing: string[];
     isOutcome?: boolean;
-  }
+  },
+  dbPrices?: string
 ): string {
   // Determine what stage we're at
   const hasDevice = !context.stillMissing.includes("device");
@@ -246,9 +334,19 @@ CRITICAL RULES:
 6. Ask ONE specific question at a time
 7. Keep responses SHORT (1-2 sentences)
 8. NEVER say "bring it in" until you've tried to identify the model
+9. When giving prices, use the DATABASE PRICES below - they are accurate!
 
 WHAT WE REPAIR: Phones, Tablets, Laptops, MacBooks, Consoles, Cameras, Drones
 WHAT WE DON'T: TVs, washing machines, fridges, network issues
+
+${
+  dbPrices
+    ? `REAL PRICES FROM OUR DATABASE:
+${dbPrices}
+
+Use these prices when quoting! They are our actual prices.`
+    : ""
+}
 
 RESPOND WITH ONLY YOUR MESSAGE (no quotes, no explanation):`;
 }
@@ -526,7 +624,25 @@ async function generateRepairFlowMessage(
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n");
 
-    const prompt = buildRepairFlowPrompt(userMessage, chatHistory, context);
+    // Fetch real prices from database if we have device/issue info
+    let dbPrices = "";
+    if (context.deviceType || context.issue) {
+      dbPrices = await fetchPricesFromDB(
+        context.deviceType || null,
+        context.issue || null
+      );
+      console.log(
+        "[Repair Flow LLM] Fetched DB prices:",
+        dbPrices.substring(0, 200)
+      );
+    }
+
+    const prompt = buildRepairFlowPrompt(
+      userMessage,
+      chatHistory,
+      context,
+      dbPrices
+    );
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
