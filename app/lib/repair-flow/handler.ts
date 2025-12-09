@@ -154,6 +154,12 @@ function buildRepairFlowPrompt(
   const hasModel = !context.stillMissing.includes("model");
   const hasIssue = !context.stillMissing.includes("issue");
 
+  // Check if we have a GENERIC device type that needs brand clarification
+  const needsBrand =
+    context.deviceType === "phone" ||
+    context.deviceType === "other" ||
+    context.deviceType === "android";
+
   // Build context-aware task instructions
   let taskInstructions = "";
 
@@ -171,6 +177,26 @@ Be warm and reassuring. Mention they can pop in anytime.`;
       } with ${context.issueLabel || context.issue}.
 Acknowledge what they need and sound helpful. The frontend will show pricing next.`;
     }
+  } else if (needsBrand) {
+    // They said "phone" or "other" - we need to know the BRAND first!
+    taskInstructions = `They said "${context.deviceType}" but we need to know the BRAND/MAKE.
+
+IMPORTANT: DO NOT ask about the issue yet! First find out what KIND of phone/device.
+
+Ask: "Is it an iPhone, Samsung, or another brand?"
+
+If they don't know the brand:
+- "What logo is on the back of the phone?"
+- "Is it an Apple phone (iPhone) or Android?"
+
+Only after you know the brand, THEN ask about the model, THEN the issue.
+
+CORRECT ORDER:
+1. Brand (iPhone/Samsung/etc) ← YOU ARE HERE
+2. Model (help them identify if needed)
+3. Issue (what's wrong)
+
+DO NOT SKIP AHEAD TO THE ISSUE!`;
   } else if (!hasDevice && !hasIssue) {
     // Need both device and issue
     taskInstructions = `You need to find out: WHAT DEVICE and WHAT'S WRONG WITH IT.
@@ -1610,9 +1636,31 @@ async function handleAITakeover(
 
   // Build context for response generation
   const stillMissing: string[] = [];
-  if (!analysis.deviceType) stillMissing.push("device");
-  if (!analysis.issue) stillMissing.push("issue");
-  if (analysis.deviceType && !analysis.deviceModel && analysis.needsModel) {
+
+  // Check if device type is generic (needs brand clarification)
+  const isGenericDevice =
+    analysis.deviceType === "phone" ||
+    analysis.deviceType === "other" ||
+    analysis.deviceType === "android";
+
+  if (!analysis.deviceType) {
+    stillMissing.push("device");
+  } else if (isGenericDevice) {
+    // They said "phone" but we need to know WHICH phone brand
+    stillMissing.push("device"); // Treat as still needing device since brand is unknown
+  }
+
+  // Only ask about issue AFTER we have a specific device brand
+  if (!analysis.issue && !isGenericDevice) {
+    stillMissing.push("issue");
+  }
+
+  if (
+    analysis.deviceType &&
+    !isGenericDevice &&
+    !analysis.deviceModel &&
+    analysis.needsModel
+  ) {
     stillMissing.push("model");
   }
 
