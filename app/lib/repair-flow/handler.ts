@@ -262,6 +262,155 @@ export async function handleRepairFlow(
 // ============================================
 
 /**
+ * Generate a natural, varied message using the LLM.
+ * This replaces scripted responses with AI-generated text.
+ */
+async function generateRepairFlowMessage(
+  userMessage: string,
+  conversation: Array<{ role: string; content: string }> | undefined,
+  context: {
+    deviceType?: string | null;
+    deviceName?: string | null;
+    deviceModel?: string | null;
+    issue?: string | null;
+    issueLabel?: string | null;
+    needsAssessment?: boolean;
+    stillMissing: string[];
+    isOutcome?: boolean;
+  }
+): Promise<string[]> {
+  try {
+    const supabase = createServiceClient();
+    const { data: aiSettings } = await supabase
+      .from("ai_settings")
+      .select("api_key, model")
+      .eq("is_active", true)
+      .single();
+
+    if (!aiSettings?.api_key) {
+      console.log("[Repair Flow LLM] No API key, using fallback");
+      return generateFallbackMessage(context);
+    }
+
+    const chatHistory = (conversation || [])
+      .slice(-10)
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    const prompt = `You are Steve, a friendly AI repair assistant for New Forest Device Repairs.
+
+CONVERSATION SO FAR:
+${chatHistory || "(Start of conversation)"}
+
+CUSTOMER JUST SAID: "${userMessage}"
+
+WHAT WE KNOW:
+- Device: ${context.deviceName || context.deviceType || "Unknown"}
+- Model: ${context.deviceModel || "Unknown"}
+- Issue: ${context.issueLabel || context.issue || "Unknown"}
+- Needs assessment: ${context.needsAssessment ? "Yes" : "No"}
+
+STILL NEED: ${
+      context.stillMissing.length > 0
+        ? context.stillMissing.join(", ")
+        : "Nothing - we have everything!"
+    }
+
+YOUR TASK:
+${
+  context.isOutcome
+    ? `Confirm what we understood. ${
+        context.needsAssessment
+          ? "Let them know we'll need to see it in person for an accurate quote."
+          : "Let them know we can help."
+      }`
+    : `1. Briefly acknowledge what they said (don't ignore them).
+2. Ask for: ${context.stillMissing.join(" and ")}.
+3. Keep it SHORT (1-2 sentences, SMS-style).
+4. Be natural and varied - don't repeat the same phrases.
+5. If off-topic (like "what time is it"), briefly acknowledge, then steer back to repair.`
+}
+
+RULES:
+- Be friendly and human, not robotic.
+- Max 2 short sentences.
+- Your job is to get device + issue info.
+
+Respond with ONLY the message (no quotes, no explanation):`;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${aiSettings.api_key}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 120,
+        temperature: 0.8,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[Repair Flow LLM] API error:", response.status);
+      return generateFallbackMessage(context);
+    }
+
+    const data = await response.json();
+    const aiMessage = data.choices?.[0]?.message?.content?.trim() || "";
+
+    if (aiMessage) {
+      console.log("[Repair Flow LLM] Generated:", aiMessage);
+      const sentences = aiMessage.split(/(?<=[.!?])\s+/).filter(Boolean);
+      return sentences.length > 1 ? sentences : [aiMessage];
+    }
+  } catch (error) {
+    console.error("[Repair Flow LLM] Error:", error);
+  }
+
+  return generateFallbackMessage(context);
+}
+
+/**
+ * Fallback messages when LLM is unavailable
+ */
+function generateFallbackMessage(context: {
+  stillMissing: string[];
+  deviceName?: string | null;
+  issueLabel?: string | null;
+  needsAssessment?: boolean;
+  isOutcome?: boolean;
+}): string[] {
+  if (context.isOutcome) {
+    if (context.needsAssessment) {
+      return [
+        `${context.deviceName || "Your device"} - we can take a look at that!`,
+        "We'll need to see it in person to give you an accurate quote.",
+      ];
+    }
+    return [`${context.deviceName} ${context.issueLabel} - got it! 👍`];
+  }
+
+  if (
+    context.stillMissing.includes("device") &&
+    context.stillMissing.includes("issue")
+  ) {
+    return ["What device do you need help with, and what's wrong with it?"];
+  }
+  if (context.stillMissing.includes("device")) {
+    return ["What device is it?"];
+  }
+  if (context.stillMissing.includes("issue")) {
+    return [`What's the problem with your ${context.deviceName || "device"}?`];
+  }
+  if (context.stillMissing.includes("model")) {
+    return [`Which ${context.deviceName || "device"} model do you have?`];
+  }
+  return ["How can I help with your repair?"];
+}
+
+/**
  * Use AI to extract device/model/issue from a message with typo correction
  * Returns extracted info plus whether corrections were made
  */
@@ -475,26 +624,26 @@ async function handleAIInstructions(
       needsAssessment,
     });
 
-    // Build response messages - naturally confirm what we understood
-    const responseMessages: string[] = [];
-
     // Decide mode for frontend
     const mode: "direct_price" | "needs_assessment" = needsAssessment
       ? "needs_assessment"
       : "direct_price";
 
-    if (needsAssessment) {
-      responseMessages.push(
-        `${deviceDisplay} with ${
-          issueDisplay || "an issue"
-        } - we can take a look at that!`
-      );
-      responseMessages.push(
-        "This will need an in-person assessment to give you an accurate quote."
-      );
-    } else {
-      responseMessages.push(`${deviceDisplay} ${issueDisplay} - got it! 👍`);
-    }
+    // Generate natural confirmation message using LLM
+    const responseMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType,
+        deviceName: deviceModelLabel || deviceName,
+        deviceModel,
+        issue,
+        issueLabel,
+        needsAssessment,
+        stillMissing: [],
+        isOutcome: true,
+      }
+    );
 
     return {
       type: "repair_flow_response",
@@ -555,14 +704,25 @@ async function handleAIInstructions(
       "[AI Instructions] Loop guard triggered - unable to identify device/issue, falling back to assessment."
     );
 
-    const fallbackMessages = [
-      "I couldn't work out exactly what device you have from that.",
-      "We can still take a look for you in person and confirm the device and price when we see it.",
-    ];
+    // Generate a natural fallback message using LLM
+    const loopGuardMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType: null,
+        deviceName: "Unknown device",
+        deviceModel: null,
+        issue: "assessment",
+        issueLabel: "Assessment Required",
+        needsAssessment: true,
+        stillMissing: [],
+        isOutcome: true,
+      }
+    );
 
     return {
       type: "repair_flow_response",
-      messages: fallbackMessages,
+      messages: loopGuardMessages,
       new_step: "outcome_assessment",
       hand_back_control: {
         device_type: "other",
@@ -595,9 +755,23 @@ async function handleAIInstructions(
   // If we have device but no model and model is required, ask for the model
   if (!hasModel && hasDevice && minRequired.includes("model")) {
     const deviceDisplayName = formatDeviceName(deviceType as string, "");
+    const modelMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType,
+        deviceName: deviceDisplayName,
+        deviceModel: null,
+        issue,
+        issueLabel,
+        needsAssessment,
+        stillMissing: ["model"],
+        isOutcome: false,
+      }
+    );
     return {
       type: "repair_flow_response",
-      messages: [`Which ${deviceDisplayName} model do you have?`],
+      messages: modelMessages,
       new_step: "model",
       scene: {
         device_type: deviceType as any,
@@ -624,9 +798,23 @@ async function handleAIInstructions(
   if (deviceType && !issue) {
     const deviceDisplayForQuestion =
       deviceModelLabel || deviceName || formatDeviceName(deviceType, "");
+    const issueMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType,
+        deviceName: deviceDisplayForQuestion,
+        deviceModel,
+        issue: null,
+        issueLabel: null,
+        needsAssessment: false,
+        stillMissing: ["issue"],
+        isOutcome: false,
+      }
+    );
     return {
       type: "repair_flow_response",
-      messages: [`What's wrong with your ${deviceDisplayForQuestion}?`],
+      messages: issueMessages,
       new_step: "issue",
       scene: {
         device_type: deviceType as any,
@@ -645,11 +833,23 @@ async function handleAIInstructions(
 
   // If we have issue but no device, ask about the device
   if (issue && !deviceType) {
-    const prefix = buildAcknowledgingPrefix(message);
-    const question = `What device has the ${issueDisplay || "issue"}?`;
+    const deviceMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType: null,
+        deviceName: null,
+        deviceModel: null,
+        issue,
+        issueLabel,
+        needsAssessment,
+        stillMissing: ["device"],
+        isOutcome: false,
+      }
+    );
     return {
       type: "repair_flow_response",
-      messages: prefix ? [prefix, question] : [question],
+      messages: deviceMessages,
       new_step: "greeting",
       scene: null,
       quick_actions: DEVICE_SELECTION_ACTIONS,
@@ -658,12 +858,23 @@ async function handleAIInstructions(
   }
 
   // Fallback - no useful info, ask what they need help with
-  const prefix = buildAcknowledgingPrefix(message);
+  const fallbackMessages = await generateRepairFlowMessage(
+    message,
+    context.conversation,
+    {
+      deviceType: null,
+      deviceName: null,
+      deviceModel: null,
+      issue: null,
+      issueLabel: null,
+      needsAssessment: false,
+      stillMissing: ["device", "issue"],
+      isOutcome: false,
+    }
+  );
   return {
     type: "repair_flow_response",
-    messages: prefix
-      ? [prefix, "What device do you need help with?"]
-      : ["What device do you need help with?"],
+    messages: fallbackMessages,
     new_step: "greeting",
     scene: null,
     quick_actions: DEVICE_SELECTION_ACTIONS,
@@ -908,12 +1119,23 @@ async function handleAITakeover(
 
   // If user just greets, respond once in a friendly way but don't loop
   if (isGreeting && !context.device_type) {
+    const greetingMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType: null,
+        deviceName: null,
+        deviceModel: null,
+        issue: null,
+        issueLabel: null,
+        needsAssessment: false,
+        stillMissing: ["device", "issue"],
+        isOutcome: false,
+      }
+    );
     return {
       type: "repair_flow_response",
-      messages: [
-        "Hi! I can help with repair pricing and bookings.",
-        "What device do you need help with today?",
-      ],
+      messages: greetingMessages,
       new_step: "greeting",
       scene: null,
       quick_actions: DEVICE_SELECTION_ACTIONS,
@@ -1010,15 +1232,24 @@ async function handleAITakeover(
       ? getSpecificPrice(detectedModel.model, detectedIssue.label)
       : detectedIssue.range;
 
+    const outcomeMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType: detectedDevice.type,
+        deviceName: detectedModel?.label || detectedDevice.name,
+        deviceModel: detectedModel?.model || null,
+        issue: detectedIssue.label.toLowerCase().replace(" ", "_"),
+        issueLabel: detectedIssue.label,
+        needsAssessment: false,
+        stillMissing: [],
+        isOutcome: true,
+      }
+    );
+
     return {
       type: "repair_flow_response",
-      messages: [
-        `Got it! ${
-          detectedModel?.label || detectedDevice.name
-        } ${detectedIssue.label.toLowerCase()} - I've got all the details.`,
-        `That's typically ${price}. Most repairs take ${detectedIssue.time}.`,
-        "This is just an estimate - John will confirm the exact price when he sees your device.",
-      ],
+      messages: outcomeMessages,
       scene: {
         device_type: detectedDevice.type as any,
         device_name: detectedModel?.label || detectedDevice.name,
@@ -1050,13 +1281,23 @@ async function handleAITakeover(
 
   // If we only have device, ask for issue
   if (detectedDevice && !detectedIssue) {
+    const deviceOnlyMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType: detectedDevice.type,
+        deviceName: detectedModel?.label || detectedDevice.name,
+        deviceModel: detectedModel?.model || null,
+        issue: null,
+        issueLabel: null,
+        needsAssessment: false,
+        stillMissing: ["issue"],
+        isOutcome: false,
+      }
+    );
     return {
       type: "repair_flow_response",
-      messages: [
-        `Got it, a ${
-          detectedModel?.label || detectedDevice.name
-        }! What seems to be the problem?`,
-      ],
+      messages: deviceOnlyMessages,
       scene: null,
       quick_actions: [
         { icon: "fa-mobile-screen", label: "Screen", value: "screen" },
@@ -1075,11 +1316,23 @@ async function handleAITakeover(
 
   // If we only have issue, ask for device
   if (detectedIssue && !detectedDevice) {
+    const issueOnlyMessages = await generateRepairFlowMessage(
+      message,
+      context.conversation,
+      {
+        deviceType: null,
+        deviceName: null,
+        deviceModel: null,
+        issue: detectedIssue.label.toLowerCase().replace(" ", "_"),
+        issueLabel: detectedIssue.label,
+        needsAssessment: false,
+        stillMissing: ["device"],
+        isOutcome: false,
+      }
+    );
     return {
       type: "repair_flow_response",
-      messages: [
-        `${detectedIssue.label} - I can help with that! What device is it?`,
-      ],
+      messages: issueOnlyMessages,
       scene: null,
       quick_actions: DEVICE_SELECTION_ACTIONS,
       morph_layout: false,
@@ -1088,12 +1341,23 @@ async function handleAITakeover(
 
   // Couldn't understand after multiple strategies - avoid looping the same
   // question and gently suggest coming in.
+  const unknownMessages = await generateRepairFlowMessage(
+    message,
+    context.conversation,
+    {
+      deviceType: null,
+      deviceName: null,
+      deviceModel: null,
+      issue: null,
+      issueLabel: null,
+      needsAssessment: false,
+      stillMissing: ["device", "issue"],
+      isOutcome: false,
+    }
+  );
   return {
     type: "repair_flow_response",
-    messages: [
-      "It's hard to tell exactly what you need from that.",
-      "If you tell me what device you have and roughly what's wrong, I can give you a guide price – or you can just pop in and we'll check it for you.",
-    ],
+    messages: unknownMessages,
     new_step: "greeting",
     scene: null,
     quick_actions: DEVICE_SELECTION_ACTIONS,
