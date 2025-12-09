@@ -1314,24 +1314,67 @@ async function handleAITakeover(
     };
   }
 
-  // Return response with appropriate quick actions based on what's missing
-  let quickActions = DEVICE_SELECTION_ACTIONS;
-  if (analysis.deviceType && !analysis.issue) {
+  // Build context-aware quick actions based on what's missing
+  let quickActions: QuickAction[] = [];
+
+  if (!analysis.deviceType) {
+    // Need device type - show device options
+    quickActions = [
+      { icon: "fa-apple", label: "iPhone", value: "iphone" },
+      { icon: "fa-mobile", label: "Samsung", value: "samsung" },
+      { icon: "fa-mobile-alt", label: "Other Phone", value: "android" },
+      { icon: "fa-tablet", label: "iPad/Tablet", value: "ipad" },
+      { icon: "fa-laptop", label: "Laptop", value: "laptop" },
+      { icon: "fa-gamepad", label: "Console", value: "console" },
+    ];
+  } else if (!analysis.issue) {
     // Have device, need issue
     quickActions = [
       { icon: "fa-mobile-screen", label: "Screen", value: "screen" },
       { icon: "fa-battery-quarter", label: "Battery", value: "battery" },
       { icon: "fa-plug", label: "Charging", value: "charging" },
       { icon: "fa-droplet", label: "Water damage", value: "water" },
-      { icon: "fa-question", label: "Something else", value: "describe_issue" },
+      { icon: "fa-camera", label: "Camera", value: "camera" },
+      { icon: "fa-question", label: "Something else", value: "other_issue" },
+    ];
+  } else if (analysis.needsModel && analysis.deviceType === "iphone") {
+    // iPhone - need to identify model
+    quickActions = [
+      { icon: "fa-face-smile", label: "Face ID", value: "face_id" },
+      { icon: "fa-circle", label: "Home Button", value: "home_button" },
+      { icon: "fa-question", label: "Not sure", value: "not_sure_model" },
+    ];
+  } else if (analysis.needsModel && analysis.deviceType === "samsung") {
+    // Samsung - need to identify model
+    quickActions = [
+      { icon: "fa-star", label: "S Series", value: "samsung_s" },
+      { icon: "fa-a", label: "A Series", value: "samsung_a" },
+      {
+        icon: "fa-mobile-screen-button",
+        label: "Fold/Flip",
+        value: "samsung_fold",
+      },
+      { icon: "fa-question", label: "Not sure", value: "not_sure_model" },
+    ];
+  } else if (analysis.needsModel) {
+    // Other device - need model
+    quickActions = [
+      { icon: "fa-calendar", label: "Newer (2022+)", value: "newer_model" },
+      { icon: "fa-calendar-minus", label: "Older", value: "older_model" },
+      { icon: "fa-question", label: "Not sure", value: "not_sure_model" },
     ];
   }
+
+  console.log(
+    "[AI Takeover] Quick actions:",
+    quickActions.map((q) => q.label)
+  );
 
   return {
     type: "repair_flow_response",
     messages: responseMessages,
     scene: null,
-    quick_actions: quickActions,
+    quick_actions: quickActions.length > 0 ? quickActions : null,
     morph_layout: false,
   };
 }
