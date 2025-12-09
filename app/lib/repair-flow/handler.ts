@@ -645,9 +645,11 @@ async function handleAIInstructions(
 
   // If we have issue but no device, ask about the device
   if (issue && !deviceType) {
+    const prefix = buildAcknowledgingPrefix(message);
+    const question = `What device has the ${issueDisplay || "issue"}?`;
     return {
       type: "repair_flow_response",
-      messages: [`What device has the ${issueDisplay || "issue"}?`],
+      messages: prefix ? [prefix, question] : [question],
       new_step: "greeting",
       scene: null,
       quick_actions: DEVICE_SELECTION_ACTIONS,
@@ -656,14 +658,57 @@ async function handleAIInstructions(
   }
 
   // Fallback - no useful info, ask what they need help with
+  const prefix = buildAcknowledgingPrefix(message);
   return {
     type: "repair_flow_response",
-    messages: ["What device do you need help with?"],
+    messages: prefix
+      ? [prefix, "What device do you need help with?"]
+      : ["What device do you need help with?"],
     new_step: "greeting",
     scene: null,
     quick_actions: DEVICE_SELECTION_ACTIONS,
     morph_layout: false,
   };
+}
+
+/**
+ * Build a short acknowledging prefix based on the raw user message.
+ * This keeps the AI from feeling like it ignores small talk or vague
+ * questions before steering back to the repair flow.
+ */
+function buildAcknowledgingPrefix(message: string): string | null {
+  const lower = message.toLowerCase().trim();
+
+  if (!lower) return null;
+
+  // Greetings / small talk
+  if (/^(hi|hello|hey|hiya)\b/.test(lower)) {
+    return "Hi! I’m here to help with your device repair.";
+  }
+
+  // Time / day style questions
+  if (
+    lower.includes("time") ||
+    lower.includes("what's the time") ||
+    lower.includes("whats the time")
+  ) {
+    return "I can’t see the exact time from here, but I can definitely help with your repair.";
+  }
+
+  // Very short vague replies
+  if (
+    lower.length <= 6 &&
+    [/^(ok|okay|yeah|yep|sure|fine)$/].some((r) => r.test(lower))
+  ) {
+    return "Got you.";
+  }
+
+  // "Don't know" style replies
+  if (/(dunno|dont know|don't know|not sure|no idea)/.test(lower)) {
+    return "No worries if you’re not sure yet.";
+  }
+
+  return null;
 }
 
 /**
