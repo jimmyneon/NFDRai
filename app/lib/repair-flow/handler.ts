@@ -436,9 +436,11 @@ function extractInfoFromMessage(
 } {
   const result: any = {};
 
-  // Device patterns
+  // Device patterns (including common typos)
   const devicePatterns: Record<string, { type: string; name: string }> = {
     iphone: { type: "iphone", name: "iPhone" },
+    ipone: { type: "iphone", name: "iPhone" }, // common typo
+    "i phone": { type: "iphone", name: "iPhone" }, // space typo
     ipad: { type: "ipad", name: "iPad" },
     samsung: { type: "samsung", name: "Samsung" },
     galaxy: { type: "samsung", name: "Samsung Galaxy" },
@@ -522,6 +524,8 @@ function extractInfoFromMessage(
       needsAssessment: true,
     },
     dead: { issue: "power", label: "Power Issue", needsAssessment: true },
+    died: { issue: "power", label: "Power Issue", needsAssessment: true },
+    "has died": { issue: "power", label: "Power Issue", needsAssessment: true },
     "no image": {
       issue: "display",
       label: "Display Issue",
