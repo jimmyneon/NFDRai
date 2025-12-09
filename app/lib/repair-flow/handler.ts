@@ -108,10 +108,15 @@ export async function handleRepairFlow(
   }
 
   // Handle special action values first
+  // User doesn't know what device they have
   if (
     msgLower === "unknown" ||
     msgLower === "i dont know" ||
-    msgLower === "not sure"
+    msgLower === "not sure" ||
+    msgLower.includes("dont know what it is") ||
+    msgLower.includes("don't know what it is") ||
+    (msgLower.includes("dont know") && msgLower.includes("device")) ||
+    (msgLower.includes("don't know") && msgLower.includes("device"))
   ) {
     return handleUnknownDevice();
   }
@@ -388,12 +393,14 @@ async function handleAIInstructions(
 
   // First try simple pattern extraction
   let extracted = extractInfoFromMessage(msgLower, context);
+  let extractionStrategy: "pattern" | "ai" = "pattern";
 
   // If we didn't extract much, use AI for typo correction
   if (!extracted.device_type && !extracted.issue) {
     console.log(
-      "[AI Instructions] Pattern matching failed, using AI extraction..."
+      "[AI Instructions] Pattern matching found nothing useful, using AI extraction..."
     );
+    extractionStrategy = "ai";
     extracted = await extractWithAI(
       message,
       instructions.context_summary || ""
@@ -413,6 +420,7 @@ async function handleAIInstructions(
   const hadTypoCorrection = !!(extracted as any).corrected_from;
 
   console.log("[AI Instructions] Extracted:", {
+    strategy: extractionStrategy,
     deviceType,
     deviceName,
     deviceModel,
@@ -423,23 +431,35 @@ async function handleAIInstructions(
     hadTypoCorrection,
   });
 
-  // Check what we still need
-  const stillMissing: string[] = [];
-  if (!deviceType && missing.includes("device")) stillMissing.push("device");
-  if (!deviceModel && !deviceModelLabel && missing.includes("model"))
-    stillMissing.push("model");
-  if (!issue && missing.includes("issue")) stillMissing.push("issue");
+  // Determine which fields are required before we hand back control
+  const minRequired =
+    instructions.min_required && instructions.min_required.length
+      ? instructions.min_required
+      : ["device", "issue"]; // Default: must have device + issue
+
+  const hasDevice = !!deviceType && deviceType !== "other";
+  const hasIssue = !!issue && issue !== "other";
+  const hasModel = !!(deviceModel || deviceModelLabel);
+
+  const meetsMinRequired = minRequired.every((field) => {
+    switch (field) {
+      case "device":
+        return hasDevice;
+      case "issue":
+        return hasIssue;
+      case "model":
+        return hasModel;
+      default:
+        return false;
+    }
+  });
 
   // Build natural response message
   const deviceDisplay = deviceModelLabel || deviceName || deviceType || "";
   const issueDisplay = issueLabel || issue || "";
 
-  // We need at least a device type AND an issue to hand back control
-  // Don't proceed with generic "device" or empty info
-  const hasEnoughInfo = deviceType && deviceType !== "other" && issue;
-
-  // If we have everything (or enough), hand back control
-  if (hasEnoughInfo) {
+  // Only hand back control if we genuinely meet required fields
+  if (meetsMinRequired) {
     console.log("[AI Instructions] Handing back control with:", {
       deviceType,
       deviceName: deviceModelLabel || deviceName,
@@ -450,6 +470,11 @@ async function handleAIInstructions(
 
     // Build response messages - naturally confirm what we understood
     const responseMessages: string[] = [];
+
+    // Decide mode for frontend
+    const mode: "direct_price" | "needs_assessment" = needsAssessment
+      ? "needs_assessment"
+      : "direct_price";
 
     if (needsAssessment) {
       responseMessages.push(
@@ -476,6 +501,7 @@ async function handleAIInstructions(
         issue: issue || "assessment",
         issue_label: issueLabel || "Assessment Required",
         needs_assessment: needsAssessment,
+        mode,
       },
       scene: {
         device_type: (deviceType || "other") as any,
@@ -497,9 +523,60 @@ async function handleAIInstructions(
     };
   }
 
-  // Still missing info - ask for it
-  if (stillMissing.includes("model") && deviceType) {
-    const deviceDisplayName = formatDeviceName(deviceType, "");
+  // LOOP GUARD / TERMINAL FALLBACK
+  // If we've already tried AI extraction and still don't meet requirements,
+  // and we effectively have no useful device or issue info, stop clarifying
+  // and fall back to an "unknown device, needs assessment" outcome.
+  if (
+    extractionStrategy === "ai" &&
+    !meetsMinRequired &&
+    !hasDevice &&
+    !hasIssue
+  ) {
+    console.log(
+      "[AI Instructions] Loop guard triggered - unable to identify device/issue, falling back to assessment."
+    );
+
+    const fallbackMessages = [
+      "I couldn't work out exactly what device you have from that.",
+      "We can still take a look for you in person and confirm the device and price when we see it.",
+    ];
+
+    return {
+      type: "repair_flow_response",
+      messages: fallbackMessages,
+      new_step: "outcome_assessment",
+      hand_back_control: {
+        device_type: "other",
+        device_name: "Unknown device",
+        device_model: undefined,
+        device_model_label: undefined,
+        issue: "assessment",
+        issue_label: "Assessment Required",
+        needs_assessment: true,
+        mode: "needs_assessment",
+      },
+      scene: {
+        device_type: "other" as any,
+        device_name: "Unknown device",
+        device_model: null,
+        device_model_label: null,
+        device_image: "/images/devices/other-generic.png",
+        device_summary: "Unknown device – Assessment Required",
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: true,
+        needs_diagnostic: true,
+      },
+      quick_actions: BOOKING_ACTIONS,
+      morph_layout: true,
+    };
+  }
+
+  // If we have device but no model and model is required, ask for the model
+  if (!hasModel && hasDevice && minRequired.includes("model")) {
+    const deviceDisplayName = formatDeviceName(deviceType as string, "");
     return {
       type: "repair_flow_response",
       messages: [`Which ${deviceDisplayName} model do you have?`],

@@ -126,8 +126,26 @@ export interface RepairFlowContext {
   // AI Instructions - tells backend to take control and gather missing info
   ai_instructions?: {
     action: "gather_info"; // What AI should do
-    missing: string[]; // What's missing: ["model", "issue"]
+    missing: string[]; // Legacy: simple list of missing fields ["device", "model", "issue"]
     context_summary: string; // Summary of what we know
+
+    // New: more structured guidance for the backend AI
+    // Which fields MUST be filled before handing control back
+    min_required?: Array<"device" | "model" | "issue">;
+
+    // Optional priority ordering for what to ask about first
+    priority?: Array<"device" | "model" | "issue">;
+
+    // New: explicit mode for the frontend to decide what UI to show
+    // - 'direct_price': we have enough info to show a price/estimate
+    // - 'needs_assessment': needs in-person diagnostic before price
+    // - 'insufficient_info': AI could not safely decide; keep asking
+    // - 'needs_human_help': AI thinks this should go to a human
+    mode?:
+      | "direct_price"
+      | "needs_assessment"
+      | "insufficient_info"
+      | "needs_human_help";
   };
 }
 
@@ -181,6 +199,24 @@ export interface HandBackControl {
   needs_assessment?: boolean; // True if device needs in-person assessment
   resume_step?: string; // Where to resume: 'model', 'issue', 'outcome_price', 'collect_contact'
   message?: string; // What to say when resuming
+
+  // New: explicit mode for the frontend to decide what UI to show
+  // - 'direct_price': we have enough info to show a price/estimate
+  // - 'needs_assessment': needs in-person diagnostic before price
+  // - 'insufficient_info': AI could not safely decide; keep asking
+  // - 'needs_human_help': AI thinks this should go to a human
+  mode?:
+    | "direct_price"
+    | "needs_assessment"
+    | "insufficient_info"
+    | "needs_human_help";
+
+  // New: more structured guidance for the backend AI
+  // Fields that MUST be filled before handing control back
+  min_required?: Array<"device" | "model" | "issue">;
+
+  // Optional priority ordering for what to ask about first
+  priority?: Array<"device" | "model" | "issue">;
 }
 
 // Model identified from user input
