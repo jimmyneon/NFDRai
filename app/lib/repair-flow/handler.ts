@@ -114,44 +114,104 @@ Ask what the problem is. You can suggest common issues:
     let modelHelpTips = "";
     if (deviceType === "iphone") {
       modelHelpTips = `Help them identify their iPhone model. Ask ONE question at a time:
-1. "Does it have Face ID (no home button) or a home button?"
-   - Face ID = iPhone X or newer (X, 11, 12, 13, 14, 15 series)
-   - Home button = iPhone 8 or older, or SE
-2. "How many cameras on the back? 1, 2, or 3?"
+
+DECISION TREE:
+1. First ask: "Does it have Face ID (no home button) or a home button?"
+   - Face ID + 3 cameras = Pro model (11 Pro, 12 Pro, 13 Pro, 14 Pro, 15 Pro)
+   - Face ID + 2 cameras = Standard (11, 12, 13, 14, 15)
+   - Home button + Touch ID = iPhone 8, SE, or older
+
+2. If Face ID, ask: "How many cameras on the back - 2 or 3?"
    - 3 cameras = Pro model
-   - 2 cameras = standard model (11, 12, 13, 14, 15)
-   - 1 camera = SE, 8, or older
-3. "Is it a larger or smaller size?"
-   - Larger = Plus/Max model
-   - Smaller = standard or Mini
-4. "What's the charging port - Lightning or USB-C?"
+   - 2 cameras = Standard model
+
+3. Then ask: "Is the charging port Lightning (oval) or USB-C (rounded rectangle)?"
    - USB-C = iPhone 15 series
    - Lightning = iPhone 14 or older
-5. "Can you check Settings > General > About? The model name is there."`;
+
+4. If still unsure: "Can you check Settings > General > About? It shows the model name."
+
+PRICE RANGES FOR IPHONE SCREEN REPAIR:
+- iPhone 15 Pro/Pro Max: £149-£189
+- iPhone 15/15 Plus: £129-£149
+- iPhone 14 Pro/Pro Max: £139-£169
+- iPhone 14/14 Plus: £109-£129
+- iPhone 13 Pro/Pro Max: £119-£149
+- iPhone 13/13 Mini: £89-£109
+- iPhone 12 series: £79-£99
+- iPhone 11 series: £69-£89
+- iPhone X/XS/XR: £59-£79
+- iPhone 8/SE: £45-£59
+
+If they REALLY can't identify it after 3 questions, give them a price RANGE like "iPhone screens are typically £59-£149 depending on model - we can confirm the exact price when you pop in."`;
     } else if (deviceType === "samsung") {
-      modelHelpTips = `Help them identify their Samsung. Ask:
-1. "Is it an S series (flagship), A series (mid-range), or a foldable?"
-2. "Does it have a curved screen or flat?"
-3. "How many cameras on the back?"
-4. "Check Settings > About Phone for the model number"`;
+      modelHelpTips = `Help them identify their Samsung. Ask ONE question at a time:
+
+1. "Is it an S series (flagship), A series (mid-range), or a foldable (Fold/Flip)?"
+2. "Do you know the number? Like S24, S23, A54, etc?"
+3. "Check Settings > About Phone - it shows the model"
+
+PRICE RANGES FOR SAMSUNG SCREEN REPAIR:
+- Galaxy S24 Ultra: £189-£229
+- Galaxy S24/S24+: £149-£179
+- Galaxy S23 series: £129-£189
+- Galaxy S22 series: £99-£149
+- Galaxy A series: £69-£99
+- Galaxy Fold/Flip: £199-£299
+
+If unsure after 2-3 questions: "Samsung screens typically run £69-£189 - we can confirm when you bring it in."`;
     } else if (deviceType === "ipad") {
-      modelHelpTips = `Help them identify their iPad. Ask:
+      modelHelpTips = `Help them identify their iPad:
+
 1. "Does it have Face ID or a home button?"
 2. "Is it a regular iPad, Air, Mini, or Pro?"
-3. "What size is the screen roughly - smaller (8-10 inch) or larger (11-13 inch)?"`;
+3. "What size roughly - smaller (8-11 inch) or larger (12-13 inch)?"
+
+PRICE RANGES FOR IPAD SCREEN REPAIR:
+- iPad Pro 12.9": £189-£249
+- iPad Pro 11": £149-£189
+- iPad Air: £119-£149
+- iPad Mini: £99-£129
+- iPad (standard): £89-£119`;
+    } else if (
+      deviceType === "ps5" ||
+      deviceType === "ps4" ||
+      deviceType === "xbox" ||
+      deviceType === "switch"
+    ) {
+      modelHelpTips = `For game consoles, common repairs:
+
+PS5/PS4:
+- HDMI port: £69-£89
+- Disc drive: £59-£79
+- Overheating/cleaning: £39-£49
+- Power issues: £49-£79
+
+Xbox:
+- HDMI port: £69-£89
+- Disc drive: £59-£79
+- Power supply: £49-£69
+
+Nintendo Switch:
+- Joy-Con drift: £25-£35 per controller
+- Screen replacement: £79-£99
+- Charging port: £49-£69
+
+Ask what specific issue they're having.`;
     } else {
-      modelHelpTips = `Help them identify the model. Ask about:
-- Physical features (size, buttons, ports)
-- Check Settings/About for model info
-- Year they bought it`;
+      modelHelpTips = `Help them identify the model:
+- What year did you get it?
+- Check Settings > About for model info
+- Any distinguishing features?
+
+Give a price range if you can estimate based on the device type.`;
     }
 
-    taskInstructions = `You have ${context.deviceName} with ${context.issueLabel} - now help them figure out the MODEL.
-NEVER say "just bring it in" - your job is to help identify the model for an accurate quote.
+    taskInstructions = `You have ${context.deviceName} with ${context.issueLabel} - now help them figure out the MODEL for accurate pricing.
 
 ${modelHelpTips}
 
-Ask ONE helpful question to narrow it down. Be conversational, not interrogating.`;
+Ask ONE helpful question. Be a helpful tech, not an interrogator. If they've tried 3+ times and still don't know, give them a price RANGE and offer to confirm when they bring it in.`;
   }
 
   return `You are Steve, a friendly repair technician at New Forest Device Repairs.
