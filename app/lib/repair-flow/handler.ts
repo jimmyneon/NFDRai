@@ -1260,220 +1260,262 @@ async function handleAITakeover(
     return handleDiagnoseIssue(message, context);
   }
 
-  // Issue keywords with prices
-  const issues: Record<string, { label: string; range: string; time: string }> =
+  // Let AI analyze the message and conversation to understand what we have
+  const analysis = await analyzeMessageWithAI(message, context);
+
+  console.log("[AI Takeover] AI Analysis:", analysis);
+
+  // Build context for response generation
+  const stillMissing: string[] = [];
+  if (!analysis.deviceType) stillMissing.push("device");
+  if (!analysis.issue) stillMissing.push("issue");
+  if (analysis.deviceType && !analysis.deviceModel && analysis.needsModel) {
+    stillMissing.push("model");
+  }
+
+  // Generate appropriate response based on what AI understood
+  const responseMessages = await generateRepairFlowMessage(
+    message,
+    context.conversation,
     {
-      screen: {
-        label: "Screen Repair",
-        range: "£45 - £149",
-        time: "1-2 hours",
-      },
-      battery: {
-        label: "Battery Replacement",
-        range: "£35 - £89",
-        time: "30-60 mins",
-      },
-      charging: { label: "Charging Port", range: "£45 - £79", time: "45 mins" },
-      charge: { label: "Charging Port", range: "£45 - £79", time: "45 mins" },
-      back: { label: "Back Glass", range: "£39 - £99", time: "1-2 hours" },
-      camera: {
-        label: "Camera Repair",
-        range: "£49 - £129",
-        time: "1-2 hours",
-      },
-      water: { label: "Water Damage", range: "£49 - £99", time: "24-72 hours" },
-    };
-
-  // Device keywords
-  const devices: Record<string, { type: string; name: string }> = {
-    iphone: { type: "iphone", name: "iPhone" },
-    ipad: { type: "ipad", name: "iPad" },
-    samsung: { type: "samsung", name: "Samsung" },
-    macbook: { type: "macbook", name: "MacBook" },
-    mac: { type: "macbook", name: "MacBook" },
-    laptop: { type: "laptop", name: "Laptop" },
-  };
-
-  // Model patterns
-  const modelPatterns: Record<string, { model: string; label: string }> = {
-    "iphone 15": { model: "iphone-15", label: "iPhone 15" },
-    "iphone 14": { model: "iphone-14", label: "iPhone 14" },
-    "iphone 13": { model: "iphone-13", label: "iPhone 13" },
-    "iphone 12": { model: "iphone-12", label: "iPhone 12" },
-    "iphone 11": { model: "iphone-11", label: "iPhone 11" },
-    "iphone x": { model: "iphone-x", label: "iPhone X" },
-    "iphone se": { model: "iphone-se", label: "iPhone SE" },
-  };
-
-  // Try to extract device, model, and issue from message (simple rules first)
-  let detectedDevice: { type: string; name: string } | null = null;
-  let detectedModel: { model: string; label: string } | null = null;
-  let detectedIssue: { label: string; range: string; time: string } | null =
-    null;
-
-  // Check for device
-  for (const [keyword, device] of Object.entries(devices)) {
-    if (msgLower.includes(keyword)) {
-      detectedDevice = device;
-      break;
+      deviceType: analysis.deviceType,
+      deviceName: analysis.deviceName,
+      deviceModel: analysis.deviceModel,
+      issue: analysis.issue,
+      issueLabel: analysis.issueLabel,
+      needsAssessment: analysis.needsAssessment || false,
+      stillMissing,
+      isOutcome: stillMissing.length === 0,
     }
-  }
+  );
 
-  // Check for model
-  for (const [pattern, model] of Object.entries(modelPatterns)) {
-    if (msgLower.includes(pattern)) {
-      detectedModel = model;
-      if (!detectedDevice) {
-        detectedDevice = { type: "iphone", name: "iPhone" };
-      }
-      break;
-    }
-  }
-
-  // Check for issue
-  for (const [keyword, issue] of Object.entries(issues)) {
-    if (msgLower.includes(keyword)) {
-      detectedIssue = issue;
-      break;
-    }
-  }
-
-  // If we have device + issue (with or without model), hand back control
-  if (detectedDevice && detectedIssue) {
-    const price = detectedModel
-      ? getSpecificPrice(detectedModel.model, detectedIssue.label)
-      : detectedIssue.range;
-
-    const outcomeMessages = await generateRepairFlowMessage(
-      message,
-      context.conversation,
-      {
-        deviceType: detectedDevice.type,
-        deviceName: detectedModel?.label || detectedDevice.name,
-        deviceModel: detectedModel?.model || null,
-        issue: detectedIssue.label.toLowerCase().replace(" ", "_"),
-        issueLabel: detectedIssue.label,
-        needsAssessment: false,
-        stillMissing: [],
-        isOutcome: true,
-      }
-    );
-
+  // If we have everything needed, hand back control
+  if (analysis.deviceType && analysis.issue && stillMissing.length === 0) {
     return {
       type: "repair_flow_response",
-      messages: outcomeMessages,
+      messages: responseMessages,
       scene: {
-        device_type: detectedDevice.type as any,
-        device_name: detectedModel?.label || detectedDevice.name,
-        device_image: `/images/devices/${detectedDevice.type}-generic.png`,
-        device_summary: `${detectedModel?.label || detectedDevice.name} – ${
-          detectedIssue.label
+        device_type: analysis.deviceType as any,
+        device_name: analysis.deviceName || analysis.deviceType,
+        device_model: analysis.deviceModel,
+        device_model_label: analysis.deviceModelLabel,
+        device_image: `/images/devices/${analysis.deviceType}-generic.png`,
+        device_summary: `${analysis.deviceName || analysis.deviceType} – ${
+          analysis.issueLabel || analysis.issue
         }`,
         jobs: null,
-        selected_job: detectedIssue.label,
-        price_estimate: price,
+        selected_job: analysis.issueLabel || analysis.issue,
+        price_estimate: analysis.priceRange,
         show_book_cta: true,
       },
       quick_actions: BOOKING_ACTIONS,
       morph_layout: true,
       new_step: "outcome_price",
       hand_back_control: {
-        device_type: detectedDevice.type,
-        device_name: detectedDevice.name,
-        device_model: detectedModel?.model,
-        device_model_label: detectedModel?.label,
-        issue: detectedIssue.label.toLowerCase().replace(" ", "_"),
-        issue_label: detectedIssue.label,
-        price: price,
+        device_type: analysis.deviceType,
+        device_name: analysis.deviceName,
+        device_model: analysis.deviceModel,
+        device_model_label: analysis.deviceModelLabel,
+        issue: analysis.issue,
+        issue_label: analysis.issueLabel,
+        price: analysis.priceRange,
         resume_step: "collect_contact",
         message: "Now I just need your contact details to book this in!",
       },
     };
   }
 
-  // If we only have device, ask for issue
-  if (detectedDevice && !detectedIssue) {
-    const deviceOnlyMessages = await generateRepairFlowMessage(
-      message,
-      context.conversation,
-      {
-        deviceType: detectedDevice.type,
-        deviceName: detectedModel?.label || detectedDevice.name,
-        deviceModel: detectedModel?.model || null,
-        issue: null,
-        issueLabel: null,
-        needsAssessment: false,
-        stillMissing: ["issue"],
-        isOutcome: false,
-      }
-    );
-    return {
-      type: "repair_flow_response",
-      messages: deviceOnlyMessages,
-      scene: null,
-      quick_actions: [
-        { icon: "fa-mobile-screen", label: "Screen", value: "screen" },
-        { icon: "fa-battery-quarter", label: "Battery", value: "battery" },
-        { icon: "fa-plug", label: "Charging", value: "charging" },
-        { icon: "fa-droplet", label: "Water damage", value: "water" },
-        {
-          icon: "fa-question",
-          label: "Something else",
-          value: "describe_issue",
-        },
-      ],
-      morph_layout: false,
-    };
+  // Return response with appropriate quick actions based on what's missing
+  let quickActions = DEVICE_SELECTION_ACTIONS;
+  if (analysis.deviceType && !analysis.issue) {
+    // Have device, need issue
+    quickActions = [
+      { icon: "fa-mobile-screen", label: "Screen", value: "screen" },
+      { icon: "fa-battery-quarter", label: "Battery", value: "battery" },
+      { icon: "fa-plug", label: "Charging", value: "charging" },
+      { icon: "fa-droplet", label: "Water damage", value: "water" },
+      { icon: "fa-question", label: "Something else", value: "describe_issue" },
+    ];
   }
 
-  // If we only have issue, ask for device
-  if (detectedIssue && !detectedDevice) {
-    const issueOnlyMessages = await generateRepairFlowMessage(
-      message,
-      context.conversation,
-      {
+  return {
+    type: "repair_flow_response",
+    messages: responseMessages,
+    scene: null,
+    quick_actions: quickActions,
+    morph_layout: false,
+  };
+}
+
+/**
+ * Use AI to analyze the message and extract structured info
+ * This is the "brain" - no hardcoded keywords, AI figures it out
+ */
+async function analyzeMessageWithAI(
+  message: string,
+  context: RepairFlowContext
+): Promise<{
+  deviceType: string | null;
+  deviceName: string | null;
+  deviceModel: string | null;
+  deviceModelLabel: string | null;
+  issue: string | null;
+  issueLabel: string | null;
+  needsModel: boolean;
+  needsAssessment: boolean;
+  priceRange: string | null;
+  notSupported: boolean;
+  notSupportedReason: string | null;
+}> {
+  try {
+    const supabase = createServiceClient();
+    const { data: aiSettings } = await supabase
+      .from("ai_settings")
+      .select("api_key")
+      .eq("active", true)
+      .single();
+
+    if (!aiSettings?.api_key) {
+      console.log("[AI Analysis] No API key");
+      return {
         deviceType: null,
         deviceName: null,
         deviceModel: null,
-        issue: detectedIssue.label.toLowerCase().replace(" ", "_"),
-        issueLabel: detectedIssue.label,
+        deviceModelLabel: null,
+        issue: null,
+        issueLabel: null,
+        needsModel: false,
         needsAssessment: false,
-        stillMissing: ["device"],
-        isOutcome: false,
-      }
-    );
-    return {
-      type: "repair_flow_response",
-      messages: issueOnlyMessages,
-      scene: null,
-      quick_actions: DEVICE_SELECTION_ACTIONS,
-      morph_layout: false,
-    };
+        priceRange: null,
+        notSupported: false,
+        notSupportedReason: null,
+      };
+    }
+
+    const chatHistory = (context.conversation || [])
+      .slice(-10)
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    const prompt = `Analyze this repair conversation and extract structured information.
+
+CONVERSATION:
+${chatHistory || "(none)"}
+
+LATEST MESSAGE: "${message}"
+
+CURRENT CONTEXT:
+- Device: ${context.device_type || "unknown"}
+- Model: ${context.device_model || "unknown"}
+- Issue: ${context.issue || "unknown"}
+
+WHAT WE REPAIR:
+- Phones (iPhone, Samsung, Android, Pixel, etc.)
+- Tablets (iPad, Samsung tablets)
+- Laptops & MacBooks
+- Game consoles (PS5, PS4, Xbox, Nintendo Switch)
+- Cameras, Drones (DC battery powered)
+- Some printer issues
+
+WHAT WE DON'T REPAIR:
+- TVs, washing machines, fridges, large appliances
+- Network/WiFi issues (no home visits)
+- Desktop PCs
+
+IMPORTANT:
+- "phone" alone is NOT specific enough - need to know iPhone, Samsung, Android, etc.
+- "broken" alone is NOT an issue - need to know screen, battery, charging, etc.
+- If they say "phone broken" you need to ask WHICH phone (iPhone? Samsung? Android?)
+
+Return ONLY valid JSON:
+{
+  "device_type": "iphone|samsung|android|ipad|macbook|laptop|ps5|ps4|xbox|switch|camera|drone|printer|null",
+  "device_name": "iPhone 14 Pro|Samsung Galaxy S24|etc|null",
+  "device_model": "iphone-14-pro|galaxy-s24|etc|null",
+  "device_model_label": "iPhone 14 Pro|Galaxy S24|etc|null",
+  "issue": "screen|battery|charging|water|camera|power|hdmi|etc|null",
+  "issue_label": "Screen Repair|Battery Replacement|etc|null",
+  "needs_model": true/false (do we need to identify specific model for pricing?),
+  "needs_assessment": true/false (is this a complex issue needing diagnosis?),
+  "price_range": "£45-£89|null",
+  "not_supported": true/false (is this something we don't repair?),
+  "not_supported_reason": "We don't repair TVs|null"
+}`;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${aiSettings.api_key}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 300,
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[AI Analysis] API error:", response.status);
+      return {
+        deviceType: null,
+        deviceName: null,
+        deviceModel: null,
+        deviceModelLabel: null,
+        issue: null,
+        issueLabel: null,
+        needsModel: false,
+        needsAssessment: false,
+        priceRange: null,
+        notSupported: false,
+        notSupportedReason: null,
+      };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        deviceType: parsed.device_type === "null" ? null : parsed.device_type,
+        deviceName: parsed.device_name === "null" ? null : parsed.device_name,
+        deviceModel:
+          parsed.device_model === "null" ? null : parsed.device_model,
+        deviceModelLabel:
+          parsed.device_model_label === "null"
+            ? null
+            : parsed.device_model_label,
+        issue: parsed.issue === "null" ? null : parsed.issue,
+        issueLabel: parsed.issue_label === "null" ? null : parsed.issue_label,
+        needsModel: parsed.needs_model || false,
+        needsAssessment: parsed.needs_assessment || false,
+        priceRange: parsed.price_range === "null" ? null : parsed.price_range,
+        notSupported: parsed.not_supported || false,
+        notSupportedReason:
+          parsed.not_supported_reason === "null"
+            ? null
+            : parsed.not_supported_reason,
+      };
+    }
+  } catch (error) {
+    console.error("[AI Analysis] Error:", error);
   }
 
-  // Couldn't understand after multiple strategies - avoid looping the same
-  // question and gently suggest coming in.
-  const unknownMessages = await generateRepairFlowMessage(
-    message,
-    context.conversation,
-    {
-      deviceType: null,
-      deviceName: null,
-      deviceModel: null,
-      issue: null,
-      issueLabel: null,
-      needsAssessment: false,
-      stillMissing: ["device", "issue"],
-      isOutcome: false,
-    }
-  );
   return {
-    type: "repair_flow_response",
-    messages: unknownMessages,
-    new_step: "greeting",
-    scene: null,
-    quick_actions: DEVICE_SELECTION_ACTIONS,
-    morph_layout: false,
+    deviceType: null,
+    deviceName: null,
+    deviceModel: null,
+    deviceModelLabel: null,
+    issue: null,
+    issueLabel: null,
+    needsModel: false,
+    needsAssessment: false,
+    priceRange: null,
+    notSupported: false,
+    notSupportedReason: null,
   };
 }
 
