@@ -431,12 +431,15 @@ async function handleAIInstructions(
   if (!issue && missing.includes("issue")) stillMissing.push("issue");
 
   // Build natural response message
-  const deviceDisplay =
-    deviceModelLabel || deviceName || deviceType || "device";
+  const deviceDisplay = deviceModelLabel || deviceName || deviceType || "";
   const issueDisplay = issueLabel || issue || "";
 
+  // We need at least a device type AND an issue to hand back control
+  // Don't proceed with generic "device" or empty info
+  const hasEnoughInfo = deviceType && deviceType !== "other" && issue;
+
   // If we have everything (or enough), hand back control
-  if (stillMissing.length === 0 || (deviceType && issue)) {
+  if (hasEnoughInfo) {
     console.log("[AI Instructions] Handing back control with:", {
       deviceType,
       deviceName: deviceModelLabel || deviceName,
@@ -522,32 +525,42 @@ async function handleAIInstructions(
     };
   }
 
-  if (stillMissing.includes("issue")) {
+  // If we have device but no issue, ask about the issue
+  if (deviceType && !issue) {
+    const deviceDisplayForQuestion =
+      deviceModelLabel || deviceName || formatDeviceName(deviceType, "");
     return {
       type: "repair_flow_response",
-      messages: [
-        `What's wrong with your ${
-          deviceModelLabel || deviceName || deviceType || "device"
-        }?`,
-      ],
+      messages: [`What's wrong with your ${deviceDisplayForQuestion}?`],
       new_step: "issue",
       scene: {
-        device_type: (deviceType || "other") as any,
-        device_name: deviceModelLabel || deviceName || deviceType || "Device",
-        device_image: `/images/devices/${deviceType || "other"}-generic.png`,
-        device_summary:
-          deviceModelLabel || deviceName || deviceType || "Device",
+        device_type: deviceType as any,
+        device_name: deviceDisplayForQuestion,
+        device_image: `/images/devices/${deviceType}-generic.png`,
+        device_summary: deviceDisplayForQuestion,
         jobs: null,
         selected_job: null,
         price_estimate: null,
         show_book_cta: false,
       },
-      quick_actions: getIssueActionsForDevice(deviceType || "other"),
+      quick_actions: getIssueActionsForDevice(deviceType),
       morph_layout: true,
     };
   }
 
-  // Fallback - ask what they need help with
+  // If we have issue but no device, ask about the device
+  if (issue && !deviceType) {
+    return {
+      type: "repair_flow_response",
+      messages: [`What device has the ${issueDisplay || "issue"}?`],
+      new_step: "greeting",
+      scene: null,
+      quick_actions: DEVICE_SELECTION_ACTIONS,
+      morph_layout: false,
+    };
+  }
+
+  // Fallback - no useful info, ask what they need help with
   return {
     type: "repair_flow_response",
     messages: ["What device do you need help with?"],
