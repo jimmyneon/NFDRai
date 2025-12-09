@@ -1493,17 +1493,21 @@ async function handleAITakeover(
   // Build context-aware quick actions based on what's missing
   let quickActions: QuickAction[] = [];
 
-  if (!analysis.deviceType) {
-    // Need device type - show device options
+  // Check if we need to ask which phone brand
+  const needsBrand =
+    analysis.deviceType === "phone" || (analysis as any).needsBrand;
+
+  if (!analysis.deviceType || needsBrand) {
+    // Need device type OR they said "phone" but we need to know which brand
     quickActions = [
       { icon: "fa-apple", label: "iPhone", value: "iphone" },
       { icon: "fa-mobile", label: "Samsung", value: "samsung" },
-      { icon: "fa-mobile-alt", label: "Other Phone", value: "android" },
+      { icon: "fa-mobile-alt", label: "Other Android", value: "android" },
       { icon: "fa-tablet", label: "iPad/Tablet", value: "ipad" },
       { icon: "fa-laptop", label: "Laptop", value: "laptop" },
       { icon: "fa-gamepad", label: "Console", value: "console" },
     ];
-  } else if (!analysis.issue) {
+  } else if (!analysis.issue || analysis.issue === "broken") {
     // Have device, need issue
     quickActions = [
       { icon: "fa-mobile-screen", label: "Screen", value: "screen" },
@@ -1619,11 +1623,23 @@ WHAT WE ALREADY KNOW (from context):
 
 YOUR JOB: Extract what we NOW know from the ENTIRE conversation (not just the last message).
 
-READ THE CONVERSATION CAREFULLY:
-- If customer said "iphone" earlier, device_type = "iphone" (don't forget this!)
-- If customer said "cracked" or "screen", issue = "screen"
-- If customer said "face id", they have iPhone X or newer
-- If customer said "home button", they have iPhone 8/SE or older
+UNDERSTANDING CUSTOMER MESSAGES:
+- "phone" or "my phone" = They have a PHONE but we need to know which brand (iPhone? Samsung? Android?)
+  → Set device_type = "phone" (generic - need to ask which brand)
+- "phone broken" or "phone brokn" = Phone with unknown issue - ask what's wrong
+- "iphone" = device_type = "iphone"
+- "samsung" or "galaxy" = device_type = "samsung"
+- "cracked", "smashed", "broken screen" = issue = "screen"
+- "won't charge", "not charging" = issue = "charging"
+- "battery dies fast", "battery" = issue = "battery"
+- "face id" = They have iPhone X or newer
+- "home button" = They have iPhone 8/SE or older
+
+HANDLE TYPOS:
+- "brokn" = "broken"
+- "screan" = "screen"
+- "baterry" = "battery"
+- "chargng" = "charging"
 
 WHAT WE REPAIR: Phones, Tablets, Laptops, MacBooks, Game consoles, Cameras, Drones
 WHAT WE DON'T: TVs, washing machines, fridges, network issues, desktop PCs
@@ -1632,22 +1648,22 @@ IMPORTANT - PRESERVE CONTEXT:
 - If we already know it's an iPhone from earlier messages, keep device_type as "iphone"
 - If we already know the issue is screen from earlier, keep issue as "screen"
 - NEVER lose information that was already established
+- "phone" is valid - it means they have a phone but we need to ask which brand
 
 Return ONLY valid JSON:
 {
-  "device_type": "iphone|samsung|android|ipad|macbook|laptop|ps5|ps4|xbox|switch|null",
-  "device_name": "iPhone|Samsung Galaxy|etc|null",
+  "device_type": "phone|iphone|samsung|android|ipad|macbook|laptop|ps5|ps4|xbox|switch|null",
+  "device_name": "Phone|iPhone|Samsung Galaxy|etc|null",
   "device_model": "iphone-14-pro|iphone-x|etc|null (only if we can identify specific model)",
   "device_model_label": "iPhone 14 Pro|iPhone X|etc|null",
-  "issue": "screen|battery|charging|water|camera|power|null",
-  "issue_label": "Screen Repair|Battery Replacement|etc|null",
+  "issue": "screen|battery|charging|water|camera|power|broken|null",
+  "issue_label": "Screen Repair|Battery Replacement|General Repair|etc|null",
   "needs_model": true/false,
   "needs_assessment": false,
   "price_range": null,
   "not_supported": false,
   "not_supported_reason": null,
-  "face_id_answer": "yes|no|null (if they mentioned Face ID)",
-  "camera_count": "1|2|3|null (if they mentioned cameras)",
+  "needs_brand": true/false (true if device_type is "phone" - we need to know iPhone/Samsung/etc),
   "reasoning": "Brief explanation of what you extracted and why"
 }`;
 
