@@ -1436,9 +1436,68 @@ async function handleAITakeover(
     };
   }
 
-  // If user says they don't know, gently move into a diagnostic-style helper
+  // If user says they don't know - check WHAT they don't know
   if (isDontKnow && context.device_type) {
-    return handleDiagnoseIssue(message, context);
+    // Check conversation context - are we asking about MODEL or ISSUE?
+    const lastMessages = (context.conversation || [])
+      .slice(-3)
+      .map((m) => m.content.toLowerCase())
+      .join(" ");
+    const askingAboutModel =
+      /model|which (iphone|samsung|ipad)|face id|home button|camera/.test(
+        lastMessages
+      );
+
+    if (askingAboutModel) {
+      // They don't know the MODEL - help them identify it!
+      console.log("[AI Takeover] User unsure about MODEL - helping identify");
+      const modelHelpMessages = await generateRepairFlowMessage(
+        message,
+        context.conversation,
+        {
+          deviceType: context.device_type,
+          deviceName: context.device_name || context.device_type,
+          deviceModel: null,
+          issue: context.issue,
+          issueLabel: context.issue_label,
+          needsAssessment: false,
+          stillMissing: ["model"],
+          isOutcome: false,
+        }
+      );
+
+      // Show model identification buttons
+      let modelButtons: QuickAction[] = [];
+      if (context.device_type === "iphone") {
+        modelButtons = [
+          { icon: "fa-face-smile", label: "Has Face ID", value: "face_id" },
+          { icon: "fa-circle", label: "Has Home Button", value: "home_button" },
+          { icon: "fa-camera", label: "3 Cameras (Pro)", value: "3_cameras" },
+          { icon: "fa-camera", label: "2 Cameras", value: "2_cameras" },
+        ];
+      } else if (context.device_type === "samsung") {
+        modelButtons = [
+          { icon: "fa-star", label: "S Series", value: "samsung_s" },
+          { icon: "fa-a", label: "A Series", value: "samsung_a" },
+          {
+            icon: "fa-mobile-screen-button",
+            label: "Fold/Flip",
+            value: "samsung_fold",
+          },
+        ];
+      }
+
+      return {
+        type: "repair_flow_response",
+        messages: modelHelpMessages,
+        scene: null,
+        quick_actions: modelButtons.length > 0 ? modelButtons : null,
+        morph_layout: false,
+      };
+    } else {
+      // They don't know the ISSUE - help diagnose
+      return handleDiagnoseIssue(message, context);
+    }
   }
 
   // Let AI analyze the message and conversation to understand what we have
