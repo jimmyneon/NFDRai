@@ -958,8 +958,8 @@ async function handleAIInstructions(
 
   // LOOP GUARD / TERMINAL FALLBACK
   // If we've already tried AI extraction and still don't meet requirements,
-  // and we effectively have no useful device or issue info, stop clarifying
-  // and fall back to an "unknown device, needs assessment" outcome.
+  // and we effectively have no useful device or issue info, DON'T give up immediately!
+  // Instead, ask clarifying questions first.
   //
   // IMPORTANT: don't do this for very short, greeting-like messages such as
   // "hi", "hello", etc. Those should go through the normal greeting/device
@@ -967,18 +967,34 @@ async function handleAIInstructions(
   const isShortGreeting =
     msgLower.trim().length <= 12 &&
     !msgLower.match(
-      /(screen|battery|charge|charging|water|crack|broken|broke|dead|won't turn on|wont turn on|problem|issue)/
+      /(screen|battery|charge|charging|water|crack|broken|broke|dead|won't turn on|wont turn on|problem|issue|phone|pone|fone|iphone|samsung|ipad|laptop|mac)/i
     );
+
+  // Check if message looks like it might be about a device (even with typos)
+  const mightBeDeviceRelated =
+    /phone|pone|fone|phon|mobil|cell|iphone|samsung|ipad|tablet|laptop|mac|screen|broke|broken|crack|charg|batter/i.test(
+      msgLower
+    );
+
+  // Only trigger loop guard if:
+  // 1. We've tried AI extraction
+  // 2. We don't meet requirements
+  // 3. Message doesn't look device-related at all
+  // 4. It's not a greeting
+  // 5. We've had multiple failed attempts (check context)
+  const failedAttempts = (context as any).failed_attempts || 0;
 
   if (
     extractionStrategy === "ai" &&
     !meetsMinRequired &&
     !hasDevice &&
     !hasIssue &&
-    !isShortGreeting
+    !isShortGreeting &&
+    !mightBeDeviceRelated &&
+    failedAttempts >= 3
   ) {
     console.log(
-      "[AI Instructions] Loop guard triggered - unable to identify device/issue, falling back to assessment."
+      "[AI Instructions] Loop guard triggered after 3+ failed attempts - falling back to assessment."
     );
 
     // Generate a natural fallback message using LLM
@@ -1635,11 +1651,17 @@ UNDERSTANDING CUSTOMER MESSAGES:
 - "face id" = They have iPhone X or newer
 - "home button" = They have iPhone 8/SE or older
 
-HANDLE TYPOS:
-- "brokn" = "broken"
-- "screan" = "screen"
-- "baterry" = "battery"
-- "chargng" = "charging"
+HANDLE TYPOS (be smart about common misspellings!):
+- "pones" or "pone" or "fone" or "phon" = "phone"
+- "brokn" or "brokenm" or "borken" = "broken"
+- "screan" or "scren" = "screen"
+- "baterry" or "battry" = "battery"
+- "chargng" or "charing" = "charging"
+- "iphon" or "iphone" = "iPhone"
+- "samsun" or "samung" = "Samsung"
+
+IMPORTANT: If the message looks like it's about a phone/device, even with typos, extract what you can!
+"pones brokenm" = phone + broken (needs to know which phone brand and what's specifically wrong)
 
 WHAT WE REPAIR: Phones, Tablets, Laptops, MacBooks, Game consoles, Cameras, Drones
 WHAT WE DON'T: TVs, washing machines, fridges, network issues, desktop PCs
