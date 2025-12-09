@@ -853,6 +853,7 @@ export function getIPhoneModel(modelId: string): iPhoneModel | null {
  */
 export function parseSymptomToIssue(symptom: string): string {
   const lower = symptom.toLowerCase();
+  const compact = lower.replace(/\s+/g, "");
 
   // Screen issues
   if (
@@ -879,11 +880,24 @@ export function parseSymptomToIssue(symptom: string): string {
 
   // Charging issues
   if (
+    // Generic charging / power words
     lower.includes("charg") ||
-    lower.includes("won't turn on") ||
     lower.includes("dead") ||
     lower.includes("power") ||
-    lower.includes("plug")
+    lower.includes("plug") ||
+    lower.includes("no power") ||
+    lower.includes("won't start") ||
+    lower.includes("wont start") ||
+    lower.includes("won't boot") ||
+    lower.includes("wont boot") ||
+    lower.includes("wont turn on") ||
+    lower.includes("won't turn on") ||
+    lower.includes("doesn't turn on") ||
+    lower.includes("doesnt turn on") ||
+    lower.includes("not turning on") ||
+    lower.includes("not turnin on") ||
+    // Very messy typos we've seen in the wild
+    compact.includes("turoinong")
   ) {
     return "charging";
   }

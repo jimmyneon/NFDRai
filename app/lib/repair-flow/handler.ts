@@ -209,11 +209,18 @@ export async function handleRepairFlow(
 
     case "issue":
     case "issue_selected":
+      // If user doesn't know how to describe the issue, switch to a more
+      // helpful diagnostic helper instead of repeating the same question.
+      if (/dunno|dont know|don't know|not sure|no idea/.test(msgLower)) {
+        return handleDiagnoseIssue(message, context);
+      }
+
       return await handleIssueSelected(message, context);
 
     case "issue_unknown":
-      // User described an unusual issue - try to understand it
-      return await handleIssueSelected(message, context);
+      // User described an unusual issue - try to understand it by
+      // parsing the symptom text first, then falling back to diagnosis.
+      return handleIssueUnknown(message, context);
 
     case "diagnose_issue":
       return handleDiagnoseIssue(message, context);
@@ -660,6 +667,30 @@ async function handleAIInstructions(
 }
 
 /**
+ * User has described an unusual issue in free text (issue_unknown step)
+ * Try to parse the symptom into a known issue type, otherwise fall back
+ * to the friendly diagnostic helper.
+ */
+async function handleIssueUnknown(
+  message: string,
+  context: RepairFlowContext
+): Promise<RepairFlowResponse> {
+  const parsed = parseSymptomToIssue(message);
+
+  if (parsed && parsed !== "other") {
+    const newContext: RepairFlowContext = {
+      ...context,
+      issue: parsed as any,
+    };
+    return handleIssueSelected(parsed, newContext);
+  }
+
+  // Couldn't confidently map it - use diagnostic helper instead of
+  // bouncing the user back to the start.
+  return handleDiagnoseIssue(message, context);
+}
+
+/**
  * Extract device, model, and issue info from a message
  */
 function extractInfoFromMessage(
@@ -815,14 +846,40 @@ function extractInfoFromMessage(
  * 2. Provide price and offer booking
  * 3. Hand back control to frontend with collected data
  */
-function handleAITakeover(
+async function handleAITakeover(
   message: string,
   context: RepairFlowContext
-): RepairFlowResponse {
+): Promise<RepairFlowResponse> {
   const msgLower = message.toLowerCase();
   const fullState = context.full_state || {};
 
   console.log("[Repair Flow] AI Takeover:", { message, fullState });
+
+  const trimmed = msgLower.trim();
+  const isGreeting = /^(hi|hello|hey|hiya)\b/.test(trimmed);
+  const isDontKnow = /(dunno|dont know|don't know|not sure|no idea)/.test(
+    trimmed
+  );
+
+  // If user just greets, respond once in a friendly way but don't loop
+  if (isGreeting && !context.device_type) {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Hi! I can help with repair pricing and bookings.",
+        "What device do you need help with today?",
+      ],
+      new_step: "greeting",
+      scene: null,
+      quick_actions: DEVICE_SELECTION_ACTIONS,
+      morph_layout: false,
+    };
+  }
+
+  // If user says they don't know, gently move into a diagnostic-style helper
+  if (isDontKnow && context.device_type) {
+    return handleDiagnoseIssue(message, context);
+  }
 
   // Issue keywords with prices
   const issues: Record<string, { label: string; range: string; time: string }> =
@@ -869,7 +926,7 @@ function handleAITakeover(
     "iphone se": { model: "iphone-se", label: "iPhone SE" },
   };
 
-  // Try to extract device, model, and issue from message
+  // Try to extract device, model, and issue from message (simple rules first)
   let detectedDevice: { type: string; name: string } | null = null;
   let detectedModel: { model: string; label: string } | null = null;
   let detectedIssue: { label: string; range: string; time: string } | null =
@@ -984,13 +1041,15 @@ function handleAITakeover(
     };
   }
 
-  // Couldn't understand - ask for clarification
+  // Couldn't understand after multiple strategies - avoid looping the same
+  // question and gently suggest coming in.
   return {
     type: "repair_flow_response",
     messages: [
-      "I'd love to help! Could you tell me what device you have and what's wrong with it?",
-      "For example: 'iPhone 12 screen cracked' or 'Samsung battery dying'",
+      "It's hard to tell exactly what you need from that.",
+      "If you tell me what device you have and roughly what's wrong, I can give you a guide price – or you can just pop in and we'll check it for you.",
     ],
+    new_step: "greeting",
     scene: null,
     quick_actions: DEVICE_SELECTION_ACTIONS,
     morph_layout: false,
