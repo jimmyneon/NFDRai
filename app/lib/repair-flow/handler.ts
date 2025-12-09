@@ -251,6 +251,7 @@ export async function handleRepairFlow(
 
 /**
  * Use AI to extract device/model/issue from a message with typo correction
+ * Returns extracted info plus whether corrections were made
  */
 async function extractWithAI(
   message: string,
@@ -263,6 +264,7 @@ async function extractWithAI(
   issue?: string;
   issue_label?: string;
   needs_assessment?: boolean;
+  corrected_from?: string; // Original typo if correction was made
 }> {
   try {
     // Get AI settings from database
@@ -278,10 +280,11 @@ async function extractWithAI(
       return {};
     }
 
-    const prompt = `Extract device and issue information from this customer message. Correct any obvious typos.
+    const prompt = `Extract device and issue information from this customer message. Correct any obvious typos/misspellings.
 
 Customer message: "${message}"
 ${contextSummary ? `Context: ${contextSummary}` : ""}
+
 Return ONLY valid JSON (no markdown, no explanation):
 {
   "device_type": "iphone|ipad|samsung|macbook|laptop|console|tablet|other|null",
@@ -290,13 +293,22 @@ Return ONLY valid JSON (no markdown, no explanation):
   "device_model_label": "Human readable model like 'iPhone 14 Pro' or null", 
   "issue": "screen|battery|charging|camera|water|power|display|other|null",
   "issue_label": "Human readable issue like 'Screen Repair' or 'Power Issue' or null",
-  "needs_assessment": true/false (true for: power issues, water damage, won't turn on, complex issues)
+  "needs_assessment": true/false (true for: power issues, water damage, won't turn on, complex issues),
+  "had_typos": true/false (true if you corrected any spelling mistakes)
 }
 
+Common typos to correct:
+- ipone, iphon, i phone → iPhone
+- samsng, samung, samsumg → Samsung
+- macbok, mackbook → MacBook
+- batery, baterry → battery
+- screan, scren → screen
+- chargeing, chargin → charging
+- brocken, borken → broken
+
 Examples:
-- "my ipone has died" → {"device_type":"iphone","device_name":"iPhone","issue":"power","issue_label":"Power Issue","needs_assessment":true}
-- "samsng screen craked" → {"device_type":"samsung","device_name":"Samsung","issue":"screen","issue_label":"Screen Repair","needs_assessment":false}
-- "macbok wont charge" → {"device_type":"macbook","device_name":"MacBook","issue":"charging","issue_label":"Charging Issue","needs_assessment":false}`;
+- "my ipone has died" → {"device_type":"iphone","device_name":"iPhone","issue":"power","issue_label":"Power Issue","needs_assessment":true,"had_typos":true}
+- "samsung screen cracked" → {"device_type":"samsung","device_name":"Samsung","issue":"screen","issue_label":"Screen Repair","needs_assessment":false,"had_typos":false}`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -307,7 +319,7 @@ Examples:
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 200,
+        max_tokens: 250,
         temperature: 0.1,
       }),
     });
@@ -325,6 +337,10 @@ Examples:
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       console.log("[AI Extraction] Parsed:", parsed);
+
+      // If typos were corrected, note the original message
+      const correctedFrom = parsed.had_typos ? message : undefined;
+
       return {
         device_type:
           parsed.device_type === "null" ? undefined : parsed.device_type,
@@ -340,6 +356,7 @@ Examples:
         issue_label:
           parsed.issue_label === "null" ? undefined : parsed.issue_label,
         needs_assessment: parsed.needs_assessment || false,
+        corrected_from: correctedFrom,
       };
     }
   } catch (error) {
@@ -393,6 +410,7 @@ async function handleAIInstructions(
   const issue = extracted.issue || context.issue;
   const issueLabel = extracted.issue_label || context.issue_label;
   const needsAssessment = extracted.needs_assessment || false;
+  const hadTypoCorrection = !!(extracted as any).corrected_from;
 
   console.log("[AI Instructions] Extracted:", {
     deviceType,
@@ -402,6 +420,7 @@ async function handleAIInstructions(
     issue,
     issueLabel,
     needsAssessment,
+    hadTypoCorrection,
   });
 
   // Check what we still need
@@ -410,6 +429,11 @@ async function handleAIInstructions(
   if (!deviceModel && !deviceModelLabel && missing.includes("model"))
     stillMissing.push("model");
   if (!issue && missing.includes("issue")) stillMissing.push("issue");
+
+  // Build natural response message
+  const deviceDisplay =
+    deviceModelLabel || deviceName || deviceType || "device";
+  const issueDisplay = issueLabel || issue || "";
 
   // If we have everything (or enough), hand back control
   if (stillMissing.length === 0 || (deviceType && issue)) {
@@ -421,20 +445,25 @@ async function handleAIInstructions(
       needsAssessment,
     });
 
+    // Build response messages - naturally confirm what we understood
+    const responseMessages: string[] = [];
+
+    if (needsAssessment) {
+      responseMessages.push(
+        `${deviceDisplay} with ${
+          issueDisplay || "an issue"
+        } - we can take a look at that!`
+      );
+      responseMessages.push(
+        "This will need an in-person assessment to give you an accurate quote."
+      );
+    } else {
+      responseMessages.push(`${deviceDisplay} ${issueDisplay} - got it! 👍`);
+    }
+
     return {
       type: "repair_flow_response",
-      messages: needsAssessment
-        ? [
-            `${deviceModelLabel || deviceName || deviceType} with ${
-              issueLabel || issue || "an issue"
-            } - we can take a look at that!`,
-            "This will need an in-person assessment to give you an accurate quote.",
-          ]
-        : [
-            `${deviceModelLabel || deviceName || deviceType} ${
-              issueLabel || issue || ""
-            } - got it! 👍`,
-          ],
+      messages: responseMessages,
       new_step: needsAssessment ? "outcome_assessment" : "outcome_price",
       hand_back_control: {
         device_type: deviceType || "other",
