@@ -1143,13 +1143,233 @@ function handleIdentifyiPhone(context: RepairFlowContext): RepairFlowResponse {
 }
 
 /**
- * Handle identification response (Face ID, Home Button, size)
+ * Handle identification response (Face ID, Home Button, size, usable/not usable)
  */
 function handleIdentifyResponse(
   message: string,
   context: RepairFlowContext
 ): RepairFlowResponse {
   const action = message.replace("identify_", "").toLowerCase();
+  const deviceType = context.device_type || "iphone";
+  const deviceName =
+    deviceType === "iphone"
+      ? "iPhone"
+      : deviceType === "ipad"
+      ? "iPad"
+      : deviceType === "samsung"
+      ? "Samsung"
+      : "device";
+  const id = context.identification || {};
+
+  // Device is usable - guide them to Settings
+  if (action === "device_usable") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "Perfect! Here's the easiest way to find your model: 📱",
+        deviceType === "iphone"
+          ? "Go to Settings → General → About → look for 'Model Name'"
+          : deviceType === "samsung"
+          ? "Go to Settings → About Phone → look for 'Model Name'"
+          : "Go to Settings → About → look for 'Model Name'",
+        "What does it say?",
+      ],
+      new_step: "identify_model",
+      scene: {
+        device_type: deviceType,
+        device_name: `${deviceName} (checking Settings...)`,
+        device_image: `/images/devices/${deviceType}-generic.png`,
+        device_summary: `${deviceName} - Checking Settings`,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        {
+          icon: "fa-cog",
+          label: "Found it!",
+          value: "identify_found",
+        },
+        {
+          icon: "fa-question-circle",
+          label: "Can't find it",
+          value: "identify_cant_find_settings",
+        },
+        {
+          icon: "fa-store",
+          label: "Skip - I'll bring it in",
+          value: "identify_giveup",
+        },
+      ],
+      morph_layout: true,
+      next_context: {
+        identification: {
+          ...id,
+          device_usable: true,
+          asked_settings: true,
+        },
+      },
+    };
+  }
+
+  // Device not usable - ask about physical characteristics (port, cameras)
+  if (action === "device_not_usable") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "No worries! Let's figure it out from the outside. 🔍",
+        deviceType === "iphone"
+          ? "What type of charging port does it have?"
+          : "Can you describe it a bit? (size, cameras, any distinguishing features)",
+      ],
+      new_step: "identify_model",
+      scene: {
+        device_type: deviceType,
+        device_name: `${deviceName} (identifying...)`,
+        device_image: `/images/devices/${deviceType}-generic.png`,
+        device_summary: `${deviceName} - Physical identification`,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions:
+        deviceType === "iphone"
+          ? [
+              {
+                icon: "fa-bolt",
+                label: "Lightning (old style)",
+                value: "identify_lightning",
+              },
+              {
+                icon: "fa-plug",
+                label: "USB-C (new style)",
+                value: "identify_usbc",
+              },
+              {
+                icon: "fa-question-circle",
+                label: "Not sure",
+                value: "identify_port_unknown",
+              },
+              {
+                icon: "fa-store",
+                label: "Skip - I'll bring it in",
+                value: "identify_giveup",
+              },
+            ]
+          : [
+              {
+                icon: "fa-store",
+                label: "I'll bring it in",
+                value: "identify_giveup",
+              },
+            ],
+      morph_layout: true,
+      next_context: {
+        identification: {
+          ...id,
+          device_usable: false,
+          asked_port: true,
+        },
+      },
+    };
+  }
+
+  // Can't find in Settings - fall back to port/camera questions
+  if (action === "cant_find_settings") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "No problem! Let's try another way. 🔍",
+        deviceType === "iphone"
+          ? "What type of charging port does it have?"
+          : "Can you tell me roughly how big it is, or how many cameras it has?",
+      ],
+      new_step: "identify_model",
+      scene: {
+        device_type: deviceType,
+        device_name: `${deviceName} (identifying...)`,
+        device_image: `/images/devices/${deviceType}-generic.png`,
+        device_summary: `${deviceName} - Physical identification`,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions:
+        deviceType === "iphone"
+          ? [
+              {
+                icon: "fa-bolt",
+                label: "Lightning (old style)",
+                value: "identify_lightning",
+              },
+              {
+                icon: "fa-plug",
+                label: "USB-C (new style)",
+                value: "identify_usbc",
+              },
+              {
+                icon: "fa-question-circle",
+                label: "Not sure about port",
+                value: "identify_port_unknown",
+              },
+            ]
+          : [
+              {
+                icon: "fa-store",
+                label: "I'll bring it in",
+                value: "identify_giveup",
+              },
+            ],
+      morph_layout: true,
+      next_context: {
+        identification: {
+          ...id,
+          asked_port: true,
+        },
+      },
+    };
+  }
+
+  // Don't know port type - ask about cameras instead
+  if (action === "port_unknown") {
+    return {
+      type: "repair_flow_response",
+      messages: [
+        "OK, let's try cameras! How many cameras does it have on the back?",
+      ],
+      new_step: "identify_model",
+      scene: {
+        device_type: deviceType,
+        device_name: `${deviceName} (identifying...)`,
+        device_image: `/images/devices/${deviceType}-generic.png`,
+        device_summary: `${deviceName} - Checking cameras`,
+        jobs: null,
+        selected_job: null,
+        price_estimate: null,
+        show_book_cta: false,
+      },
+      quick_actions: [
+        { icon: "fa-circle", label: "1 camera", value: "identify_1cam" },
+        { icon: "fa-circle", label: "2 cameras", value: "identify_2cam" },
+        { icon: "fa-circle", label: "3 cameras", value: "identify_3cam" },
+        {
+          icon: "fa-store",
+          label: "Skip - I'll bring it in",
+          value: "identify_giveup",
+        },
+      ],
+      morph_layout: true,
+      next_context: {
+        identification: {
+          ...id,
+          asked_cameras: true,
+        },
+      },
+    };
+  }
 
   if (action === "faceid") {
     // Face ID phone - ask about size
@@ -1629,6 +1849,69 @@ function handleIdentifyResponse(
 }
 
 /**
+ * Start identification flow - first ask if device is turned on/usable
+ * If usable → Guide to Settings to find model
+ * If not usable → Ask about port type, cameras, etc.
+ */
+function startIdentificationFlow(
+  context: RepairFlowContext
+): RepairFlowResponse {
+  const deviceType = context.device_type || "iphone";
+  const deviceName =
+    deviceType === "iphone"
+      ? "iPhone"
+      : deviceType === "ipad"
+      ? "iPad"
+      : deviceType === "samsung"
+      ? "Samsung"
+      : "device";
+
+  return {
+    type: "repair_flow_response",
+    messages: [
+      "No problem - let me help you figure it out! 🔍",
+      `Is your ${deviceName} turned on and usable right now?`,
+    ],
+    new_step: "identify_device",
+    scene: {
+      device_type: deviceType,
+      device_name: `${deviceName} (identifying...)`,
+      device_image: `/images/devices/${deviceType}-generic.png`,
+      device_summary: `${deviceName} - Let's identify it`,
+      jobs: null,
+      selected_job: null,
+      price_estimate: null,
+      show_book_cta: false,
+    },
+    quick_actions: [
+      {
+        icon: "fa-check",
+        label: "Yes, it's working",
+        value: "identify_device_usable",
+      },
+      {
+        icon: "fa-times",
+        label: "No, it won't turn on",
+        value: "identify_device_not_usable",
+      },
+      {
+        icon: "fa-question-circle",
+        label: "Skip - I'll bring it in",
+        value: "identify_giveup",
+      },
+    ],
+    morph_layout: true,
+    next_context: {
+      identification: {
+        ...(context.identification || {}),
+        asked_usable: true,
+        attempts: (context.identification?.attempts || 0) + 1,
+      },
+    },
+  };
+}
+
+/**
  * Proceed without knowing exact model - give range pricing
  */
 function handleProceedWithoutModel(
@@ -1713,6 +1996,25 @@ function handleModelUnknown(
     series,
     summary,
   });
+
+  // Detect "I don't know" type phrases - start identification help flow
+  const dontKnowPatterns = [
+    /^i('m| am)?\s*(not\s+sure|unsure|don'?t\s+know)/i,
+    /^not\s+sure/i,
+    /^don'?t\s+know/i,
+    /^no\s+idea/i,
+    /^i\s+have\s+no\s+(idea|clue)/i,
+    /^can'?t\s+(remember|tell)/i,
+    /^(dunno|idk)$/i,
+  ];
+
+  if (dontKnowPatterns.some((pattern) => pattern.test(msgLower))) {
+    console.log(
+      "[Model Unknown] User doesn't know model - starting identification help"
+    );
+    // Start identification flow - first ask if device is usable
+    return startIdentificationFlow(context);
+  }
 
   // Try regex-based model detection with context awareness
   const modelDetected = detectModelWithContext(

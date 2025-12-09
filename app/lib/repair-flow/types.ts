@@ -85,6 +85,8 @@ export interface RepairFlowContext {
 
   // For device identification flow - track what we've already asked
   identification?: {
+    asked_usable?: boolean; // Already asked if device is turned on/usable
+    device_usable?: boolean | null; // Is device turned on and usable
     asked_settings?: boolean; // Already told them to check Settings
     asked_port?: boolean; // Already asked Lightning vs USB-C
     port_type?: "lightning" | "usbc" | null;
