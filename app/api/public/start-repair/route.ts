@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendMessageViaProvider } from "@/app/lib/messaging/provider";
+import { buildQuoteRequestConfirmationSms } from "@/app/lib/quote-request-sms";
 
 // Use service role for public access (no auth required)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -28,7 +29,18 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text();
     const payload = JSON.parse(rawBody);
 
-    const { name, phone, email, device_make, device_model, issue } = payload;
+    const {
+      name,
+      phone,
+      email,
+      device_make,
+      device_model,
+      issue,
+      type,
+      page,
+      source,
+    } = payload;
+    const requestType: "repair" | "sell" = type === "sell" ? "sell" : "repair";
 
     // Validate required fields
     const missingFields: string[] = [];
@@ -36,7 +48,7 @@ export async function POST(request: NextRequest) {
     if (!phone) missingFields.push("phone");
     if (!device_make) missingFields.push("device_make");
     if (!device_model) missingFields.push("device_model");
-    if (!issue) missingFields.push("issue");
+    if (requestType === "repair" && !issue) missingFields.push("issue");
 
     if (missingFields.length > 0) {
       return NextResponse.json(
@@ -56,6 +68,9 @@ export async function POST(request: NextRequest) {
 
     // Normalize phone number
     const normalizedPhone = normalizePhone(phone);
+
+    const normalizedIssue =
+      requestType === "sell" ? issue || "Device sell enquiry" : issue;
 
     // Create Supabase client with service role for public access
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -94,21 +109,90 @@ export async function POST(request: NextRequest) {
     }
 
     // Create quote request record
-    const { data: quoteRequest, error: quoteError } = await supabase
+    // Backward-compatible: if the DB migration adding quote_requests.type hasn't been applied yet,
+    // retry insert without the type field.
+    const baseQuoteInsert: Record<string, any> = {
+      name,
+      phone: normalizedPhone,
+      email: email || null,
+      device_make,
+      device_model,
+      issue: normalizedIssue,
+      customer_id: customer?.id || null,
+      source:
+        typeof source === "string" && source.length > 0 ? source : "website",
+      status: "pending",
+    };
+
+    if (typeof page === "string" && page.length > 0) {
+      baseQuoteInsert.page = page;
+    }
+
+    let quoteRequest: any = null;
+    let quoteError: any = null;
+
+    const insertWithType = await supabase
       .from("quote_requests")
-      .insert({
-        name,
-        phone: normalizedPhone,
-        email: email || null,
-        device_make,
-        device_model,
-        issue,
-        customer_id: customer?.id || null,
-        source: "website",
-        status: "pending",
-      })
+      .insert({ ...baseQuoteInsert, type: requestType })
       .select()
       .single();
+
+    quoteRequest = insertWithType.data;
+    quoteError = insertWithType.error;
+
+    if (quoteError && typeof quoteError.message === "string") {
+      const lower = quoteError.message.toLowerCase();
+
+      // Retry without type if the column doesn't exist yet
+      if (
+        lower.includes("column") &&
+        lower.includes("type") &&
+        lower.includes("quote_requests")
+      ) {
+        const insertWithoutType = await supabase
+          .from("quote_requests")
+          .insert(baseQuoteInsert)
+          .select()
+          .single();
+        quoteRequest = insertWithoutType.data;
+        quoteError = insertWithoutType.error;
+      }
+
+      // Retry without page if the column doesn't exist yet
+      if (
+        quoteError &&
+        typeof quoteError.message === "string" &&
+        quoteError.message.toLowerCase().includes("column") &&
+        quoteError.message.toLowerCase().includes("page") &&
+        quoteError.message.toLowerCase().includes("quote_requests")
+      ) {
+        const { page: _page, ...withoutPage } = baseQuoteInsert;
+        const insertWithoutPage = await supabase
+          .from("quote_requests")
+          .insert({ ...withoutPage, type: requestType })
+          .select()
+          .single();
+
+        quoteRequest = insertWithoutPage.data;
+        quoteError = insertWithoutPage.error;
+
+        if (
+          quoteError &&
+          typeof quoteError.message === "string" &&
+          quoteError.message.toLowerCase().includes("column") &&
+          quoteError.message.toLowerCase().includes("type") &&
+          quoteError.message.toLowerCase().includes("quote_requests")
+        ) {
+          const insertWithoutPageAndType = await supabase
+            .from("quote_requests")
+            .insert(withoutPage)
+            .select()
+            .single();
+          quoteRequest = insertWithoutPageAndType.data;
+          quoteError = insertWithoutPageAndType.error;
+        }
+      }
+    }
 
     if (quoteError) {
       console.error("[Start Repair] Error creating quote request:", quoteError);
@@ -132,7 +216,8 @@ export async function POST(request: NextRequest) {
       name,
       device_make,
       device_model,
-      issue,
+      issue: normalizedIssue,
+      type: requestType,
     });
 
     // Send SMS via MacroDroid
@@ -213,20 +298,9 @@ function buildConfirmationSms(details: {
   device_make: string;
   device_model: string;
   issue: string;
+  type: "repair" | "sell";
 }): string {
-  const { name, device_make, device_model, issue } = details;
-  const firstName = name.split(" ")[0];
-
-  return `Hi ${firstName},
-
-Thanks for your repair enquiry!
-
-John will get back to you ASAP with a quote for your ${device_make} ${device_model} (${issue}).
-
-If you have any questions in the meantime, just reply to this message.
-
-Many thanks,
-New Forest Device Repairs`;
+  return buildQuoteRequestConfirmationSms(details);
 }
 
 /**

@@ -16,6 +16,11 @@ export default async function QuotesPage() {
     console.error("[Quotes] Error fetching quote requests:", quoteError);
   }
 
+  const repairQuoteRequests =
+    quoteRequests?.filter((q: any) => (q.type || "repair") !== "sell") || [];
+  const sellQuoteRequests =
+    quoteRequests?.filter((q: any) => (q.type || "repair") === "sell") || [];
+
   // Get webchat conversations that have contact details (phone or email)
   const { data: leads, error } = await supabase
     .from("conversations")
@@ -65,8 +70,18 @@ export default async function QuotesPage() {
       </div>
 
       {/* Website Quote Requests (from API) */}
-      {quoteRequests && quoteRequests.length > 0 && (
-        <QuoteRequestsList quoteRequests={quoteRequests} />
+      {sellQuoteRequests.length > 0 && (
+        <QuoteRequestsList
+          title="Sell-to-us Enquiries"
+          quoteRequests={sellQuoteRequests}
+        />
+      )}
+
+      {repairQuoteRequests.length > 0 && (
+        <QuoteRequestsList
+          title="Repair Quote Requests"
+          quoteRequests={repairQuoteRequests}
+        />
       )}
 
       {/* Webchat Leads */}

@@ -26,6 +26,7 @@ interface QuoteRequest {
   device_make: string;
   device_model: string;
   issue: string;
+  type?: "repair" | "sell";
   status: string;
   quoted_price: number | null;
   sms_sent: boolean;
@@ -36,6 +37,7 @@ interface QuoteRequest {
 
 interface QuoteRequestsListProps {
   quoteRequests: QuoteRequest[];
+  title?: string;
 }
 
 // Quote type options
@@ -59,7 +61,10 @@ const QUOTE_TYPES = [
   },
 ];
 
-export function QuoteRequestsList({ quoteRequests }: QuoteRequestsListProps) {
+export function QuoteRequestsList({
+  quoteRequests,
+  title,
+}: QuoteRequestsListProps) {
   const [selectedRequest, setSelectedRequest] = useState<QuoteRequest | null>(
     null
   );
@@ -72,6 +77,8 @@ export function QuoteRequestsList({ quoteRequests }: QuoteRequestsListProps) {
   const [sent, setSent] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
+  const selectedType = selectedRequest?.type || "repair";
+
   const handleSelectRequest = (request: QuoteRequest) => {
     setSelectedRequest(request);
     setPrice(request.quoted_price?.toString() || "");
@@ -79,6 +86,12 @@ export function QuoteRequestsList({ quoteRequests }: QuoteRequestsListProps) {
       `${request.device_make} ${request.device_model} ${request.issue}`
     );
     setCustomMessage("");
+
+    if ((request.type || "repair") === "sell") {
+      setQuoteType("fixed");
+      setDiagnosticFee("20");
+      return;
+    }
 
     // Auto-detect if diagnostic might be needed
     const needsDiagnostic =
@@ -95,6 +108,22 @@ export function QuoteRequestsList({ quoteRequests }: QuoteRequestsListProps) {
     // If custom message is set, use it
     if (customMessage.trim()) {
       return customMessage;
+    }
+
+    if (selectedType === "sell") {
+      return `Hi ${firstName},
+
+Thanks for the details.
+
+Based on what you've said, we'd be able to offer £${price} for your ${selectedRequest.device_make} ${selectedRequest.device_model}.
+
+This assumes it's as described - we can confirm the final price once we've seen it in person.
+
+If you'd like to go ahead, just reply and we can sort the best time to pop in.
+
+Many thanks,
+John
+New Forest Device Repairs`;
     }
 
     // Build message based on quote type
@@ -147,7 +176,8 @@ New Forest Device Repairs`;
   const handleSendQuote = async () => {
     if (!selectedRequest) return;
     // For diagnostic, we don't need a price
-    if (quoteType !== "diagnostic" && !price) return;
+    if (selectedType !== "sell" && quoteType !== "diagnostic" && !price) return;
+    if (selectedType === "sell" && !price) return;
 
     setSending(true);
     setError(null);
@@ -257,13 +287,14 @@ New Forest Device Repairs`;
       {/* Quote Requests List */}
       <div className="space-y-2">
         <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          Quote Requests ({quoteRequests.length})
+          {title || "Quote Requests"} ({quoteRequests.length})
         </h2>
 
         <div className="border rounded-lg divide-y">
           {quoteRequests.map((request) => {
             const isSent = sent.has(request.id) || request.status === "quoted";
             const isSelected = selectedRequest?.id === request.id;
+            const requestType = request.type || "repair";
 
             return (
               <div
@@ -295,6 +326,14 @@ New Forest Device Repairs`;
                         >
                           <Globe className="w-3 h-3 mr-1" />
                           Web
+                        </Badge>
+                      )}
+                      {requestType === "sell" && (
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-700 border-amber-200 text-xs"
+                        >
+                          Sell
                         </Badge>
                       )}
                       {getStatusBadge(request.status)}
@@ -362,37 +401,41 @@ New Forest Device Repairs`;
                 </div>
 
                 {/* Quote Type Selection */}
-                <div>
-                  <label className="text-sm font-medium block mb-2">
-                    Quote Type
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {QUOTE_TYPES.map((type) => (
-                      <button
-                        key={type.value}
-                        onClick={() => setQuoteType(type.value)}
-                        className={`p-2 text-xs rounded-lg border transition-colors ${
-                          quoteType === type.value
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background hover:bg-accent border-border"
-                        }`}
-                      >
-                        <div className="font-medium">{type.label}</div>
-                      </button>
-                    ))}
+                {selectedType !== "sell" && (
+                  <div>
+                    <label className="text-sm font-medium block mb-2">
+                      Quote Type
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {QUOTE_TYPES.map((type) => (
+                        <button
+                          key={type.value}
+                          onClick={() => setQuoteType(type.value)}
+                          className={`p-2 text-xs rounded-lg border transition-colors ${
+                            quoteType === type.value
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background hover:bg-accent border-border"
+                          }`}
+                        >
+                          <div className="font-medium">{type.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {
+                        QUOTE_TYPES.find((t) => t.value === quoteType)
+                          ?.description
+                      }
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {
-                      QUOTE_TYPES.find((t) => t.value === quoteType)
-                        ?.description
-                    }
-                  </p>
-                </div>
+                )}
 
                 {/* Repair Description (editable) */}
                 <div>
                   <label className="text-sm font-medium block mb-1.5">
-                    Repair Description
+                    {selectedType === "sell"
+                      ? "Device Details"
+                      : "Repair Description"}
                   </label>
                   <Input
                     value={repairDescription}
@@ -400,15 +443,17 @@ New Forest Device Repairs`;
                     placeholder="e.g. iPhone 14 Pro screen repair"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Edit to clarify what the quote is for
+                    Edit to clarify what this is for
                   </p>
                 </div>
 
                 {/* Price Input - only show for fixed/estimate */}
-                {quoteType !== "diagnostic" && (
+                {(selectedType === "sell" || quoteType !== "diagnostic") && (
                   <div>
                     <label className="text-sm font-medium block mb-1.5">
-                      {quoteType === "estimate"
+                      {selectedType === "sell"
+                        ? "Offer Amount"
+                        : quoteType === "estimate"
                         ? "Estimated Price"
                         : "Quote Price"}
                     </label>
@@ -430,7 +475,7 @@ New Forest Device Repairs`;
                 )}
 
                 {/* Diagnostic fee input */}
-                {quoteType === "diagnostic" && (
+                {selectedType !== "sell" && quoteType === "diagnostic" && (
                   <div>
                     <label className="text-sm font-medium block mb-1.5">
                       Diagnostic Fee
@@ -483,7 +528,9 @@ New Forest Device Repairs`;
                 <Button
                   onClick={handleSendQuote}
                   disabled={
-                    (quoteType !== "diagnostic" && !price) ||
+                    (!price &&
+                      (selectedType === "sell" ||
+                        quoteType !== "diagnostic")) ||
                     sending ||
                     selectedRequest.status === "quoted"
                   }
@@ -495,7 +542,11 @@ New Forest Device Repairs`;
                     <Send className="w-4 h-4" />
                   )}
                   Send{" "}
-                  {quoteType === "diagnostic" ? "Diagnostic Request" : "Quote"}
+                  {selectedType === "sell"
+                    ? "Offer"
+                    : quoteType === "diagnostic"
+                    ? "Diagnostic Request"
+                    : "Quote"}
                 </Button>
 
                 {selectedRequest.status === "quoted" && (
