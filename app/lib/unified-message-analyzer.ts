@@ -282,6 +282,7 @@ export function quickAnalysis(
     /where are you/i,
     /how much (for|is|does)/i,
     /do you (fix|repair|do)/i,
+    /\b(unblock|unlock|unlocking)\b/i,
     // "Are you in the shop today?" / "Are you there today?"
     /are you (in|at) (the )?(shop|store)/i,
     /are you there (today|tomorrow|now)/i,
@@ -305,6 +306,8 @@ export function quickAnalysis(
       } else if (/how much/i.test(message)) {
         contentType = "pricing";
       } else if (/do you (fix|repair|do)/i.test(message)) {
+        contentType = "services";
+      } else if (/\b(unblock|unlock|unlocking)\b/i.test(message)) {
         contentType = "services";
       }
 

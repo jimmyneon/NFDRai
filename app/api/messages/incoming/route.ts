@@ -28,6 +28,7 @@ import {
   shouldAIRespond,
   isSimpleQuery,
 } from "@/app/lib/simple-query-detector";
+import { isStaffMessage } from "@/app/lib/sender-detector";
 import { analyzeMessage } from "@/app/lib/unified-message-analyzer";
 import {
   getModulesForAnalysis,
@@ -813,13 +814,17 @@ export async function POST(request: NextRequest) {
       // Check if staff has manually replied in this conversation
       const { data: staffMessages } = await supabase
         .from("messages")
-        .select("id, created_at")
+        .select("id, created_at, sender, text")
         .eq("conversation_id", conversation.id)
-        .eq("sender", "staff")
         .order("created_at", { ascending: false })
-        .limit(1);
+        .limit(20);
 
-      const hasStaffReplied = staffMessages && staffMessages.length > 0;
+      // IMPORTANT: Be resilient to mis-tagged senders by also checking signatures.
+      const lastStaffMessage = staffMessages?.find(
+        (m) => m.sender === "staff" || isStaffMessage(m.text || "")
+      );
+
+      const hasStaffReplied = !!lastStaffMessage;
 
       console.log("[Smart Mode] Conversation in manual mode");
       console.log("[Smart Mode] Staff has replied?", hasStaffReplied);
@@ -827,7 +832,7 @@ export async function POST(request: NextRequest) {
       if (hasStaffReplied) {
         // Check how long ago staff replied
         const lastStaffReplyTime = new Date(
-          staffMessages[0].created_at
+          lastStaffMessage!.created_at
         ).getTime();
         const minutesSinceStaffReply =
           (Date.now() - lastStaffReplyTime) / (1000 * 60);
@@ -835,14 +840,22 @@ export async function POST(request: NextRequest) {
         // If staff replied more than 30 minutes ago, auto-switch to AI
         const timeBasedSwitch = minutesSinceStaffReply > 30;
 
+        // CRITICAL: Respect the 30-minute staff pause window.
+        // Even if a message looks like a generic question, do NOT auto-switch to AI
+        // unless it's a simple query (hours/location/etc) or the pause has expired.
+        const pauseDecision = shouldAIRespond(minutesSinceStaffReply, message);
+
         // Staff has replied - analyze if we should switch back to auto mode
         const shouldAutoSwitch =
-          timeBasedSwitch || shouldSwitchToAutoMode(message);
+          timeBasedSwitch ||
+          (pauseDecision.shouldRespond && shouldSwitchToAutoMode(message));
         const reason = timeBasedSwitch
           ? `Staff replied ${minutesSinceStaffReply.toFixed(
               0
             )} min ago - switching to auto`
-          : getModeDecisionReason(message, shouldAutoSwitch);
+          : pauseDecision.shouldRespond
+          ? getModeDecisionReason(message, shouldAutoSwitch)
+          : pauseDecision.reason;
 
         console.log("[Smart Mode] Message:", message.substring(0, 50));
         console.log(
@@ -983,13 +996,13 @@ export async function POST(request: NextRequest) {
 
     const { data: recentMessages } = await supabase
       .from("messages")
-      .select("sender, created_at")
+      .select("sender, created_at, text")
       .eq("conversation_id", conversation.id)
       .order("created_at", { ascending: false })
       .limit(10);
 
     const recentStaffMessage = recentMessages?.find(
-      (msg) => msg.sender === "staff"
+      (msg) => msg.sender === "staff" || isStaffMessage((msg as any).text || "")
     );
 
     if (recentStaffMessage && !justSwitchedToAuto) {

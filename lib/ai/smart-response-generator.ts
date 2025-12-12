@@ -45,6 +45,38 @@ interface SmartResponseParams {
   };
 }
 
+function normalizeAiOutgoingMessage(message: string, signOff: string): string {
+  const signatureStartPattern =
+    /^\s*(many\s+thanks|best\s+regards|kind\s+regards|regards|thanks|cheers)[,!\s]*\n?\s*(ai\s+steve|john)\b[\s\S]*?(new\s+forest\s+device\s+repairs)?\b[\s,!]*\n*/i;
+
+  const signatureEndPattern =
+    /\n*\s*(many\s+thanks|best\s+regards|kind\s+regards|regards|thanks|cheers)[,!\s]*\n?\s*(ai\s+steve|john)\b[\s\S]*?(new\s+forest\s+device\s+repairs)?\b\s*$/i;
+
+  let out = (message || "").trim();
+
+  while (signatureStartPattern.test(out)) {
+    out = out.replace(signatureStartPattern, "").trim();
+  }
+
+  while (signatureEndPattern.test(out)) {
+    out = out.replace(signatureEndPattern, "").trim();
+  }
+
+  if (out.length === 0) {
+    out =
+      "No worries - could you tell me a bit more about what you need help with?";
+  }
+
+  if (!out.toLowerCase().includes("many thanks")) {
+    out = out + "\n\n" + signOff;
+  } else {
+    out = out.replace(/\n\s*many\s+thanks[\s\S]*$/i, "").trim();
+    out = out + "\n\n" + signOff;
+  }
+
+  return out;
+}
+
 interface SmartResponseResult {
   response: string;
   responses: string[];
@@ -384,6 +416,13 @@ export async function generateSmartResponse(
     ? settings.fallback_message
     : adjustedResponse;
 
+  const signOff =
+    params.channel === "webchat"
+      ? "Many Thanks, AI Steve"
+      : "Many Thanks,\nAI Steve,\nNew Forest Device Repairs";
+
+  finalResponse = normalizeAiOutgoingMessage(finalResponse, signOff);
+
   // Check if this is the first AI message to this customer
   // IMPORTANT: Check ALL messages in the conversation, not just recent ones
   const { data: allMessages } = await supabase
@@ -404,10 +443,6 @@ export async function generateSmartResponse(
 
   // FORCE sign-off if not present (critical for message tracking)
   // Use shorter sign-off for webchat
-  const signOff =
-    params.channel === "webchat"
-      ? "Many Thanks, AI Steve"
-      : "Many Thanks,\nAI Steve,\nNew Forest Device Repairs";
   if (!finalResponse.toLowerCase().includes("many thanks")) {
     // Add sign-off to end of response with proper spacing
     finalResponse = finalResponse.trim() + "\n\n" + signOff;
@@ -460,9 +495,11 @@ export async function generateSmartResponse(
     }
   }
 
-  const responses = finalResponse.includes("|||")
-    ? finalResponse.split("|||").map((msg: string) => msg.trim())
-    : [finalResponse];
+  const responses = finalResponse
+    .split("|||")
+    .map((msg: string) => normalizeAiOutgoingMessage(msg, signOff));
+
+  finalResponse = responses.join("|||");
 
   return {
     response: finalResponse,
