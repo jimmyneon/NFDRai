@@ -1,0 +1,4 @@
+UPDATE prompts
+SET prompt_text = prompt_text || E'\n- UK NOTE: These days most phones sold in the UK are already network unlocked (especially newer handsets). If it was bought direct from a network, they can normally unlock it once any contract/finance is settled.\n- HOW TO CHECK: The quickest check is to try a SIM from a different network. If it works, it\'s unlocked. If it says SIM not supported / network locked / asks for an unlock code, it\'s locked.\n- iPhone (quick check): Settings > General > About > scroll to "Carrier Lock" / "SIM Restrictions". If it says "No SIM restrictions" then it\'s unlocked.\n- If you\'re unsure, just pop it into us and we\'ll check it for you.\n'
+WHERE module_name = 'services_comprehensive'
+  AND prompt_text NOT ILIKE '%UK NOTE: These days most phones sold in the UK are already network unlocked%';
