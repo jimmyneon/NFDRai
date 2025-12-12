@@ -83,6 +83,20 @@ export function quickAnalysis(
 ): UnifiedAnalysis | null {
   const lowerMessage = message.toLowerCase().trim();
 
+  const isBusinessHoursQuestion = (text: string): boolean => {
+    const t = text.toLowerCase();
+    const hasHoursKeywords =
+      /(open|opening|close|closing|hours|shut|closed)/i.test(t);
+    const hasQuestionShape =
+      t.includes("?") || /(what|when|which|are|do)\b/i.test(t);
+    // Common phrasing: "what days are you shut/open", "what days are you closed"
+    const hasDayWording = /(what|which)\s+days/i.test(t);
+    return (
+      (hasHoursKeywords && hasQuestionShape) ||
+      (hasDayWording && hasHoursKeywords)
+    );
+  };
+
   // VERY CLEAR CASES - Don't need AI
 
   // 1. Pure acknowledgments (don't respond) - EXPANDED
@@ -191,32 +205,33 @@ export function quickAnalysis(
   }
 
   // 4. Referring to physical person or asking staff to call back (don't respond)
-  const physicalPersonPatterns = [
-    // Direct address to John
-    /^(hi|hey|hello|h)\s+john/i, // "Hi John", "H John", "Hey John"
-    /john[,:]\s+/i, // "John, I'm here" or "John: message"
-    /^john\s/i, // "John I'm here"
+  const directedAtJohnPatterns = [
+    /^(hi|hey|hello|h)\s+john/i,
+    /john[,:]\s+/i,
+    /^john\s/i,
+  ];
 
+  const physicalPersonPatterns = [
     // Physical descriptions
     /for (the )?(tall|short|big|small|young|old)?\s*(guy|man|gentleman|person|bloke|lad|chap)/i,
     /with (the )?(beard|glasses|tattoo|hat)/i,
     /tell (him|her|them|john)/i,
 
     // Callback requests - EXPANDED
-    /(phone|call|ring)\s+(me|us)\s+(when|once|after|as\s+soon|asap)/i, // "phone me when you start"
-    /(can|could|would)\s+you\s+(phone|call|ring)\s+(me|us)/i, // "can you phone me"
-    /if\s+you\s+(can|could)\s+(phone|call|ring)/i, // "if you can phone me"
-    /(give|send)\s+(me|us)\s+a\s+(call|ring)/i, // "give me a call"
-    /(call|phone|ring)\s+(me|us)\s+(back|please)/i, // "call me back", "phone me please"
-    /please\s+(call|phone|ring)/i, // "please call me"
-    /(need|want)\s+(you\s+to\s+)?(call|phone|ring)/i, // "need you to call", "want to call"
+    /(phone|call|ring)\s+(me|us)\s+(when|once|after|as\s+soon|asap)/i,
+    /(can|could|would)\s+you\s+(phone|call|ring)\s+(me|us)/i,
+    /if\s+you\s+(can|could)\s+(phone|call|ring)/i,
+    /(give|send)\s+(me|us)\s+a\s+(call|ring)/i,
+    /(call|phone|ring)\s+(me|us)\s+(back|please)/i,
+    /please\s+(call|phone|ring)/i,
+    /(need|want)\s+(you\s+to\s+)?(call|phone|ring)/i,
 
     // Physical location waiting - EXPANDED
     /(i'm|im|i am)\s+(at|in|outside|near)\s+(the\s+)?(shop|store|door|entrance|front|building)/i,
-    /(i'm|im|i am)\s+(here|outside|waiting)/i, // "I'm here", "I'm outside", "I'm waiting"
+    /(i'm|im|i am)\s+(here|outside|waiting)/i,
     /(waiting|here)\s+(at|in|outside|for)\s+(the\s+)?(shop|you|door)/i,
     /(at|outside)\s+(your|the)\s+(shop|store|door|place)/i,
-    /just\s+(arrived|outside|here)/i, // "just arrived", "just outside"
+    /just\s+(arrived|outside|here)/i,
 
     // Location/meeting context (airport, arrivals, etc.)
     /(i'm|im)\s+(at|in)\s+(the\s+)?(airport|arrivals|departures|terminal|station)/i,
@@ -224,6 +239,36 @@ export function quickAnalysis(
     /border\s+control/i,
     /just\s+(landed)/i,
   ];
+
+  // If customer addresses John but is asking a clear business-hours question,
+  // allow AI to respond (hours are safe even during staff handling).
+  if (
+    directedAtJohnPatterns.some((p) => p.test(message)) &&
+    isBusinessHoursQuestion(message)
+  ) {
+    // Continue to later simple-question handling (do NOT block as 'physical person')
+  } else {
+    for (const pattern of directedAtJohnPatterns) {
+      if (pattern.test(message)) {
+        return {
+          sentiment: "neutral",
+          urgency: "medium",
+          requiresStaffAttention: true,
+          sentimentKeywords: [],
+          intent: "unclear",
+          intentConfidence: 0.5,
+          contentType: "unclear",
+          shouldAIRespond: false,
+          contextConfidence: 0.85,
+          isDirectedAtAI: false,
+          reasoning: "Message directed at John - not for AI",
+          customerName: null,
+          nameConfidence: 0,
+          overallConfidence: 0.8,
+        };
+      }
+    }
+  }
 
   for (const pattern of physicalPersonPatterns) {
     if (pattern.test(message)) {
@@ -279,6 +324,9 @@ export function quickAnalysis(
   const simpleQuestionPatterns = [
     /when (are|do) you (open|close)/i,
     /what (time|are your hours)/i,
+    /(what|which)\s+days\s+(are\s+you\s+)?(open|shut|closed)/i,
+    /what\s+days\s+are\s+you\s+(shut|closed)/i,
+    /(shut|closed)\s+over\s+(christmas|xmas|new\s+year)/i,
     /where are you/i,
     /how much (for|is|does)/i,
     /do you (fix|repair|do)/i,
@@ -297,6 +345,12 @@ export function quickAnalysis(
       let contentType: UnifiedAnalysis["contentType"] = "unclear";
       if (
         /when (are|do) you (open|close)|what (time|are your hours)|are you (in|at) (the )?(shop|store)|are you there (today|tomorrow|now)|is (the )?(shop|store) open|you open (today|tomorrow|now)|are you open/i.test(
+          message
+        )
+      ) {
+        contentType = "business_hours";
+      } else if (
+        /(what|which)\s+days\s+(are\s+you\s+)?(open|shut|closed)|what\s+days\s+are\s+you\s+(shut|closed)|(shut|closed)\s+over\s+(christmas|xmas|new\s+year)/i.test(
           message
         )
       ) {

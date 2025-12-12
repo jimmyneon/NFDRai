@@ -78,6 +78,19 @@ const testCases = [
     },
   },
   {
+    name: "Directed at John but business hours question (regex)",
+    message:
+      "Hi John we will be back your way over the Christmas period. What days are you shut/open?",
+    recentMessages: [],
+    expected: {
+      sentiment: "neutral",
+      intent: "question",
+      contentType: "business_hours",
+      shouldAIRespond: true,
+      usesAI: false,
+    },
+  },
+  {
     name: "Customer introducing themselves (needs AI)",
     message: "Hi, I'm Carol. Is my iPhone ready?",
     recentMessages: [],
