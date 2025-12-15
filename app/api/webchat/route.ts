@@ -479,11 +479,21 @@ export async function POST(request: NextRequest) {
       .limit(10);
 
     // Get AI settings
-    const { data: aiSettings } = await supabase
+    const { data: aiSettings, error: aiSettingsError } = await supabase
       .from("ai_settings")
       .select("api_key")
       .eq("active", true)
-      .single();
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (aiSettingsError) {
+      console.error(
+        "[Webchat] Failed to load ai_settings api_key:",
+        aiSettingsError
+      );
+    }
 
     // Analyze message
     const analysis = await analyzeMessage(

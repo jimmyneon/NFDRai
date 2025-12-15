@@ -615,12 +615,19 @@ export async function POST(request: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(10);
 
-    // Get API key for AI analysis
-    const { data: aiSettings } = await supabase
+    // Get API key for AI analysis (use service client to bypass RLS in webhook routes)
+    const { data: aiSettings, error: aiSettingsError } = await supabaseService
       .from("ai_settings")
       .select("api_key")
       .eq("active", true)
-      .single();
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (aiSettingsError) {
+      console.error("[AI Settings] Failed to load api_key:", aiSettingsError);
+    }
 
     // Run unified analysis
     const analysis = await analyzeMessage(
@@ -763,17 +770,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check global kill switch
-    const { data: globalSettings, error: settingsError } = await supabase
+    // Check global kill switch (use service client to bypass RLS in webhook routes)
+    const { data: globalSettings, error: settingsError } = await supabaseService
       .from("ai_settings")
       .select("automation_enabled")
       .eq("active", true)
-      .single();
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     console.log("Global settings:", globalSettings);
     console.log("Settings error:", settingsError);
 
-    if (!globalSettings?.automation_enabled) {
+    if (settingsError) {
+      console.error(
+        "[AI Settings] Failed to load automation_enabled - defaulting to enabled to avoid outage:",
+        settingsError
+      );
+    }
+
+    if (globalSettings && globalSettings.automation_enabled === false) {
       await supabaseService.from("alerts").insert({
         conversation_id: conversation.id,
         type: "manual_required",

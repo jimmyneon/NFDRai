@@ -660,7 +660,10 @@ async function generateRepairFlowMessage(
       .from("ai_settings")
       .select("api_key")
       .eq("active", true)
-      .single();
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (settingsError) {
       console.error("[Repair Flow LLM] Settings error:", settingsError);
@@ -762,11 +765,21 @@ async function extractWithAI(
   try {
     // Get AI settings from database
     const supabase = createServiceClient();
-    const { data: aiSettings } = await supabase
+    const { data: aiSettings, error: aiSettingsError } = await supabase
       .from("ai_settings")
       .select("api_key")
       .eq("active", true)
-      .single();
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (aiSettingsError) {
+      console.error(
+        "[AI Extraction] Failed to load ai_settings api_key:",
+        aiSettingsError
+      );
+    }
 
     if (!aiSettings?.api_key) {
       console.log("[AI Extraction] No API key available");
@@ -1736,11 +1749,21 @@ async function analyzeMessageWithAI(
 }> {
   try {
     const supabase = createServiceClient();
-    const { data: aiSettings } = await supabase
+    const { data: aiSettings, error: aiSettingsError } = await supabase
       .from("ai_settings")
       .select("api_key")
       .eq("active", true)
-      .single();
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (aiSettingsError) {
+      console.error(
+        "[AI Analysis] Failed to load ai_settings api_key:",
+        aiSettingsError
+      );
+    }
 
     if (!aiSettings?.api_key) {
       console.log("[AI Analysis] No API key");

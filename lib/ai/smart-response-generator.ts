@@ -115,7 +115,10 @@ export async function generateSmartResponse(
     .from("ai_settings")
     .select("*")
     .eq("active", true)
-    .single();
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (settingsError || !settings) {
     throw new Error("No active AI settings found");
@@ -783,6 +786,7 @@ function buildFocusedPrompt(params: {
     conversationText.includes("selling") ||
     conversationText.includes("trade") ||
     conversationText.includes("buy") ||
+    conversationText.includes("valuation") ||
     conversationText.includes("old tech");
   const needsWarrantyInfo =
     conversationText.includes("warranty") ||
