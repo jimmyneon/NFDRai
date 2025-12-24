@@ -74,6 +74,95 @@ export interface UnifiedAnalysis {
 }
 
 /**
+ * Extract name from casual sign-offs like "I'll pop by Shirley" or "See you soon, Mike"
+ */
+function extractNameFromCasualSignoff(message: string): string | null {
+  // Pattern 1: "I'll pop by [Name]" or "I'll come by [Name]"
+  const pattern1 =
+    /(?:i'?ll|i will)\s+(?:pop|come|drop)\s+by\s+([A-Z][a-z]+)$/i;
+  const match1 = message.match(pattern1);
+  if (match1) {
+    const name = match1[1].trim();
+    if (isValidName(name)) {
+      return capitalizeFirstLetter(name);
+    }
+  }
+
+  // Pattern 2: "See you soon, [Name]" or "Thanks, [Name]"
+  const pattern2 = /(?:see you|thanks|cheers|regards)[,\s]+([A-Z][a-z]+)$/i;
+  const match2 = message.match(pattern2);
+  if (match2) {
+    const name = match2[1].trim();
+    if (isValidName(name) && name.toLowerCase() !== "john") {
+      return capitalizeFirstLetter(name);
+    }
+  }
+
+  // Pattern 3: "[Message]. [Name]" - name at end after period
+  const pattern3 = /\.\s+([A-Z][a-z]+)$/;
+  const match3 = message.match(pattern3);
+  if (match3) {
+    const name = match3[1].trim();
+    if (isValidName(name) && name.toLowerCase() !== "john") {
+      return capitalizeFirstLetter(name);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if a word is a valid name (not a common word)
+ */
+function isValidName(name: string): boolean {
+  const lowerName = name.toLowerCase();
+  const commonWords = [
+    "there",
+    "here",
+    "fine",
+    "good",
+    "great",
+    "ok",
+    "okay",
+    "yes",
+    "no",
+    "thanks",
+    "thank",
+    "cheers",
+    "hi",
+    "hello",
+    "hey",
+    "bye",
+    "goodbye",
+    "please",
+    "sorry",
+    "sure",
+    "right",
+    "well",
+    "just",
+    "now",
+    "then",
+    "soon",
+    "later",
+    "today",
+    "tomorrow",
+    "tonight",
+  ];
+  return (
+    !commonWords.includes(lowerName) &&
+    name.length >= 2 &&
+    /^[a-z]+$/i.test(name)
+  );
+}
+
+/**
+ * Capitalize first letter
+ */
+function capitalizeFirstLetter(name: string): string {
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+}
+
+/**
  * Quick regex pre-check (free, instant)
  * Returns null if needs AI analysis
  */
@@ -111,6 +200,9 @@ export function quickAnalysis(
 
   for (const pattern of acknowledgmentPatterns) {
     if (pattern.test(message) && message.length < 40) {
+      // Try to extract name even from acknowledgments (e.g., "I'll pop by Shirley")
+      const extractedName = extractNameFromCasualSignoff(message);
+
       return {
         sentiment: "neutral",
         urgency: "low",
@@ -123,22 +215,23 @@ export function quickAnalysis(
         contextConfidence: 0.9,
         isDirectedAtAI: false,
         reasoning: "Pure acknowledgment - no response needed",
-        customerName: null,
-        nameConfidence: 0,
+        customerName: extractedName,
+        nameConfidence: extractedName ? 0.8 : 0,
         overallConfidence: 0.9,
       };
     }
   }
 
   // 2. Clearly frustrated (high confidence)
+  // IMPORTANT: Only trigger on SERVICE complaints, not device issues
   const frustrationKeywords = [
     "third time",
     "still waiting",
     "ridiculous",
     "unacceptable",
-    "terrible",
-    "worst",
-    "disgusting",
+    "terrible service",
+    "worst service",
+    "disgusting service",
     "complaint",
     "ai failure",
     "ai fail",
@@ -171,6 +264,7 @@ export function quickAnalysis(
   }
 
   // 3. Clearly angry (high confidence)
+  // IMPORTANT: Only trigger on SERVICE complaints, not device issues
   const angerKeywords = [
     "money back",
     "refund",
@@ -180,6 +274,8 @@ export function quickAnalysis(
     "lawyer",
     "solicitor",
     "sue",
+    "appalling",
+    "disgrace",
   ];
 
   const hasAnger = angerKeywords.some((kw) => lowerMessage.includes(kw));
@@ -429,9 +525,11 @@ ANALYZE THE FOLLOWING:
    - frustrated: Impatient, annoyed, repeated questions, expressing dissatisfaction with SERVICE
    - angry: Very upset, threatening, demanding
 
-   IMPORTANT: Device descriptions are NEUTRAL, not frustrated!
-   ✅ "dead phone", "broken screen", "cracked display", "won't turn on" = NEUTRAL (device issue)
-   ❌ "third time asking", "still waiting", "terrible service" = FRUSTRATED (service issue)
+   CRITICAL: Device descriptions are NEUTRAL, not frustrated!
+   ✅ "dead phone", "broken screen", "cracked display", "won't turn on", "terrible battery" = NEUTRAL (device issue)
+   ❌ "third time asking", "still waiting", "terrible service", "worst service" = FRUSTRATED (service issue)
+   
+   Words like "terrible", "worst", "disgusting" are ONLY frustration if referring to SERVICE, not device condition!
 
 2. URGENCY:
    - low: Casual inquiry, no time pressure
@@ -481,6 +579,7 @@ ANALYZE THE FOLLOWING:
    - Common patterns: "Hi, I'm Carol", "This is Mike", "Carol here", "My name is Sarah"
    - Email signatures: "Regards, Maurice", "Thanks, Sarah", "Cheers, Mike", "Best, Carol"
    - Casual mentions: "It's Maurice", "Maurice speaking", "Call me Mike"
+   - Casual sign-offs: "I'll pop by Shirley", "See you soon Mike", "Thanks John. Carol"
    - End of message: "...login with you. Regards, Maurice." or "...see you soon. Sarah"
    
    CRITICAL VALIDATION RULES:
