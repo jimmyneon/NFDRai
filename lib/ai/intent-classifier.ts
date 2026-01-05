@@ -38,7 +38,7 @@ CATEGORIES:
 - screen_repair: Customer mentions broken/cracked screen, display issues
 - battery_replacement: Customer mentions battery issues, draining, not charging
 - diagnostic: Device won't turn on, not working, needs diagnosis, "it's broken" (vague)
-- buyback: Customer wants to sell their device to us (includes "sold", "selling", "sell", "buy my phone")
+- buyback: Customer wants to sell their device to us (includes "sold", "selling", "sell", "buy my phone", "valuation")
 - sell_device: Customer wants to buy a device from us
 - warranty_claim: Customer mentions previous repair, still not working
 - status_check: Customer asking if EXISTING repair is ready/done (ONLY if they explicitly ask "is it ready?", "is it done?", "can I pick it up?")
@@ -171,7 +171,9 @@ function fallbackClassification(
 
   // Buyback patterns - include past tense "sold" and variations
   if (
-    lowerMessage.match(/sell|sold|selling|buy my|trade.?in|how much.*worth/)
+    lowerMessage.match(
+      /sell|sold|selling|buy my|trade.?in|how much.*worth|valuation/
+    )
   ) {
     return {
       intent: "buyback",
