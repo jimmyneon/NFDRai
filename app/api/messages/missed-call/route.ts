@@ -127,6 +127,7 @@ export async function POST(request: NextRequest) {
       googleMapsUrl: hoursStatus.googleMapsUrl,
       holidayStatus: holidayStatus,
       currentTime: hoursStatus.currentTime,
+      customClosure: hoursStatus.customClosure,
     });
 
     if (conversation) {
@@ -198,11 +199,45 @@ function generateMissedCallMessage(context: {
     returnDate: string | null;
   };
   currentTime: string;
+  customClosure: {
+    reason: string;
+    startDate: string;
+    endDate: string;
+    customMessage: string | null;
+  } | null;
 }): string {
   const lines: string[] = ["Sorry we missed your call!", ""];
 
-  // HOLIDAY MODE - Takes priority
-  if (
+  // CUSTOM CLOSURE (illness, sick day, etc.) - Takes HIGHEST priority
+  if (context.customClosure) {
+    const message =
+      context.customClosure.customMessage ||
+      `Temporarily closed due to ${context.customClosure.reason.toLowerCase()}.`;
+
+    lines.push(message);
+    lines.push("");
+    lines.push(
+      "I can provide repair estimates and answer questions right now. John will confirm all quotes and bookings when he returns."
+    );
+
+    // Add return date if it's different from today
+    const endDate = new Date(context.customClosure.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+
+    if (endDate > today) {
+      const returnDateStr = endDate.toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
+      lines.push("");
+      lines.push(`We expect to reopen ${returnDateStr}.`);
+    }
+  }
+  // HOLIDAY MODE - Takes priority over regular hours
+  else if (
     context.holidayStatus.isOnHoliday &&
     context.holidayStatus.holidayMessage
   ) {

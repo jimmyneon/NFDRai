@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { detectHolidayMode } from "@/app/lib/holiday-mode-detector";
 
 interface BusinessInfo {
   business_name: string;
@@ -32,6 +33,12 @@ interface BusinessHoursStatus {
   formattedSchedule: string;
   googleMapsUrl: string | null;
   specialHoursNote: string | null;
+  customClosure: {
+    reason: string;
+    startDate: string;
+    endDate: string;
+    customMessage: string | null;
+  } | null;
 }
 
 const DAYS = [
@@ -92,6 +99,7 @@ export async function getBusinessHoursStatus(): Promise<BusinessHoursStatus> {
       formattedSchedule: getDefaultSchedule(),
       googleMapsUrl: null,
       specialHoursNote: null,
+      customClosure: null,
     };
   }
 
@@ -168,6 +176,49 @@ export async function getBusinessHoursStatus(): Promise<BusinessHoursStatus> {
   // Format full schedule
   const formattedSchedule = formatFullSchedule(info);
 
+  // CRITICAL: Check custom closures (illness, sick days, etc.) FIRST
+  const { data: customClosures } = await supabase
+    .from("custom_closures")
+    .select("*")
+    .eq("active", true);
+
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+
+  const activeClosureToday = customClosures?.find((closure: any) => {
+    const startDate = new Date(closure.start_date);
+    const endDate = new Date(closure.end_date);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    return todayDate >= startDate && todayDate <= endDate;
+  });
+
+  if (activeClosureToday) {
+    isOpen = false; // Override - business is CLOSED due to custom closure
+    console.log(
+      "[Business Hours] Custom closure override - setting isOpen to false:",
+      {
+        reason: activeClosureToday.reason,
+        startDate: activeClosureToday.start_date,
+        endDate: activeClosureToday.end_date,
+        customMessage: activeClosureToday.custom_message,
+      }
+    );
+  }
+
+  // CRITICAL: Check if on holiday/closed TODAY and override isOpen status
+  const holidayStatus = detectHolidayMode(info.special_hours_note);
+  if (holidayStatus.isOnHoliday) {
+    isOpen = false; // Override - business is CLOSED due to holiday/special closure
+    console.log(
+      "[Business Hours] Holiday override - setting isOpen to false:",
+      {
+        holidayMessage: holidayStatus.holidayMessage,
+        returnDate: holidayStatus.returnDate,
+      }
+    );
+  }
+
   return {
     isOpen,
     currentTime,
@@ -179,6 +230,14 @@ export async function getBusinessHoursStatus(): Promise<BusinessHoursStatus> {
     formattedSchedule,
     googleMapsUrl: info.google_maps_url,
     specialHoursNote: info.special_hours_note,
+    customClosure: activeClosureToday
+      ? {
+          reason: activeClosureToday.reason,
+          startDate: activeClosureToday.start_date,
+          endDate: activeClosureToday.end_date,
+          customMessage: activeClosureToday.custom_message,
+        }
+      : null,
   };
 }
 
