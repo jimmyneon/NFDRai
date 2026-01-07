@@ -48,6 +48,15 @@ interface SmartResponseParams {
     text: string;
     created_at?: string;
   }>; // Optional: Pass conversation history directly (for webchat)
+  userJourney?: {
+    // Optional: User journey context from frontend (for webchat)
+    currentPage?: { path: string; type: string; timestamp: number };
+    pageHistory?: Array<{ path: string; type: string }>;
+    deviceType?: string;
+    issueType?: string;
+    interactions?: any[];
+    contextSummary?: string;
+  };
 }
 
 function normalizeAiOutgoingMessage(message: string, signOff: string): string {
@@ -355,6 +364,7 @@ export async function generateSmartResponse(
     customerHistory, // Pass customer history for personalization
     channel: params.channel, // Pass channel for context-aware responses
     customerContactStatus: params.customerContactStatus, // Pass contact status for webchat
+    userJourney: params.userJourney, // Pass user journey context from frontend
   });
 
   // STEP 5: Build conversation messages for API
@@ -795,6 +805,14 @@ function buildFocusedPrompt(params: {
     hasEmail: boolean;
     hasName: boolean;
   };
+  userJourney?: {
+    currentPage?: { path: string; type: string; timestamp: number };
+    pageHistory?: Array<{ path: string; type: string }>;
+    deviceType?: string;
+    issueType?: string;
+    interactions?: any[];
+    contextSummary?: string;
+  };
 }) {
   const {
     context,
@@ -806,6 +824,7 @@ function buildFocusedPrompt(params: {
     customerHistory,
     channel,
     customerContactStatus,
+    userJourney,
   } = params;
 
   // Determine what context is relevant based on conversation
@@ -925,6 +944,26 @@ ${
 ${
   customerHistory?.name && !context.customerName
     ? `- Customer name from history: ${customerHistory.name}`
+    : ""
+}
+${
+  userJourney?.contextSummary
+    ? `\nUSER JOURNEY CONTEXT (from website):\n${userJourney.contextSummary}`
+    : ""
+}
+${
+  userJourney?.deviceType && !context.deviceModel && !context.deviceType
+    ? `- Device detected from page: ${userJourney.deviceType}\n- SKIP asking what device they have - you already know!`
+    : ""
+}
+${
+  userJourney?.issueType
+    ? `- Issue detected from page: ${userJourney.issueType}\n- Provide specific information about this repair type`
+    : ""
+}
+${
+  userJourney?.currentPage?.type
+    ? `- Currently viewing: ${userJourney.currentPage.type} page (${userJourney.currentPage.path})`
     : ""
 }
 

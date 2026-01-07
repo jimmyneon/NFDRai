@@ -478,10 +478,26 @@ export async function POST(request: NextRequest) {
     // Use conversation history from frontend (not database)
     const contextMessages = context?.conversationHistory || [];
 
+    // Extract user journey context from frontend
+    const userJourney = context?.userJourney;
+
     console.log("[Webchat] Using frontend conversation history:", {
       messageCount: contextMessages.length,
       source: "frontend",
     });
+
+    if (userJourney) {
+      console.log("[Webchat] User Journey Context:", {
+        currentPage: userJourney.currentPage?.path,
+        pageType: userJourney.currentPage?.type,
+        deviceType: userJourney.deviceType,
+        issueType: userJourney.issueType,
+        pageHistory: userJourney.pageHistory
+          ?.map((p: any) => p.path)
+          .join(" → "),
+        contextSummary: userJourney.contextSummary,
+      });
+    }
 
     // Get AI settings
     const { data: aiSettings, error: aiSettingsError } = await supabase
@@ -548,6 +564,7 @@ export async function POST(request: NextRequest) {
       channel: "webchat", // Tell AI this is webchat for context-aware responses
       modules: modulesToLoad,
       conversationHistory: contextMessages, // Pass frontend conversation history
+      userJourney: userJourney, // Pass user journey context from frontend
       unifiedAnalysis: {
         intent: analysis.intent,
         contentType: analysis.contentType,
