@@ -672,12 +672,18 @@ export async function POST(request: NextRequest) {
     // Return response with structured repair context
     const responseTime = Date.now() - startTime;
 
+    // Detect if AI is ready for booking handoff
+    const isReadyForBooking =
+      aiResult.response.toLowerCase().includes("click the button below") ||
+      aiResult.response.toLowerCase().includes("ready to start your repair");
+
     return NextResponse.json(
       {
         success: true,
         session_id: session.session_token,
         conversation_id: conversation.id,
         response: aiResult.response,
+        handoff: isReadyForBooking, // Signal frontend to show booking button
         detectedContext: repairContext.hasRepairIntent
           ? {
               hasRepairIntent: repairContext.hasRepairIntent,
