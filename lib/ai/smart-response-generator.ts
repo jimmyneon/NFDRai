@@ -939,58 +939,57 @@ ${
     : ""
 }
 
-WHAT YOU KNOW ABOUT THIS CONVERSATION:
-${context.customerName ? `- Customer name: ${context.customerName}` : ""}
+🚨 CRITICAL: WHAT YOU ALREADY KNOW 🚨
 ${
   context.deviceModel
-    ? `- Device: ${context.deviceModel}`
-    : context.deviceType
-    ? `- Device type: ${context.deviceType}`
+    ? `✅ DEVICE: ${context.deviceModel} - NEVER ASK AGAIN!`
     : ""
 }
 ${
+  context.deviceType && !context.deviceModel
+    ? `✅ DEVICE TYPE: ${context.deviceType} - Ask for specific model`
+    : ""
+}
+${context.customerName ? `✅ NAME: ${context.customerName}` : ""}
+${
   customerHistory?.isReturning
-    ? `- RETURNING CUSTOMER (${customerHistory.totalConversations} previous conversations) - Greet warmly: "Good to hear from you again!"`
+    ? `✅ RETURNING CUSTOMER (${customerHistory.totalConversations} previous conversations) - Greet warmly!`
     : ""
 }
 ${
   customerHistory?.name && !context.customerName
-    ? `- Customer name from history: ${customerHistory.name}`
+    ? `✅ Customer name from history: ${customerHistory.name}`
     : ""
 }
 ${
   userJourney?.contextSummary
-    ? `\nUSER JOURNEY CONTEXT (from website):\n${userJourney.contextSummary}`
+    ? `\n📍 USER JOURNEY:\n${userJourney.contextSummary}`
     : ""
 }
 ${
   userJourney?.deviceType && !context.deviceModel && !context.deviceType
-    ? `- Device detected from page: ${userJourney.deviceType}\n- SKIP asking what device they have - you already know!`
+    ? `✅ Device from page: ${userJourney.deviceType} - SKIP asking what device!`
     : ""
 }
-${
-  userJourney?.issueType
-    ? `- Issue detected from page: ${userJourney.issueType}\n- Provide specific information about this repair type`
-    : ""
-}
+${userJourney?.issueType ? `✅ Issue from page: ${userJourney.issueType}` : ""}
 ${
   userJourney?.currentPage?.type &&
   !context.deviceModel &&
   !context.deviceType &&
   !userJourney?.deviceType
-    ? `- Currently viewing: ${userJourney.currentPage.type} page (${userJourney.currentPage.path})\n- They're browsing ${userJourney.currentPage.type} repairs - ask which specific ${userJourney.currentPage.type} model they have!`
+    ? `📍 On ${userJourney.currentPage.type} page - Ask which specific ${userJourney.currentPage.type} model`
     : userJourney?.currentPage?.type
-    ? `- Currently viewing: ${userJourney.currentPage.type} page (${userJourney.currentPage.path})`
+    ? `📍 On ${userJourney.currentPage.type} page`
     : ""
 }
 
-CRITICAL: REMEMBER THE CONVERSATION
-- ALWAYS check what you already know from previous messages
-- If customer told you their model, DON'T ask again
-- Reference previous parts: "So for that ${
-    context.deviceModel || "device"
-  } you mentioned..."
-- Build on what they've already said
+🚨 NEVER REPEAT QUESTIONS 🚨
+- If you see ✅ DEVICE above, you ALREADY KNOW the device - DON'T ASK!
+- If customer said "iPhone 13" in previous messages, you KNOW it's iPhone 13
+- If customer said "screen" in previous messages, you KNOW the issue
+- ALWAYS reference what they already told you: "Got it - iPhone 13 with screen issue!"
+- NEVER ask "What model?" if you already know the model
+- NEVER ask "What's wrong?" if you already know the issue
 
 ${stateGuidance}
 
