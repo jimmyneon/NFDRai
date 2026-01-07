@@ -202,6 +202,7 @@ export async function POST(request: NextRequest) {
       visitor_email,
       page_url,
       referrer,
+      context,
     } = body;
 
     if (
@@ -474,13 +475,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get recent messages for context
-    const { data: contextMessages } = await supabase
-      .from("messages")
-      .select("sender, text")
-      .eq("conversation_id", conversation.id)
-      .order("created_at", { ascending: false })
-      .limit(10);
+    // Use conversation history from frontend (not database)
+    const contextMessages = context?.conversationHistory || [];
+
+    console.log("[Webchat] Using frontend conversation history:", {
+      messageCount: contextMessages.length,
+      source: "frontend",
+    });
 
     // Get AI settings
     const { data: aiSettings, error: aiSettingsError } = await supabase
@@ -502,7 +503,7 @@ export async function POST(request: NextRequest) {
     // Analyze message
     const analysis = await analyzeMessage(
       message,
-      contextMessages || [],
+      contextMessages,
       aiSettings?.api_key
     );
 
@@ -513,7 +514,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Detect repair intent and extract structured context
-    const repairContext = detectRepairIntent(message, contextMessages || []);
+    const repairContext = detectRepairIntent(message, contextMessages);
     const suggestedAction = getSuggestedAction(repairContext);
 
     console.log("[Webchat] Repair Context:", {
