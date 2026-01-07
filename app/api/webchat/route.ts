@@ -481,13 +481,28 @@ export async function POST(request: NextRequest) {
     // Extract user journey context from frontend
     const userJourney = context?.userJourney;
 
-    console.log("[Webchat] Using frontend conversation history:", {
+    console.log("[Webchat] 📦 Full context received:", {
+      hasContext: !!context,
+      contextKeys: context ? Object.keys(context) : [],
+      hasConversationHistory: !!context?.conversationHistory,
+      conversationHistoryLength: contextMessages.length,
+      hasUserJourney: !!userJourney,
+    });
+
+    console.log("[Webchat] 💬 Conversation history:", {
       messageCount: contextMessages.length,
-      source: "frontend",
+      messages: contextMessages.slice(-3).map((m: any) => ({
+        sender: m.sender || m.role,
+        text: m.text || m.content,
+      })),
+      source:
+        contextMessages.length > 0
+          ? "frontend"
+          : "NONE - FRONTEND NOT SENDING HISTORY!",
     });
 
     if (userJourney) {
-      console.log("[Webchat] User Journey Context:", {
+      console.log("[Webchat] 🗺️ User Journey Context:", {
         currentPage: userJourney.currentPage?.path,
         pageType: userJourney.currentPage?.type,
         deviceType: userJourney.deviceType,
@@ -497,6 +512,8 @@ export async function POST(request: NextRequest) {
           .join(" → "),
         contextSummary: userJourney.contextSummary,
       });
+    } else {
+      console.log("[Webchat] ⚠️ No user journey context received");
     }
 
     // Get AI settings
