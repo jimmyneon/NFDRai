@@ -264,11 +264,12 @@ export function getSuggestedAction(context: RepairContext): {
     return null;
   }
 
-  // If we have device and issue, suggest getting a quote
+  // If we have device and issue, suggest requesting a quote
   if (context.deviceModel && context.issue) {
     return {
       type: "start_quote",
-      message: "Would you like to get a quote?",
+      message:
+        "Request a quote/repair - John will get back to you ASAP, usually within 10 minutes",
     };
   }
 
