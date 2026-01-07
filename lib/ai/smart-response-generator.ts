@@ -43,6 +43,11 @@ interface SmartResponseParams {
     hasEmail: boolean;
     hasName: boolean;
   };
+  conversationHistory?: Array<{
+    sender: string;
+    text: string;
+    created_at?: string;
+  }>; // Optional: Pass conversation history directly (for webchat)
 }
 
 function normalizeAiOutgoingMessage(message: string, signOff: string): string {
@@ -125,14 +130,40 @@ export async function generateSmartResponse(
   }
 
   // Get conversation history FIRST (needed for intent classification)
-  const { data: messagesDesc } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("conversation_id", params.conversationId)
-    .order("created_at", { ascending: false })
-    .limit(10);
+  // Use provided history if available (for webchat), otherwise fetch from database
+  let messages: Array<{ sender: string; text: string; created_at?: string }> =
+    [];
 
-  const messages = messagesDesc?.reverse() || [];
+  if (params.conversationHistory) {
+    // Use conversation history passed from frontend (webchat)
+    // Add timestamps if not present (for compatibility with conversation state analyzer)
+    messages = params.conversationHistory.map((msg, index) => ({
+      ...msg,
+      created_at:
+        msg.created_at ||
+        new Date(
+          Date.now() - (params.conversationHistory!.length - index) * 1000
+        ).toISOString(),
+    }));
+    console.log("[Smart AI] Using provided conversation history:", {
+      messageCount: messages.length,
+      source: "frontend",
+    });
+  } else if (params.conversationId) {
+    // Fetch from database (SMS/WhatsApp/Messenger)
+    const { data: messagesDesc } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", params.conversationId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    messages = messagesDesc?.reverse() || [];
+    console.log("[Smart AI] Fetched conversation history from database:", {
+      messageCount: messages.length,
+      source: "database",
+    });
+  }
 
   // STEP 0: Use unified analysis if provided, otherwise classify intent
   const classificationStartTime = Date.now();

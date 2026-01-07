@@ -547,6 +547,7 @@ export async function POST(request: NextRequest) {
       conversationId: conversation.id,
       channel: "webchat", // Tell AI this is webchat for context-aware responses
       modules: modulesToLoad,
+      conversationHistory: contextMessages, // Pass frontend conversation history
       unifiedAnalysis: {
         intent: analysis.intent,
         contentType: analysis.contentType,
