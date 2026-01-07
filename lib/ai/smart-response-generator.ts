@@ -962,7 +962,12 @@ ${
     : ""
 }
 ${
-  userJourney?.currentPage?.type
+  userJourney?.currentPage?.type &&
+  !context.deviceModel &&
+  !context.deviceType &&
+  !userJourney?.deviceType
+    ? `- Currently viewing: ${userJourney.currentPage.type} page (${userJourney.currentPage.path})\n- They're browsing ${userJourney.currentPage.type} repairs - ask which specific ${userJourney.currentPage.type} model they have!`
+    : userJourney?.currentPage?.type
     ? `- Currently viewing: ${userJourney.currentPage.type} page (${userJourney.currentPage.path})`
     : ""
 }
