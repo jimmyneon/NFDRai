@@ -131,14 +131,21 @@ export async function generateSmartResponse(
 
   // Get conversation history FIRST (needed for intent classification)
   // Use provided history if available (for webchat), otherwise fetch from database
-  let messages: Array<{ sender: string; text: string; created_at?: string }> =
-    [];
+  let messages: Array<{
+    sender: "customer" | "ai" | "staff";
+    text: string;
+    created_at: string;
+  }> = [];
 
   if (params.conversationHistory) {
     // Use conversation history passed from frontend (webchat)
     // Add timestamps if not present (for compatibility with conversation state analyzer)
     messages = params.conversationHistory.map((msg, index) => ({
-      ...msg,
+      sender: (msg.sender === "user" ? "customer" : msg.sender) as
+        | "customer"
+        | "ai"
+        | "staff",
+      text: msg.text,
       created_at:
         msg.created_at ||
         new Date(
@@ -158,7 +165,11 @@ export async function generateSmartResponse(
       .order("created_at", { ascending: false })
       .limit(10);
 
-    messages = messagesDesc?.reverse() || [];
+    messages = (messagesDesc?.reverse() || []).map((m) => ({
+      sender: m.sender as "customer" | "ai" | "staff",
+      text: m.text,
+      created_at: m.created_at,
+    }));
     console.log("[Smart AI] Fetched conversation history from database:", {
       messageCount: messages.length,
       source: "database",
