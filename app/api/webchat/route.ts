@@ -11,6 +11,10 @@ import {
 import { extractQuoteInfoSmart } from "@/app/lib/webchat-quote-extractor";
 import { handleRepairFlow, isRepairFlowRequest } from "@/app/lib/repair-flow";
 import { handleRepairFlowWithSession } from "@/app/lib/repair-flow/session-handler";
+import {
+  detectRepairIntent,
+  getSuggestedAction,
+} from "@/app/lib/repair-intent-detector";
 import crypto from "crypto";
 
 /**
@@ -508,6 +512,18 @@ export async function POST(request: NextRequest) {
       shouldRespond: analysis.shouldAIRespond,
     });
 
+    // Detect repair intent and extract structured context
+    const repairContext = detectRepairIntent(message, contextMessages || []);
+    const suggestedAction = getSuggestedAction(repairContext);
+
+    console.log("[Webchat] Repair Context:", {
+      hasRepairIntent: repairContext.hasRepairIntent,
+      deviceType: repairContext.deviceType,
+      deviceModel: repairContext.deviceModel,
+      issue: repairContext.issue,
+      confidence: repairContext.confidence,
+    });
+
     // Check if requires staff attention
     if (analysis.requiresStaffAttention) {
       // Create alert for staff
@@ -634,7 +650,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Return response
+    // Return response with structured repair context
     const responseTime = Date.now() - startTime;
 
     return NextResponse.json(
@@ -643,10 +659,23 @@ export async function POST(request: NextRequest) {
         session_id: session.session_token,
         conversation_id: conversation.id,
         response: aiResult.response,
+        detectedContext: repairContext.hasRepairIntent
+          ? {
+              hasRepairIntent: repairContext.hasRepairIntent,
+              deviceType: repairContext.deviceType,
+              deviceModel: repairContext.deviceModel,
+              issue: repairContext.issue,
+              issueLabel: repairContext.issueLabel,
+              confidence: repairContext.confidence,
+            }
+          : null,
+        suggestedAction: suggestedAction,
         metadata: {
           confidence: aiResult.confidence,
           response_time_ms: responseTime,
           requires_attention: analysis.requiresStaffAttention,
+          sentiment: analysis.sentiment,
+          intent: analysis.intent,
         },
       },
       { headers: corsHeaders }
