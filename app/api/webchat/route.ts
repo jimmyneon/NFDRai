@@ -18,7 +18,7 @@ import {
 import crypto from "crypto";
 
 /**
- * Web Chat API for website widget integration
+ * Web Chat API for website widget integration (v2.1.1)
  *
  * This endpoint handles chat messages from your website widget.
  * It creates sessions for anonymous visitors and uses AI Steve to respond.
