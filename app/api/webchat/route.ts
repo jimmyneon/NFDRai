@@ -476,7 +476,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Use conversation history from frontend (not database)
-    const contextMessages = context?.conversationHistory || [];
+    // Transform frontend format (role/content) to backend format (sender/text)
+    const contextMessages = (context?.conversationHistory || []).map(
+      (msg: any) => ({
+        sender:
+          msg.role === "user"
+            ? "customer"
+            : msg.role === "assistant"
+            ? "ai"
+            : msg.sender || "customer",
+        text: msg.content || msg.text || "",
+      })
+    );
 
     // Extract user journey context from frontend
     const userJourney = context?.userJourney;
