@@ -724,8 +724,19 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("[Webchat] Error:", error);
+    console.error(
+      "[Webchat] Error stack:",
+      error instanceof Error ? error.stack : "No stack trace"
+    );
+    console.error(
+      "[Webchat] Error message:",
+      error instanceof Error ? error.message : String(error)
+    );
     return NextResponse.json(
-      { error: "Failed to process message" },
+      {
+        error: "Failed to process message",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500, headers: corsHeaders }
     );
   }
