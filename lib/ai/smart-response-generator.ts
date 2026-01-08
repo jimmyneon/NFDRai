@@ -470,8 +470,9 @@ export async function generateSmartResponse(
       validation_passed: validation.valid,
       validation_issues: validation.issues,
       handoff_to_staff:
-        result.response.toLowerCase().includes("john will") ||
-        result.response.toLowerCase().includes("pass this to"),
+        result.response?.toLowerCase().includes("john will") ||
+        result.response?.toLowerCase().includes("pass this to") ||
+        false,
     });
   }
 
