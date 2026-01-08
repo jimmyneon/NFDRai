@@ -575,26 +575,38 @@ export async function POST(request: NextRequest) {
     const modulesToLoad = getModulesForAnalysis(analysis);
 
     // Generate AI response
-    const aiResult = await generateSmartResponse({
-      customerMessage: message,
-      conversationId: conversation.id,
-      channel: "webchat", // Tell AI this is webchat for context-aware responses
-      modules: modulesToLoad,
-      conversationHistory: contextMessages, // Pass frontend conversation history
-      userJourney: userJourney, // Pass user journey context from frontend
-      unifiedAnalysis: {
-        intent: analysis.intent,
-        contentType: analysis.contentType,
-        sentiment: analysis.sentiment,
-        urgency: analysis.urgency,
-        intentConfidence: analysis.intentConfidence,
-      },
-      customerContactStatus: {
-        hasPhone: !!customer.phone,
-        hasEmail: !!customer.email,
-        hasName: !!customer.name,
-      },
-    });
+    let aiResult;
+    try {
+      aiResult = await generateSmartResponse({
+        customerMessage: message,
+        conversationId: conversation.id,
+        channel: "webchat", // Tell AI this is webchat for context-aware responses
+        modules: modulesToLoad,
+        conversationHistory: contextMessages, // Pass frontend conversation history
+        userJourney: userJourney, // Pass user journey context from frontend
+        unifiedAnalysis: {
+          intent: analysis.intent,
+          contentType: analysis.contentType,
+          sentiment: analysis.sentiment,
+          urgency: analysis.urgency,
+          intentConfidence: analysis.intentConfidence,
+        },
+        customerContactStatus: {
+          hasPhone: !!customer.phone,
+          hasEmail: !!customer.email,
+          hasName: !!customer.name,
+        },
+      });
+    } catch (error) {
+      console.error("[Webchat] AI generation failed:", error);
+      return NextResponse.json(
+        {
+          error: "AI generation failed",
+          details: error instanceof Error ? error.message : String(error),
+        },
+        { status: 500, headers: corsHeaders }
+      );
+    }
 
     console.log("[Webchat] AI Response generated:", {
       confidence: aiResult.confidence,
