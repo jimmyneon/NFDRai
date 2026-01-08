@@ -598,8 +598,21 @@ export async function POST(request: NextRequest) {
 
     console.log("[Webchat] AI Response generated:", {
       confidence: aiResult.confidence,
-      responseLength: aiResult.response.length,
+      responseLength: aiResult.response?.length || 0,
+      hasResponse: !!aiResult.response,
     });
+
+    // Check if response is valid
+    if (!aiResult.response) {
+      console.error("[Webchat] AI returned undefined response:", aiResult);
+      return NextResponse.json(
+        {
+          error: "AI failed to generate response",
+          details: "Response was undefined",
+        },
+        { status: 500, headers: corsHeaders }
+      );
+    }
 
     // Save AI response
     await supabase.from("messages").insert({
@@ -690,9 +703,10 @@ export async function POST(request: NextRequest) {
     const responseTime = Date.now() - startTime;
 
     // Detect if AI is ready for booking handoff
+    const responseText = aiResult.response?.toLowerCase() || "";
     const isReadyForBooking =
-      aiResult.response.toLowerCase().includes("click the button below") ||
-      aiResult.response.toLowerCase().includes("ready to start your repair");
+      responseText.includes("click the button below") ||
+      responseText.includes("ready to start your repair");
 
     return NextResponse.json(
       {

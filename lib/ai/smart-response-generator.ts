@@ -420,32 +420,34 @@ export async function generateSmartResponse(
   const costUsd =
     (promptTokens * 0.0025) / 1000 + (completionTokens * 0.01) / 1000;
 
-  // STEP 9: Store analytics
-  const { data: insertedMessage } = await supabase
-    .from("messages")
-    .select("id")
-    .eq("conversation_id", params.conversationId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
+  // STEP 9: Store analytics (only if we have a conversation ID)
+  if (params.conversationId) {
+    const { data: insertedMessage } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("conversation_id", params.conversationId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
 
-  await supabase.from("ai_analytics").insert({
-    conversation_id: params.conversationId,
-    message_id: insertedMessage?.id,
-    intent: context.intent,
-    intent_confidence: result.confidence / 100,
-    state: context.state,
-    response_time_ms: responseTimeMs,
-    prompt_tokens: promptTokens,
-    completion_tokens: completionTokens,
-    total_tokens: totalTokens,
-    cost_usd: costUsd,
-    validation_passed: validation.valid,
-    validation_issues: validation.issues,
-    handoff_to_staff:
-      result.response.toLowerCase().includes("john will") ||
-      result.response.toLowerCase().includes("pass this to"),
-  });
+    await supabase.from("ai_analytics").insert({
+      conversation_id: params.conversationId,
+      message_id: insertedMessage?.id,
+      intent: context.intent,
+      intent_confidence: result.confidence / 100,
+      state: context.state,
+      response_time_ms: responseTimeMs,
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      total_tokens: totalTokens,
+      cost_usd: costUsd,
+      validation_passed: validation.valid,
+      validation_issues: validation.issues,
+      handoff_to_staff:
+        result.response.toLowerCase().includes("john will") ||
+        result.response.toLowerCase().includes("pass this to"),
+    });
+  }
 
   // STEP 10: Learn from patterns (async, don't wait) - only if we have a conversation
   if (params.conversationId) {
@@ -480,14 +482,18 @@ export async function generateSmartResponse(
 
   // Check if this is the first AI message to this customer
   // IMPORTANT: Check ALL messages in the conversation, not just recent ones
-  const { data: allMessages } = await supabase
-    .from("messages")
-    .select("sender")
-    .eq("conversation_id", params.conversationId)
-    .eq("sender", "ai")
-    .limit(1);
+  let isFirstAIMessage = true;
 
-  const isFirstAIMessage = !allMessages || allMessages.length === 0;
+  if (params.conversationId) {
+    const { data: allMessages } = await supabase
+      .from("messages")
+      .select("sender")
+      .eq("conversation_id", params.conversationId)
+      .eq("sender", "ai")
+      .limit(1);
+
+    isFirstAIMessage = !allMessages || allMessages.length === 0;
+  }
 
   console.log("[AI Disclosure] First AI message check:", {
     isFirstAIMessage,
