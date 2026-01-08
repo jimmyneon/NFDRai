@@ -383,15 +383,41 @@ export async function generateSmartResponse(
 
   // STEP 6: Generate response
   const provider = getProvider(settings.provider);
-  const result = await provider.generateResponse({
-    prompt: focusedPrompt,
-    systemPrompt: focusedPrompt,
-    temperature: settings.temperature,
-    maxTokens: settings.max_tokens,
-    apiKey: settings.api_key,
-    model: settings.model_name,
-    conversationMessages,
-  });
+  console.log(
+    "[Smart AI] Calling provider:",
+    settings.provider,
+    "with model:",
+    settings.model_name
+  );
+
+  let result;
+  try {
+    result = await provider.generateResponse({
+      prompt: focusedPrompt,
+      systemPrompt: focusedPrompt,
+      temperature: settings.temperature,
+      maxTokens: settings.max_tokens,
+      apiKey: settings.api_key,
+      model: settings.model_name,
+      conversationMessages,
+    });
+
+    console.log("[Smart AI] Provider response:", {
+      hasResponse: !!result.response,
+      responseLength: result.response?.length || 0,
+      confidence: result.confidence,
+      responsePreview: result.response?.substring(0, 100) || "EMPTY",
+    });
+
+    // Check if response is empty or undefined
+    if (!result.response || result.response.trim().length === 0) {
+      console.error("[Smart AI] Provider returned empty response!");
+      throw new Error("AI provider returned empty response");
+    }
+  } catch (error) {
+    console.error("[Smart AI] Provider error:", error);
+    throw error;
+  }
 
   // STEP 7: Validate response against state
   const validation = validateResponseForState(result.response, context);
