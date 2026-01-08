@@ -579,7 +579,7 @@ export async function POST(request: NextRequest) {
     try {
       aiResult = await generateSmartResponse({
         customerMessage: message,
-        conversationId: conversation.id,
+        conversationId: null, // TEMPORARY: Set to null to bypass analytics bug
         channel: "webchat", // Tell AI this is webchat for context-aware responses
         modules: modulesToLoad,
         conversationHistory: contextMessages, // Pass frontend conversation history
