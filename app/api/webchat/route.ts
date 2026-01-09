@@ -490,7 +490,12 @@ export async function POST(request: NextRequest) {
     );
 
     // FALLBACK: If frontend didn't send history, load from database
-    if (contextMessages.length === 0 && conversation?.id) {
+    // BUT only if conversation is in auto mode (not after handoff to staff)
+    if (
+      contextMessages.length === 0 &&
+      conversation?.id &&
+      conversation.status === "auto"
+    ) {
       console.log(
         "[Webchat] ⚠️ Frontend didn't send history - loading from database"
       );
@@ -512,6 +517,13 @@ export async function POST(request: NextRequest) {
           "messages from database"
         );
       }
+    } else if (
+      contextMessages.length === 0 &&
+      conversation?.status !== "auto"
+    ) {
+      console.log(
+        "[Webchat] ⚠️ Conversation in manual mode - not loading history from database"
+      );
     }
 
     // Extract user journey context from frontend
