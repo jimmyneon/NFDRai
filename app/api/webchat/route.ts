@@ -477,7 +477,7 @@ export async function POST(request: NextRequest) {
 
     // Use conversation history from frontend (not database)
     // Transform frontend format (role/content) to backend format (sender/text)
-    const contextMessages = (context?.conversationHistory || []).map(
+    let contextMessages = (context?.conversationHistory || []).map(
       (msg: any) => ({
         sender:
           msg.role === "user"
@@ -488,6 +488,31 @@ export async function POST(request: NextRequest) {
         text: msg.content || msg.text || "",
       })
     );
+
+    // FALLBACK: If frontend didn't send history, load from database
+    if (contextMessages.length === 0 && conversation?.id) {
+      console.log(
+        "[Webchat] ⚠️ Frontend didn't send history - loading from database"
+      );
+      const { data: dbMessages } = await supabase
+        .from("messages")
+        .select("sender, text, created_at")
+        .eq("conversation_id", conversation.id)
+        .order("created_at", { ascending: false })
+        .limit(15);
+
+      if (dbMessages && dbMessages.length > 0) {
+        contextMessages = dbMessages.reverse().map((m) => ({
+          sender: m.sender as "customer" | "ai" | "staff",
+          text: m.text,
+        }));
+        console.log(
+          "[Webchat] ✅ Loaded",
+          contextMessages.length,
+          "messages from database"
+        );
+      }
+    }
 
     // Extract user journey context from frontend
     const userJourney = context?.userJourney;
@@ -507,9 +532,11 @@ export async function POST(request: NextRequest) {
         text: m.text || m.content,
       })),
       source:
-        contextMessages.length > 0
+        context?.conversationHistory && context.conversationHistory.length > 0
           ? "frontend"
-          : "NONE - FRONTEND NOT SENDING HISTORY!",
+          : contextMessages.length > 0
+          ? "database (fallback)"
+          : "NONE - NO HISTORY AVAILABLE!",
     });
 
     if (userJourney) {
