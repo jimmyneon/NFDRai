@@ -243,10 +243,16 @@ export async function POST(request: NextRequest) {
     );
     console.log(`[Start Repair] SMS sent: ${smsResult.sent}`);
 
+    // Build quote URL for dashboard
+    const quoteUrl = `${
+      process.env.NEXT_PUBLIC_APP_URL || "https://nfd-rai.vercel.app"
+    }/dashboard/quotes/${quoteRequest?.id}`;
+
     return NextResponse.json(
       {
         success: true,
         quote_id: quoteRequest?.id,
+        quote_url: quoteUrl,
         sms_sent: smsResult.sent,
         message: "Quote request received. SMS confirmation sent.",
       },

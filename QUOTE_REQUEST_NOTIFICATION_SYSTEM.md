@@ -6,10 +6,11 @@ Complete system for handling repair request notifications from MacroDroid, displ
 
 ## Flow
 
-1. **MacroDroid sends notification** → `POST http://192.168.178.188:8080/repair-request`
-2. **System creates quote link** → `/dashboard/quotes/[id]`
-3. **Staff opens link** → Views repair details and enters quote amount
-4. **Staff sends quote** → SMS sent via MacroDroid API
+1. **Website form submits repair request** → `POST https://nfd-rai.vercel.app/api/public/start-repair`
+2. **API creates quote and returns quote_url** → Response includes `quote_url: "https://nfd-rai.vercel.app/dashboard/quotes/[id]"`
+3. **MacroDroid sends notification** → Uses the `quote_url` from response to notify you
+4. **Staff opens link** → Views repair details and enters quote amount
+5. **Staff sends quote** → SMS sent via MacroDroid API
 
 ## Components Created
 
@@ -222,15 +223,51 @@ curl -X POST http://localhost:3000/api/repair-request \
 
 ## MacroDroid Integration
 
-### Notification Webhook
+### Step 1: Website Form Submission
 
-Configure MacroDroid to send POST request when repair request received:
+Your website form should POST to:
 
 ```
-URL: http://YOUR_DOMAIN/api/repair-request
+URL: https://nfd-rai.vercel.app/api/public/start-repair
 Method: POST
-Body: https://example.com/repair/[quote_id]
+Content-Type: application/json
+Body: {
+  "name": "Customer Name",
+  "phone": "+447123456789",
+  "email": "customer@example.com",
+  "device_make": "Apple",
+  "device_model": "iPhone 14 Pro",
+  "issue": "Cracked screen"
+}
 ```
+
+### Step 2: API Response
+
+The API will return:
+
+```json
+{
+  "success": true,
+  "quote_id": "abc-123-def",
+  "quote_url": "https://nfd-rai.vercel.app/dashboard/quotes/abc-123-def",
+  "sms_sent": true,
+  "message": "Quote request received. SMS confirmation sent."
+}
+```
+
+### Step 3: MacroDroid Notification
+
+Configure MacroDroid to:
+
+1. Capture the `quote_url` from the API response
+2. Send you a notification (SMS, push notification, etc.) with the `quote_url`
+3. You click the link to open the quote detail page
+
+**Example MacroDroid Flow:**
+
+- Trigger: HTTP Request received (from website)
+- Action: Extract `quote_url` from JSON response
+- Action: Send notification with text: "New quote request: [quote_url]"
 
 ### SMS Sending
 
