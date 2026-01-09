@@ -251,23 +251,31 @@ The API will return:
   "quote_id": "abc-123-def",
   "quote_url": "https://nfd-rai.vercel.app/dashboard/quotes/abc-123-def",
   "sms_sent": true,
-  "message": "Quote request received. SMS confirmation sent."
+  "message": "Quote request received."
 }
 ```
 
 ### Step 3: MacroDroid Notification
 
-Configure MacroDroid to:
+Configure MacroDroid to send the `quote_url` to your notification endpoint:
 
-1. Capture the `quote_url` from the API response
-2. Send you a notification (SMS, push notification, etc.) with the `quote_url`
-3. You click the link to open the quote detail page
+```bash
+curl -X POST https://nfd-rai.vercel.app/api/repair-request \
+  -d "https://nfd-rai.vercel.app/dashboard/quotes/abc-123-def"
+```
 
-**Example MacroDroid Flow:**
+**MacroDroid Setup:**
 
-- Trigger: HTTP Request received (from website)
-- Action: Extract `quote_url` from JSON response
-- Action: Send notification with text: "New quote request: [quote_url]"
+1. Extract `quote_url` from the `/api/public/start-repair` response
+2. Send POST request to `https://nfd-rai.vercel.app/api/repair-request` with the URL as body
+3. MacroDroid then sends you a notification (SMS/push) with the link
+4. You click the link to open the quote detail page
+
+**Simple!** MacroDroid just needs to:
+
+- Get the `quote_url` from step 2
+- POST it to `/api/repair-request`
+- Send you a notification with the link
 
 ### SMS Sending
 
