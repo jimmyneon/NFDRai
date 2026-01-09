@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import {
   Clock,
   Globe,
   MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 
 interface QuoteRequest {
@@ -369,8 +371,16 @@ New Forest Device Repairs`;
                 </div>
 
                 {/* Issue */}
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Issue: {request.issue}
+                <div className="mt-1 text-sm text-muted-foreground flex items-center justify-between">
+                  <span>Issue: {request.issue}</span>
+                  <Link
+                    href={`/dashboard/quotes/${request.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-primary hover:underline flex items-center gap-1 text-xs"
+                  >
+                    View Details
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
                 </div>
               </div>
             );
