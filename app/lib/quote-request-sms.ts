@@ -8,10 +8,17 @@ export function buildQuoteRequestConfirmationSms(details: {
   const { name, device_make, device_model, issue, type } = details;
   const firstName = name.split(" ")[0];
 
+  // Avoid duplicate device type (e.g., "iPhone iPhone 14" -> "iPhone 14")
+  const deviceDescription = device_model
+    .toLowerCase()
+    .includes(device_make.toLowerCase())
+    ? device_model
+    : `${device_make} ${device_model}`;
+
   if (type === "sell") {
     return `Hi ${firstName},
 
-Thanks for getting in touch about selling your ${device_make} ${device_model}.
+Thanks for getting in touch about selling your ${deviceDescription}.
 
 To give you an accurate quote, could you reply with the storage size and condition (and any issues/cracks)? If you know roughly how old it is, that helps too.
 
@@ -25,7 +32,7 @@ New Forest Device Repairs`;
 
 Thanks for your repair enquiry!
 
-John will get back to you ASAP with a quote for your ${device_make} ${device_model} (${issue}).
+John will get back to you ASAP with a quote for your ${deviceDescription} (${issue}).
 
 If you have any questions in the meantime, just reply to this message.
 
