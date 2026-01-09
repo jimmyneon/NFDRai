@@ -253,15 +253,35 @@ export async function POST(request: NextRequest) {
     if (macrodroidBase) {
       try {
         const notificationUrl = `${macrodroidBase}/repair-request`;
-        await fetch(notificationUrl, {
+        console.log(
+          `[Start Repair] Sending notification to: ${notificationUrl}`
+        );
+        console.log(`[Start Repair] Notification payload:`, { url: quoteUrl });
+
+        const response = await fetch(notificationUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: quoteUrl }),
         });
-        console.log(`[Start Repair] Notification sent to ${notificationUrl}`);
+
+        console.log(
+          `[Start Repair] Notification response status: ${response.status}`
+        );
+        if (!response.ok) {
+          const responseText = await response.text();
+          console.error(
+            `[Start Repair] Notification failed: ${response.status} - ${responseText}`
+          );
+        } else {
+          console.log(`[Start Repair] ✅ Notification sent successfully`);
+        }
       } catch (error) {
         console.error("[Start Repair] Failed to send notification:", error);
       }
+    } else {
+      console.log(
+        "[Start Repair] No MACRODROID_WEBHOOK_URL configured - skipping notification"
+      );
     }
 
     return NextResponse.json(
