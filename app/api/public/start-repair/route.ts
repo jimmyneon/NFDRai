@@ -262,10 +262,8 @@ export async function POST(request: NextRequest) {
 
         const response = await fetch(notificationUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: quoteUrl,
-          }),
+          headers: { "Content-Type": "text/plain" },
+          body: quoteUrl,
         });
 
         console.log(
