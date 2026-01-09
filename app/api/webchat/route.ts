@@ -489,52 +489,14 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // FALLBACK: If frontend didn't send history, load from database
-    // BUT only if conversation is in auto mode (not after handoff to staff)
-    // AND only load messages from last 30 minutes (current session, not old conversations)
-    if (
-      contextMessages.length === 0 &&
-      conversation?.id &&
-      conversation.status === "auto"
-    ) {
+    // DISABLED: Database fallback causes issues with old conversation history
+    // Frontend MUST send conversation history in context.conversationHistory
+    if (contextMessages.length === 0) {
       console.log(
-        "[Webchat] ⚠️ Frontend didn't send history - loading from database"
+        "[Webchat] ⚠️ No conversation history from frontend - AI will have no context"
       );
-
-      // Only load messages from last 30 minutes to avoid old conversation history
-      const thirtyMinutesAgo = new Date(
-        Date.now() - 30 * 60 * 1000
-      ).toISOString();
-
-      const { data: dbMessages } = await supabase
-        .from("messages")
-        .select("sender, text, created_at")
-        .eq("conversation_id", conversation.id)
-        .gte("created_at", thirtyMinutesAgo)
-        .order("created_at", { ascending: false })
-        .limit(15);
-
-      if (dbMessages && dbMessages.length > 0) {
-        contextMessages = dbMessages.reverse().map((m) => ({
-          sender: m.sender as "customer" | "ai" | "staff",
-          text: m.text,
-        }));
-        console.log(
-          "[Webchat] ✅ Loaded",
-          contextMessages.length,
-          "messages from database (last 30 min)"
-        );
-      } else {
-        console.log(
-          "[Webchat] ℹ️ No recent messages in last 30 min - treating as new conversation"
-        );
-      }
-    } else if (
-      contextMessages.length === 0 &&
-      conversation?.status !== "auto"
-    ) {
       console.log(
-        "[Webchat] ⚠️ Conversation in manual mode - not loading history from database"
+        "[Webchat] 🔧 Frontend must send context.conversationHistory with each message"
       );
     }
 
