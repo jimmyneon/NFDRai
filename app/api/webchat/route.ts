@@ -477,17 +477,31 @@ export async function POST(request: NextRequest) {
 
     // Use conversation history from frontend (not database)
     // Transform frontend format (role/content) to backend format (sender/text)
-    let contextMessages = (context?.conversationHistory || []).map(
-      (msg: any) => ({
-        sender:
-          msg.role === "user"
-            ? "customer"
-            : msg.role === "assistant"
-            ? "ai"
-            : msg.sender || "customer",
-        text: msg.content || msg.text || "",
-      })
+    console.log(
+      "[Webchat] 🔍 Raw context.conversationHistory:",
+      context?.conversationHistory
     );
+
+    let contextMessages = (context?.conversationHistory || []).map(
+      (msg: any) => {
+        const transformed = {
+          sender:
+            msg.role === "user"
+              ? "customer"
+              : msg.role === "assistant"
+              ? "ai"
+              : msg.sender || "customer",
+          text: msg.content || msg.text || "",
+        };
+        console.log("[Webchat] 🔄 Transformed message:", {
+          original: msg,
+          transformed,
+        });
+        return transformed;
+      }
+    );
+
+    console.log("[Webchat] ✅ Final contextMessages array:", contextMessages);
 
     // DISABLED: Database fallback causes issues with old conversation history
     // Frontend MUST send conversation history in context.conversationHistory
