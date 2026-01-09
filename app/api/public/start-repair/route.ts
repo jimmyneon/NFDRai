@@ -249,12 +249,11 @@ export async function POST(request: NextRequest) {
     }/dashboard/quotes/${quoteRequest?.id}`;
 
     // Send notification to MacroDroid webhook
-    const notificationWebhook = process.env.MACRODROID_WEBHOOK_URL;
-    if (notificationWebhook) {
+    const macrodroidBase = process.env.MACRODROID_WEBHOOK_URL;
+    if (macrodroidBase) {
       try {
-        const notificationUrl = notificationWebhook.endsWith("/repair-request")
-          ? notificationWebhook
-          : `${notificationWebhook}/repair-request`;
+        // Append /repair-request to base webhook URL
+        const notificationUrl = `${macrodroidBase}/repair-request`;
 
         await fetch(notificationUrl, {
           method: "POST",
@@ -266,7 +265,7 @@ export async function POST(request: NextRequest) {
             issue: normalizedIssue,
           }),
         });
-        console.log(`[Start Repair] Notification sent to MacroDroid`);
+        console.log(`[Start Repair] Notification sent to ${notificationUrl}`);
       } catch (error) {
         console.error("[Start Repair] Failed to send notification:", error);
       }
