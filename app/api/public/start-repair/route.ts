@@ -248,6 +248,30 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_APP_URL || "https://nfd-rai.vercel.app"
     }/dashboard/quotes/${quoteRequest?.id}`;
 
+    // Send notification to MacroDroid webhook
+    const notificationWebhook = process.env.MACRODROID_WEBHOOK_URL;
+    if (notificationWebhook) {
+      try {
+        const notificationUrl = notificationWebhook.endsWith("/repair-request")
+          ? notificationWebhook
+          : `${notificationWebhook}/repair-request`;
+
+        await fetch(notificationUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: quoteUrl,
+            customer: name,
+            device: `${device_make} ${device_model}`,
+            issue: normalizedIssue,
+          }),
+        });
+        console.log(`[Start Repair] Notification sent to MacroDroid`);
+      } catch (error) {
+        console.error("[Start Repair] Failed to send notification:", error);
+      }
+    }
+
     return NextResponse.json(
       {
         success: true,
