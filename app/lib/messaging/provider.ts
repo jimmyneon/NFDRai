@@ -23,22 +23,20 @@ export async function sendMessageViaProvider({
 
   if (macrodroidBase && channel === "sms") {
     try {
-      // Append /send-sms to base webhook URL
-      const smsWebhookUrl = `${macrodroidBase}/send-sms`;
-
-      const response = await fetch(smsWebhookUrl, {
+      const response = await fetch(macrodroidBase, {
         method: "POST",
         headers: {
           "Content-Type": "application/json; charset=utf-8",
         },
         body: JSON.stringify({
+          type: "sms",
           phone: to,
           message: text,
         }),
       });
 
       if (response.ok) {
-        console.log(`[MacroDroid] SMS sent to ${to} via ${smsWebhookUrl}`);
+        console.log(`[MacroDroid] SMS sent to ${to}`);
         return { sent: true, provider: "macrodroid" };
       } else {
         console.error(`[MacroDroid] Failed: ${response.status}`);

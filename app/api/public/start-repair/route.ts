@@ -252,16 +252,21 @@ export async function POST(request: NextRequest) {
     const macrodroidBase = process.env.MACRODROID_WEBHOOK_URL;
     if (macrodroidBase) {
       try {
-        const notificationUrl = `${macrodroidBase}/repair-request`;
         console.log(
-          `[Start Repair] Sending notification to: ${notificationUrl}`
+          `[Start Repair] Sending notification to: ${macrodroidBase}`
         );
-        console.log(`[Start Repair] Notification payload:`, { url: quoteUrl });
+        console.log(`[Start Repair] Notification payload:`, {
+          type: "quote_notification",
+          url: quoteUrl,
+        });
 
-        const response = await fetch(notificationUrl, {
+        const response = await fetch(macrodroidBase, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: quoteUrl }),
+          body: JSON.stringify({
+            type: "quote_notification",
+            url: quoteUrl,
+          }),
         });
 
         console.log(
