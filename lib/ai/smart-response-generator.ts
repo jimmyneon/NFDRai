@@ -1018,9 +1018,9 @@ ${
 
 🚨 CONVERSATION SUMMARY - WHAT CUSTOMER ALREADY TOLD YOU 🚨
 ${(() => {
-  const customerMessages = messages
-    .filter((m) => m.sender === "customer")
-    .map((m) => m.text)
+  const customerMessages = recentMessages
+    .filter((m: any) => m.sender === "customer")
+    .map((m: any) => m.text)
     .join(" ");
   const summary = [];
 
