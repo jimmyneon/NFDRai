@@ -1016,6 +1016,47 @@ ${
     : ""
 }
 
+🚨 CONVERSATION SUMMARY - WHAT CUSTOMER ALREADY TOLD YOU 🚨
+${(() => {
+  const customerMessages = messages
+    .filter((m) => m.sender === "customer")
+    .map((m) => m.text)
+    .join(" ");
+  const summary = [];
+
+  // Extract what they told us about device
+  if (context.deviceModel) {
+    summary.push(
+      `✅ DEVICE: ${context.deviceModel} (they already told you this!)`
+    );
+  } else if (context.deviceType) {
+    summary.push(
+      `✅ DEVICE TYPE: ${context.deviceType} (they told you this - now ask for specific model)`
+    );
+  }
+
+  // Extract what they told us about issue
+  const issueKeywords = {
+    screen: /\b(screen|crack|smash|shatter|broken screen)\b/i,
+    battery: /\b(battery|drain|charge|won't hold)\b/i,
+    charging: /\b(charging|won't charge|not charging)\b/i,
+    water: /\b(water|wet|dropped in water)\b/i,
+    power: /\b(won't turn on|dead|not working)\b/i,
+  };
+
+  for (const [issue, pattern] of Object.entries(issueKeywords)) {
+    if (pattern.test(customerMessages)) {
+      summary.push(`✅ ISSUE: ${issue} (they already told you this!)`);
+      break;
+    }
+  }
+
+  return summary.length > 0
+    ? summary.join("\n") +
+        "\n\n🚨 DO NOT ASK ABOUT ANYTHING LISTED ABOVE - THEY ALREADY TOLD YOU! 🚨"
+    : "No device/issue info provided yet - ask for it";
+})()}
+
 🚨 NEVER REPEAT QUESTIONS 🚨
 - If you see ✅ DEVICE above, you ALREADY KNOW the device - DON'T ASK!
 - If customer said "iPhone 13" in previous messages, you KNOW it's iPhone 13
