@@ -476,30 +476,33 @@ export async function POST(request: NextRequest) {
     }
 
     // Use conversation history from frontend (not database)
+    // Accept from BOTH root level (body.conversationHistory) AND context object
     // Transform frontend format (role/content) to backend format (sender/text)
-    console.log(
-      "[Webchat] 🔍 Raw context.conversationHistory:",
-      context?.conversationHistory
-    );
+    const rawHistory =
+      body.conversationHistory || context?.conversationHistory || [];
 
-    let contextMessages = (context?.conversationHistory || []).map(
-      (msg: any) => {
-        const transformed = {
-          sender:
-            msg.role === "user"
-              ? "customer"
-              : msg.role === "assistant"
-              ? "ai"
-              : msg.sender || "customer",
-          text: msg.content || msg.text || "",
-        };
-        console.log("[Webchat] 🔄 Transformed message:", {
-          original: msg,
-          transformed,
-        });
-        return transformed;
-      }
-    );
+    console.log("[Webchat] 🔍 Raw conversationHistory:", {
+      fromRoot: !!body.conversationHistory,
+      fromContext: !!context?.conversationHistory,
+      length: rawHistory.length,
+    });
+
+    let contextMessages = rawHistory.map((msg: any) => {
+      const transformed = {
+        sender:
+          msg.role === "user"
+            ? "customer"
+            : msg.role === "assistant"
+            ? "ai"
+            : msg.sender || "customer",
+        text: msg.content || msg.text || "",
+      };
+      console.log("[Webchat] 🔄 Transformed message:", {
+        original: msg,
+        transformed,
+      });
+      return transformed;
+    });
 
     console.log("[Webchat] ✅ Final contextMessages array:", contextMessages);
 
