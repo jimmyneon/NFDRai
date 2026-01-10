@@ -252,6 +252,8 @@ export interface RepairFlowResponse {
   outcome?: "book" | "request" | "bring_in" | "diagnostics";
   // AI Takeover - hand back control to frontend
   hand_back_control?: HandBackControl;
+  // Handoff to staff - indicates conversation should be passed to human
+  handoff?: boolean;
   // Error info for debugging (frontend can log/ignore)
   error?: string;
 }

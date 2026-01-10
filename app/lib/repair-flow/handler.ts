@@ -1024,6 +1024,7 @@ async function handleAIInstructions(
       },
       quick_actions: BOOKING_ACTIONS,
       morph_layout: true,
+      handoff: true,
     };
   }
 
@@ -1113,6 +1114,7 @@ async function handleAIInstructions(
       },
       quick_actions: BOOKING_ACTIONS,
       morph_layout: true,
+      handoff: true,
     };
   }
 
@@ -1643,6 +1645,7 @@ async function handleAITakeover(
       },
       quick_actions: BOOKING_ACTIONS,
       morph_layout: true,
+      handoff: true,
       new_step: "outcome_price",
       hand_back_control: {
         device_type: analysis.deviceType || undefined,
@@ -2032,6 +2035,7 @@ function handlePriceEstimateCommand(
     },
     quick_actions: BOOKING_ACTIONS,
     morph_layout: true,
+    handoff: true,
     price_estimate: {
       price: totalPriceStr,
       turnaround: maxTurnaround,
@@ -3979,6 +3983,7 @@ function handleModelUnknown(
         },
         quick_actions: BOOKING_ACTIONS,
         morph_layout: true,
+        handoff: true,
         next_context: {
           step: "final",
           issue: keyword as any,
@@ -4458,6 +4463,7 @@ async function handleIssueSelected(
     scene,
     quick_actions: BOOKING_ACTIONS,
     morph_layout: true,
+    handoff: true,
   };
 }
 
@@ -4596,6 +4602,7 @@ function handleNeedsDiagnostic(
     },
     quick_actions: DIAGNOSTIC_ACTIONS,
     morph_layout: true,
+    handoff: true,
   };
 }
 
@@ -5440,6 +5447,7 @@ async function handleMacBookYearSelected(
       },
       quick_actions: BOOKING_ACTIONS,
       morph_layout: true,
+      handoff: true,
     };
   }
 
@@ -5462,6 +5470,7 @@ async function handleMacBookYearSelected(
     },
     quick_actions: BOOKING_ACTIONS,
     morph_layout: true,
+    handoff: true,
   };
 }
 
