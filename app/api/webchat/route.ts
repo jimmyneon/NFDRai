@@ -11,10 +11,7 @@ import {
 import { extractQuoteInfoSmart } from "@/app/lib/webchat-quote-extractor";
 import { handleRepairFlow, isRepairFlowRequest } from "@/app/lib/repair-flow";
 import { handleRepairFlowWithSession } from "@/app/lib/repair-flow/session-handler";
-import {
-  detectRepairIntent,
-  getSuggestedAction,
-} from "@/app/lib/repair-intent-detector";
+// Removed: detectRepairIntent, getSuggestedAction - now using AI-extracted context from generateSmartResponse
 import crypto from "crypto";
 
 /**
@@ -587,17 +584,8 @@ export async function POST(request: NextRequest) {
       shouldRespond: analysis.shouldAIRespond,
     });
 
-    // Detect repair intent and extract structured context
-    const repairContext = detectRepairIntent(message, contextMessages);
-    const suggestedAction = getSuggestedAction(repairContext);
-
-    console.log("[Webchat] Repair Context:", {
-      hasRepairIntent: repairContext.hasRepairIntent,
-      deviceType: repairContext.deviceType,
-      deviceModel: repairContext.deviceModel,
-      issue: repairContext.issue,
-      confidence: repairContext.confidence,
-    });
+    // Note: Device/issue extraction happens in generateSmartResponse via analyzeConversationState
+    // We'll use that AI-extracted context instead of regex-based detection
 
     // Check if requires staff attention
     if (analysis.requiresStaffAttention) {
@@ -761,6 +749,24 @@ export async function POST(request: NextRequest) {
       responseText.includes("click the button below") ||
       responseText.includes("ready to start your repair");
 
+    // Use AI-extracted context from conversation state analysis
+    const hasRepairIntent =
+      aiResult.context.intent === "screen_repair" ||
+      aiResult.context.intent === "battery_replacement" ||
+      aiResult.context.intent === "diagnostic";
+
+    const issueLabels: Record<string, string> = {
+      screen: "Screen Repair",
+      battery: "Battery Replacement",
+      charging: "Charging Port Repair",
+      water: "Water Damage Repair",
+      power: "Power Issue",
+      camera: "Camera Repair",
+      audio: "Audio Repair",
+      button: "Button Repair",
+      back_glass: "Back Glass Repair",
+    };
+
     return NextResponse.json(
       {
         success: true,
@@ -768,17 +774,50 @@ export async function POST(request: NextRequest) {
         conversation_id: conversation.id,
         response: aiResult.response,
         handoff: isReadyForBooking, // Signal frontend to show booking button
-        detectedContext: repairContext.hasRepairIntent
+        detectedContext: hasRepairIntent
           ? {
-              hasRepairIntent: repairContext.hasRepairIntent,
-              deviceType: repairContext.deviceType,
-              deviceModel: repairContext.deviceModel,
-              issue: repairContext.issue,
-              issueLabel: repairContext.issueLabel,
-              confidence: repairContext.confidence,
+              hasRepairIntent: true,
+              deviceType: aiResult.context.deviceType || null,
+              deviceModel: aiResult.context.deviceModel || null,
+              issue: aiResult.context.issue || null,
+              issueLabel: aiResult.context.issue
+                ? issueLabels[aiResult.context.issue] || null
+                : null,
+              confidence: 0.8, // AI-extracted context is high confidence
             }
-          : null,
-        suggestedAction: suggestedAction,
+          : {
+              hasRepairIntent: false,
+              deviceType: null,
+              deviceModel: null,
+              issue: null,
+              issueLabel: null,
+              confidence: 0.2,
+            },
+        suggestedAction:
+          hasRepairIntent &&
+          aiResult.context.deviceModel &&
+          aiResult.context.issue
+            ? {
+                type: "start_quote",
+                message:
+                  "Request a quote/repair - John will get back to you ASAP, usually within 10 minutes",
+              }
+            : hasRepairIntent &&
+              aiResult.context.deviceModel &&
+              !aiResult.context.issue
+            ? {
+                type: "ask_issue",
+                message: "What seems to be the problem with it?",
+              }
+            : hasRepairIntent &&
+              aiResult.context.issue &&
+              !aiResult.context.deviceModel
+            ? { type: "ask_device", message: "Which device is this for?" }
+            : {
+                type: "gather_info",
+                message:
+                  "I can help with that! What device do you have and what's the issue?",
+              },
         metadata: {
           confidence: aiResult.confidence,
           response_time_ms: responseTime,
