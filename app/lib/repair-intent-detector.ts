@@ -72,11 +72,11 @@ export function detectRepairIntent(
 
   // 2. DETECT DEVICE TYPE
   const devicePatterns: Array<{ pattern: RegExp; type: string }> = [
-    { pattern: /\b(iphone)\b/i, type: "iphone" },
-    { pattern: /\b(ipad)\b/i, type: "ipad" },
+    { pattern: /\b(iphone|ipone|ifone|i\s*phone)\b/i, type: "iphone" }, // Added common typos
+    { pattern: /\b(ipad|i\s*pad)\b/i, type: "ipad" },
     { pattern: /\b(macbook|mac\s*book)\b/i, type: "macbook" },
     { pattern: /\b(apple\s*watch)\b/i, type: "apple_watch" },
-    { pattern: /\b(samsung|galaxy)\b/i, type: "samsung" },
+    { pattern: /\b(samsung|samsng|samung|galaxy)\b/i, type: "samsung" }, // Added common typos
     { pattern: /\b(google|pixel)\b/i, type: "google" },
     { pattern: /\b(huawei)\b/i, type: "huawei" },
     { pattern: /\b(oneplus|one\s*plus)\b/i, type: "oneplus" },
@@ -104,31 +104,82 @@ export function detectRepairIntent(
 
   // 3. DETECT DEVICE MODEL
   const modelPatterns: Array<{ pattern: RegExp; model: string }> = [
-    // iPhone models
-    { pattern: /\biphone\s*15\s*pro\s*max\b/i, model: "iPhone 15 Pro Max" },
-    { pattern: /\biphone\s*15\s*pro\b/i, model: "iPhone 15 Pro" },
-    { pattern: /\biphone\s*15\s*plus\b/i, model: "iPhone 15 Plus" },
-    { pattern: /\biphone\s*15\b/i, model: "iPhone 15" },
-    { pattern: /\biphone\s*14\s*pro\s*max\b/i, model: "iPhone 14 Pro Max" },
-    { pattern: /\biphone\s*14\s*pro\b/i, model: "iPhone 14 Pro" },
-    { pattern: /\biphone\s*14\s*plus\b/i, model: "iPhone 14 Plus" },
-    { pattern: /\biphone\s*14\b/i, model: "iPhone 14" },
-    { pattern: /\biphone\s*13\s*pro\s*max\b/i, model: "iPhone 13 Pro Max" },
-    { pattern: /\biphone\s*13\s*pro\b/i, model: "iPhone 13 Pro" },
-    { pattern: /\biphone\s*13\s*mini\b/i, model: "iPhone 13 Mini" },
-    { pattern: /\biphone\s*13\b/i, model: "iPhone 13" },
-    { pattern: /\biphone\s*12\s*pro\s*max\b/i, model: "iPhone 12 Pro Max" },
-    { pattern: /\biphone\s*12\s*pro\b/i, model: "iPhone 12 Pro" },
-    { pattern: /\biphone\s*12\s*mini\b/i, model: "iPhone 12 Mini" },
-    { pattern: /\biphone\s*12\b/i, model: "iPhone 12" },
-    { pattern: /\biphone\s*11\s*pro\s*max\b/i, model: "iPhone 11 Pro Max" },
-    { pattern: /\biphone\s*11\s*pro\b/i, model: "iPhone 11 Pro" },
-    { pattern: /\biphone\s*11\b/i, model: "iPhone 11" },
-    { pattern: /\biphone\s*se\s*\(?202[02]\)?\b/i, model: "iPhone SE" },
-    { pattern: /\biphone\s*x[rs]\s*max\b/i, model: "iPhone XS Max" },
-    { pattern: /\biphone\s*x[rs]\b/i, model: "iPhone XS" },
-    { pattern: /\biphone\s*xr\b/i, model: "iPhone XR" },
-    { pattern: /\biphone\s*x\b/i, model: "iPhone X" },
+    // iPhone models (with typo tolerance)
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*15\s*pro\s*max\b/i,
+      model: "iPhone 15 Pro Max",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*15\s*pro\b/i,
+      model: "iPhone 15 Pro",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*15\s*plus\b/i,
+      model: "iPhone 15 Plus",
+    },
+    { pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*15\b/i, model: "iPhone 15" },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*14\s*pro\s*max\b/i,
+      model: "iPhone 14 Pro Max",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*14\s*pro\b/i,
+      model: "iPhone 14 Pro",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*14\s*plus\b/i,
+      model: "iPhone 14 Plus",
+    },
+    { pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*14\b/i, model: "iPhone 14" },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*13\s*pro\s*max\b/i,
+      model: "iPhone 13 Pro Max",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*13\s*pro\b/i,
+      model: "iPhone 13 Pro",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*13\s*mini\b/i,
+      model: "iPhone 13 Mini",
+    },
+    { pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*13\b/i, model: "iPhone 13" },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*12\s*pro\s*max\b/i,
+      model: "iPhone 12 Pro Max",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*12\s*pro\b/i,
+      model: "iPhone 12 Pro",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*12\s*mini\b/i,
+      model: "iPhone 12 Mini",
+    },
+    { pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*12\b/i, model: "iPhone 12" },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*11\s*pro\s*max\b/i,
+      model: "iPhone 11 Pro Max",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*11\s*pro\b/i,
+      model: "iPhone 11 Pro",
+    },
+    { pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*11\b/i, model: "iPhone 11" },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*se\s*\(?202[02]\)?\b/i,
+      model: "iPhone SE",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*x[rs]\s*max\b/i,
+      model: "iPhone XS Max",
+    },
+    {
+      pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*x[rs]\b/i,
+      model: "iPhone XS",
+    },
+    { pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*xr\b/i, model: "iPhone XR" },
+    { pattern: /\b(iphone|ipone|ifone|i\s*phone)\s*x\b/i, model: "iPhone X" },
 
     // Samsung models
     { pattern: /\bgalaxy\s*s24\s*ultra\b/i, model: "Galaxy S24 Ultra" },

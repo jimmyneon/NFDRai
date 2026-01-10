@@ -1099,10 +1099,12 @@ CRITICAL RULES:
 3. Use SHORT PARAGRAPHS - break up text
 4. ${
     channel === "webchat"
-      ? "Use customer name if they provided it"
-      : `ALWAYS use customer name if known: ${
-          context.customerName || "unknown"
-        }`
+      ? "Use customer name if they provided it with a greeting like 'Hi [name]!'"
+      : `ALWAYS greet with customer name if known: "Hi ${
+          context.customerName || "[name]"
+        }!" or "Hi there, ${context.customerName || "[name]"}!" - NEVER just "${
+          context.customerName || "[name]"
+        }!" alone (sounds rude)`
   }
 5. ${
     channel === "webchat"
