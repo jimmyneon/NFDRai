@@ -15,7 +15,6 @@ import {
   detectRepairIntent,
   getSuggestedAction,
 } from "@/app/lib/repair-intent-detector";
-import { extractRepairInfoWithAI } from "@/app/lib/ai-device-extractor";
 import crypto from "crypto";
 
 /**
@@ -575,11 +574,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Run message analysis and AI extraction in parallel
-    const [analysis, aiExtraction] = await Promise.all([
-      analyzeMessage(message, contextMessages, aiSettings?.api_key),
-      extractRepairInfoWithAI(message, contextMessages),
-    ]);
+    // Analyze message
+    const analysis = await analyzeMessage(
+      message,
+      contextMessages,
+      aiSettings?.api_key
+    );
 
     console.log("[Webchat] Analysis:", {
       sentiment: analysis.sentiment,
@@ -587,23 +587,8 @@ export async function POST(request: NextRequest) {
       shouldRespond: analysis.shouldAIRespond,
     });
 
-    // Use AI extraction if confidence is high, otherwise fall back to regex
-    let repairContext;
-    if (aiExtraction.confidence >= 0.5) {
-      console.log("[Webchat] Using AI extraction (high confidence)");
-      repairContext = {
-        hasRepairIntent: aiExtraction.confidence > 0,
-        deviceType: aiExtraction.deviceType,
-        deviceModel: aiExtraction.deviceModel,
-        issue: aiExtraction.issue,
-        issueLabel: aiExtraction.issueLabel,
-        confidence: aiExtraction.confidence,
-      };
-    } else {
-      console.log("[Webchat] Using regex fallback (low AI confidence)");
-      repairContext = detectRepairIntent(message, contextMessages);
-    }
-
+    // Detect repair intent and extract structured context
+    const repairContext = detectRepairIntent(message, contextMessages);
     const suggestedAction = getSuggestedAction(repairContext);
 
     console.log("[Webchat] Repair Context:", {
@@ -612,7 +597,6 @@ export async function POST(request: NextRequest) {
       deviceModel: repairContext.deviceModel,
       issue: repairContext.issue,
       confidence: repairContext.confidence,
-      source: aiExtraction.confidence >= 0.5 ? "AI" : "regex",
     });
 
     // Check if requires staff attention
