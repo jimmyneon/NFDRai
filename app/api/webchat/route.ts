@@ -749,19 +749,55 @@ export async function POST(request: NextRequest) {
       responseText.includes("click the button below") ||
       responseText.includes("ready to start your repair");
 
-    // Use AI-extracted context from conversation state analysis
-    console.log("[Webchat] AI Context:", {
-      intent: aiResult.context.intent,
-      deviceType: aiResult.context.deviceType,
-      deviceModel: aiResult.context.deviceModel,
-      issue: aiResult.context.issue,
-      state: aiResult.context.state,
-    });
+    // Parse AI response to extract device and issue info
+    let deviceModel: string | null = null;
+    let deviceType: string | null = null;
+    let issue: string | null = null;
 
-    const hasRepairIntent =
-      aiResult.context.intent === "screen_repair" ||
-      aiResult.context.intent === "battery_replacement" ||
-      aiResult.context.intent === "diagnostic";
+    // Extract device model from AI response
+    const iphoneMatch = responseText.match(
+      /iphone\s*(15|14|13|12|11|x[rs]?|se)(\s*pro(\s*max)?|\s*plus|\s*mini)?/i
+    );
+    if (iphoneMatch) {
+      deviceModel =
+        aiResult.response?.match(/iPhone\s*\d+[^!,.\n]*/i)?.[0]?.trim() || null;
+      deviceType = "iphone";
+    }
+
+    const samsungMatch = responseText.match(/galaxy\s*s\d+|samsung\s*galaxy/i);
+    if (samsungMatch) {
+      deviceModel =
+        aiResult.response?.match(/Galaxy\s*S\d+[^!,.\n]*/i)?.[0]?.trim() ||
+        null;
+      deviceType = "samsung";
+    }
+
+    const pixelMatch = responseText.match(/pixel\s*\d+/i);
+    if (pixelMatch) {
+      deviceModel =
+        aiResult.response?.match(/Pixel\s*\d+[^!,.\n]*/i)?.[0]?.trim() || null;
+      deviceType = "google";
+    }
+
+    // Extract issue from AI response
+    if (responseText.includes("screen")) issue = "screen";
+    else if (responseText.includes("battery")) issue = "battery";
+    else if (responseText.includes("charging")) issue = "charging";
+    else if (responseText.includes("water")) issue = "water";
+    else if (responseText.includes("camera")) issue = "camera";
+    else if (responseText.includes("audio") || responseText.includes("speaker"))
+      issue = "audio";
+    else if (responseText.includes("button")) issue = "button";
+    else if (responseText.includes("back glass")) issue = "back_glass";
+
+    const hasRepairIntent = !!(deviceModel && issue);
+
+    console.log("[Webchat] Extracted from AI response:", {
+      deviceModel,
+      deviceType,
+      issue,
+      hasRepairIntent,
+    });
 
     const issueLabels: Record<string, string> = {
       screen: "Screen Repair",
@@ -785,13 +821,11 @@ export async function POST(request: NextRequest) {
         detectedContext: hasRepairIntent
           ? {
               hasRepairIntent: true,
-              deviceType: aiResult.context.deviceType || null,
-              deviceModel: aiResult.context.deviceModel || null,
-              issue: aiResult.context.issue || null,
-              issueLabel: aiResult.context.issue
-                ? issueLabels[aiResult.context.issue] || null
-                : null,
-              confidence: 0.8, // AI-extracted context is high confidence
+              deviceType: deviceType,
+              deviceModel: deviceModel,
+              issue: issue,
+              issueLabel: issue ? issueLabels[issue] || null : null,
+              confidence: 0.9,
             }
           : {
               hasRepairIntent: false,
@@ -802,24 +836,18 @@ export async function POST(request: NextRequest) {
               confidence: 0.2,
             },
         suggestedAction:
-          hasRepairIntent &&
-          aiResult.context.deviceModel &&
-          aiResult.context.issue
+          deviceModel && issue
             ? {
                 type: "start_quote",
                 message:
                   "Request a quote/repair - John will get back to you ASAP, usually within 10 minutes",
               }
-            : hasRepairIntent &&
-              aiResult.context.deviceModel &&
-              !aiResult.context.issue
+            : deviceModel && !issue
             ? {
                 type: "ask_issue",
                 message: "What seems to be the problem with it?",
               }
-            : hasRepairIntent &&
-              aiResult.context.issue &&
-              !aiResult.context.deviceModel
+            : issue && !deviceModel
             ? { type: "ask_device", message: "Which device is this for?" }
             : {
                 type: "gather_info",
