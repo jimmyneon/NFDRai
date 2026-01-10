@@ -149,21 +149,24 @@ export async function generateSmartResponse(
   if (params.conversationHistory) {
     // Use conversation history passed from frontend (webchat)
     // Add timestamps if not present (for compatibility with conversation state analyzer)
+    // CRITICAL: Timestamps must be recent (within last hour) to avoid context being treated as stale
+    const now = Date.now();
     messages = params.conversationHistory.map((msg, index) => ({
       sender: (msg.sender === "user" ? "customer" : msg.sender) as
         | "customer"
         | "ai"
         | "staff",
-      text: msg.text,
+      text: msg.text || "",
       created_at:
         msg.created_at ||
         new Date(
-          Date.now() - (params.conversationHistory!.length - index) * 1000
-        ).toISOString(),
+          now - (params.conversationHistory!.length - index - 1) * 30000
+        ).toISOString(), // 30 seconds apart, most recent message is ~now
     }));
     console.log("[Smart AI] Using provided conversation history:", {
       messageCount: messages.length,
-      source: "frontend",
+      oldestTimestamp: messages[0]?.created_at,
+      newestTimestamp: messages[messages.length - 1]?.created_at,
     });
   } else if (params.conversationId) {
     // Fetch from database (SMS/WhatsApp/Messenger)
