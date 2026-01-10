@@ -750,6 +750,14 @@ export async function POST(request: NextRequest) {
       responseText.includes("ready to start your repair");
 
     // Use AI-extracted context from conversation state analysis
+    console.log("[Webchat] AI Context:", {
+      intent: aiResult.context.intent,
+      deviceType: aiResult.context.deviceType,
+      deviceModel: aiResult.context.deviceModel,
+      issue: aiResult.context.issue,
+      state: aiResult.context.state,
+    });
+
     const hasRepairIntent =
       aiResult.context.intent === "screen_repair" ||
       aiResult.context.intent === "battery_replacement" ||
