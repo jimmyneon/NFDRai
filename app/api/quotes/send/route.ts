@@ -126,16 +126,19 @@ function buildQuoteSms(details: {
     additional_notes,
   } = details;
 
-  let message = `Hi ${name},\n\n`;
-  message += `Quote for your ${device_make} ${device_model} (${issue}):\n\n`;
-  message += `£${quote_amount.toFixed(2)}`;
+  const firstName = name.split(" ")[0];
+
+  let message = `Hi ${firstName},\n\n`;
+  message += `Your quote for the ${device_make} ${device_model} (${issue}) is £${quote_amount.toFixed(
+    2
+  )}.`;
 
   if (additional_notes && additional_notes.trim().length > 0) {
     message += `\n\n${additional_notes.trim()}`;
   }
 
-  message += `\n\nReply to book in or ask any questions.\n\n`;
-  message += `Many thanks, John\nNew Forest Device Repairs`;
+  message += `\n\nJust reply to this message if you'd like to book in, or if you have any questions.`;
+  message += `\n\nMany thanks, John\nNew Forest Device Repairs`;
 
   return message;
 }
