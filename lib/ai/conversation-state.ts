@@ -102,6 +102,12 @@ export function analyzeConversationState(
 
   const allText = recentMessages.map((m) => m.text.toLowerCase()).join(" ");
 
+  console.log("[ConversationState] Analyzing text:", {
+    messageCount: recentMessages.length,
+    allText: allText,
+    textLength: allText.length,
+  });
+
   // Detect topic switch / clarification in last customer message
   const lastText = (lastCustomerMessage?.text || "").toLowerCase();
   const topicSwitch = /\b(i mean|actually|instead|no,? i want|i meant)\b/.test(
@@ -112,6 +118,14 @@ export function analyzeConversationState(
   const deviceType = extractDeviceType(allText);
   const deviceModel = extractDeviceModel(allText);
   const customerName = extractNameFromRecent(recentMessages);
+
+  console.log("[ConversationState] Extraction results:", {
+    deviceType,
+    deviceModel,
+    customerName,
+    hasIphone: allText.includes("iphone"),
+    has13: allText.includes("13"),
+  });
 
   // Determine intent from conversation (only recent messages)
   let intent = determineIntent(allText);
