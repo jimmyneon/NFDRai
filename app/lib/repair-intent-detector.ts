@@ -47,6 +47,8 @@ export function detectRepairIntent(
     /\b(replace|replacement)\b/i,
     /\b(how much|price|cost|quote)\b.*\b(fix|repair|screen|battery)\b/i,
     /\b(water damage|dropped|fell)\b/i,
+    // Detect "device + part" pattern (e.g., "iphone 13 screen", "samsung battery")
+    /\b(iphone|ipad|samsung|galaxy|pixel|phone|laptop|macbook)\s+\d+.*\b(screen|battery|charging|camera|back|glass)\b/i,
   ];
 
   for (const pattern of repairKeywords) {
@@ -181,6 +183,12 @@ export function detectRepairIntent(
     },
     {
       pattern: /\bscreen\s*repair\b/i,
+      issue: "screen",
+      label: "Screen Repair",
+    },
+    {
+      pattern:
+        /\b(iphone|ipad|samsung|galaxy|pixel|phone|laptop|macbook).*\bscreen\b/i,
       issue: "screen",
       label: "Screen Repair",
     },
