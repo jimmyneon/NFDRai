@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     if (!quote_id || !quote_amount) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (fetchError || !quoteRequest) {
       return NextResponse.json(
         { success: false, error: "Quote request not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -52,6 +52,8 @@ export async function POST(request: NextRequest) {
       device_make: quoteRequest.device_make,
       device_model: quoteRequest.device_model,
       issue: quoteRequest.issue,
+      description: quoteRequest.description,
+      additional_issues: quoteRequest.additional_issues,
       quote_amount,
       additional_notes,
     });
@@ -101,7 +103,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Failed to send quote",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -114,6 +116,8 @@ function buildQuoteSms(details: {
   device_make: string;
   device_model: string;
   issue: string;
+  description?: string | null;
+  additional_issues?: Array<{ issue: string; description: string }> | null;
   quote_amount: number;
   additional_notes?: string;
 }): string {
@@ -122,6 +126,8 @@ function buildQuoteSms(details: {
     device_make,
     device_model,
     issue,
+    description,
+    additional_issues,
     quote_amount,
     additional_notes,
   } = details;
@@ -129,9 +135,33 @@ function buildQuoteSms(details: {
   const firstName = name.split(" ")[0];
 
   let message = `Hi ${firstName},\n\n`;
-  message += `Your quote for the ${device_make} ${device_model} (${issue}) is £${quote_amount.toFixed(
-    2
-  )}.`;
+
+  // Check if there are multiple repairs
+  const hasAdditionalIssues = additional_issues && additional_issues.length > 0;
+
+  if (hasAdditionalIssues) {
+    // Multiple repairs - use bullet list format
+    message += `Your quote for the ${device_make} ${device_model}:\n`;
+
+    // Main repair
+    message += `• ${issue}`;
+    if (description) message += ` - ${description}`;
+    message += `\n`;
+
+    // Additional repairs
+    additional_issues.forEach((repair) => {
+      message += `• ${repair.issue}`;
+      if (repair.description) message += ` - ${repair.description}`;
+      message += `\n`;
+    });
+
+    message += `\nTotal: £${quote_amount.toFixed(2)}`;
+  } else {
+    // Single repair - original format
+    message += `Your quote for the ${device_make} ${device_model} (${issue}`;
+    if (description) message += ` - ${description}`;
+    message += `) is £${quote_amount.toFixed(2)}.`;
+  }
 
   if (additional_notes && additional_notes.trim().length > 0) {
     message += `\n\n${additional_notes.trim()}`;

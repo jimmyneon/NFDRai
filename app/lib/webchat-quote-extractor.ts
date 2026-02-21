@@ -13,6 +13,11 @@ export interface ExtractedQuoteInfo {
   device_make: string | null;
   device_model: string | null;
   issue: string | null;
+  description: string | null;
+  additionalIssues: Array<{
+    issue: string;
+    description: string;
+  }>;
   confidence: number;
   isComplete: boolean; // Has enough info to create quote request
 }
@@ -27,7 +32,7 @@ export async function extractQuoteInfoFromConversation(
     phone?: string | null;
     email?: string | null;
   },
-  apiKey: string
+  apiKey: string,
 ): Promise<ExtractedQuoteInfo> {
   try {
     // Combine customer messages for context
@@ -44,6 +49,8 @@ export async function extractQuoteInfoFromConversation(
         device_make: null,
         device_model: null,
         issue: null,
+        description: null,
+        additionalIssues: [],
         confidence: 0,
         isComplete: false,
       };
@@ -63,13 +70,17 @@ export async function extractQuoteInfoFromConversation(
 Extract the following if mentioned:
 - device_make: Brand (Apple, Samsung, Google, Huawei, OnePlus, Sony, etc.)
 - device_model: Specific model (iPhone 14 Pro, Galaxy S23, Pixel 8, etc.)
-- issue: What's wrong (cracked screen, battery drain, won't charge, water damage, etc.)
+- issue: Main issue (cracked screen, battery drain, won't charge, water damage, etc.)
+- description: Detailed description of main issue
+- additionalIssues: Array of other repairs mentioned [{issue, description}]
 
 OUTPUT FORMAT (JSON only):
 {
   "device_make": "Apple" or null,
   "device_model": "iPhone 14 Pro" or null,
   "issue": "cracked screen" or null,
+  "description": "Screen shattered after drop" or null,
+  "additionalIssues": [{"issue": "battery replacement", "description": "drains quickly"}] or [],
   "confidence": 0.0 to 1.0
 }
 
@@ -81,10 +92,10 @@ RULES:
 5. Be conservative - only extract if confident
 
 EXAMPLES:
-"My iPhone 14 screen is cracked" → {"device_make": "Apple", "device_model": "iPhone 14", "issue": "cracked screen", "confidence": 0.95}
-"Samsung phone won't turn on" → {"device_make": "Samsung", "device_model": "phone", "issue": "won't turn on", "confidence": 0.8}
-"How much for a screen repair?" → {"device_make": null, "device_model": null, "issue": "screen repair", "confidence": 0.6}
-"Hi there" → {"device_make": null, "device_model": null, "issue": null, "confidence": 0.0}`,
+"My iPhone 14 screen is cracked" → {"device_make": "Apple", "device_model": "iPhone 14", "issue": "cracked screen", "description": null, "additionalIssues": [], "confidence": 0.95}
+"Screen is smashed and battery drains fast" → {"device_make": null, "device_model": "phone", "issue": "cracked screen", "description": "smashed", "additionalIssues": [{"issue": "battery replacement", "description": "drains fast"}], "confidence": 0.85}
+"Samsung phone won't turn on" → {"device_make": "Samsung", "device_model": "phone", "issue": "won't turn on", "description": null, "additionalIssues": [], "confidence": 0.8}
+"Hi there" → {"device_make": null, "device_model": null, "issue": null, "description": null, "additionalIssues": [], "confidence": 0.0}`,
         },
         {
           role: "user",
@@ -107,6 +118,8 @@ EXAMPLES:
       device_make: result.device_make || null,
       device_model: result.device_model || null,
       issue: result.issue || null,
+      description: result.description || null,
+      additionalIssues: result.additionalIssues || [],
       confidence: result.confidence || 0,
       isComplete: false,
     };
@@ -134,7 +147,7 @@ export function extractQuoteInfoWithRegex(
     name?: string | null;
     phone?: string | null;
     email?: string | null;
-  }
+  },
 ): ExtractedQuoteInfo {
   const customerText = messages
     .filter((m) => m.sender === "customer")
@@ -263,6 +276,8 @@ export function extractQuoteInfoWithRegex(
     device_make,
     device_model,
     issue,
+    description: null,
+    additionalIssues: [],
     confidence,
     isComplete,
   };
@@ -278,7 +293,7 @@ export async function extractQuoteInfoSmart(
     phone?: string | null;
     email?: string | null;
   },
-  apiKey?: string
+  apiKey?: string,
 ): Promise<ExtractedQuoteInfo> {
   // Try regex first
   const regexResult = extractQuoteInfoWithRegex(messages, customerInfo);
@@ -295,7 +310,7 @@ export async function extractQuoteInfoSmart(
     const aiResult = await extractQuoteInfoFromConversation(
       messages,
       customerInfo,
-      apiKey
+      apiKey,
     );
 
     if (aiResult.confidence > regexResult.confidence) {
@@ -319,6 +334,8 @@ function createEmptyResult(customerInfo: {
     device_make: null,
     device_model: null,
     issue: null,
+    description: null,
+    additionalIssues: [],
     confidence: 0,
     isComplete: false,
   };

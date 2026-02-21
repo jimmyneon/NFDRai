@@ -73,12 +73,12 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
         features: ["repair_flow", "session_persistence", "error_on_failure"],
       },
-      { headers: corsHeaders }
+      { headers: corsHeaders },
     );
   }
   return NextResponse.json(
     { error: "Use POST for chat" },
-    { status: 405, headers: corsHeaders }
+    { status: 405, headers: corsHeaders },
   );
 }
 
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
           error:
             "Missing API key. Include X-API-Key header or api_key query param.",
         },
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: corsHeaders },
       );
     }
 
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       console.log("[Webchat] Invalid API key:", keyPrefix);
       return NextResponse.json(
         { error: "Invalid or inactive API key" },
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: corsHeaders },
       );
     }
 
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "API key has expired" },
-        { status: 401, headers: corsHeaders }
+        { status: 401, headers: corsHeaders },
       );
     }
 
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     // Check if this is a repair flow request
     if (isRepairFlow) {
       console.log(
-        "[Webchat] Repair flow request detected - routing to repair handler"
+        "[Webchat] Repair flow request detected - routing to repair handler",
       );
 
       // Generate session ID if not provided
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
         const repairResponse = await handleRepairFlowWithSession(
           sessionId,
           body.message,
-          contextOverride
+          contextOverride,
         );
         return NextResponse.json(repairResponse, { headers: corsHeaders });
       } catch (sessionError) {
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
                 : "Unknown error",
             session_id: sessionId,
           },
-          { status: 500, headers: corsHeaders }
+          { status: 500, headers: corsHeaders },
         );
       }
     }
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "Message is required" },
-        { status: 400, headers: corsHeaders }
+        { status: 400, headers: corsHeaders },
       );
     }
 
@@ -232,14 +232,14 @@ export async function POST(request: NextRequest) {
       const originDomain = origin.replace(/^https?:\/\//, "").split("/")[0];
       const isAllowed = webchatSettings.allowed_domains.some(
         (domain: string) =>
-          originDomain === domain || originDomain.endsWith(`.${domain}`)
+          originDomain === domain || originDomain.endsWith(`.${domain}`),
       );
 
       if (!isAllowed) {
         console.log("[Webchat] Domain not allowed:", originDomain);
         return NextResponse.json(
           { error: "Domain not authorized for this API key" },
-          { status: 403, headers: corsHeaders }
+          { status: 403, headers: corsHeaders },
         );
       }
     }
@@ -253,7 +253,7 @@ export async function POST(request: NextRequest) {
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: "Rate limit exceeded. Please slow down." },
-        { status: 429, headers: corsHeaders }
+        { status: 429, headers: corsHeaders },
       );
     }
 
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
         console.error("[Webchat] Failed to create customer:", customerError);
         return NextResponse.json(
           { error: "Failed to create session" },
-          { status: 500, headers: corsHeaders }
+          { status: 500, headers: corsHeaders },
         );
       }
 
@@ -375,7 +375,7 @@ export async function POST(request: NextRequest) {
         console.error("[Webchat] Failed to create session:", sessionError);
         return NextResponse.json(
           { error: "Failed to create session" },
-          { status: 500, headers: corsHeaders }
+          { status: 500, headers: corsHeaders },
         );
       }
 
@@ -413,7 +413,7 @@ export async function POST(request: NextRequest) {
         console.error("[Webchat] Failed to create conversation:", convError);
         return NextResponse.json(
           { error: "Failed to create conversation" },
-          { status: 500, headers: corsHeaders }
+          { status: 500, headers: corsHeaders },
         );
       }
 
@@ -460,14 +460,14 @@ export async function POST(request: NextRequest) {
 
         console.log(
           "[Webchat] Updated customer with contact details:",
-          updateData
+          updateData,
         );
       }
 
       // If they gave a landline, we'll let the AI handle asking for mobile
       if (contactDetails.isLandline) {
         console.log(
-          "[Webchat] Customer provided landline - AI will ask for mobile"
+          "[Webchat] Customer provided landline - AI will ask for mobile",
         );
       }
     }
@@ -490,8 +490,8 @@ export async function POST(request: NextRequest) {
           msg.role === "user"
             ? "customer"
             : msg.role === "assistant"
-            ? "ai"
-            : msg.sender || "customer",
+              ? "ai"
+              : msg.sender || "customer",
         text: msg.content || msg.text || "",
       };
       console.log("[Webchat] 🔄 Transformed message:", {
@@ -507,10 +507,10 @@ export async function POST(request: NextRequest) {
     // Frontend MUST send conversation history in context.conversationHistory
     if (contextMessages.length === 0) {
       console.log(
-        "[Webchat] ⚠️ No conversation history from frontend - AI will have no context"
+        "[Webchat] ⚠️ No conversation history from frontend - AI will have no context",
       );
       console.log(
-        "[Webchat] 🔧 Frontend must send context.conversationHistory with each message"
+        "[Webchat] 🔧 Frontend must send context.conversationHistory with each message",
       );
     }
 
@@ -535,8 +535,8 @@ export async function POST(request: NextRequest) {
         context?.conversationHistory && context.conversationHistory.length > 0
           ? "frontend"
           : contextMessages.length > 0
-          ? "database (fallback)"
-          : "NONE - NO HISTORY AVAILABLE!",
+            ? "database (fallback)"
+            : "NONE - NO HISTORY AVAILABLE!",
     });
 
     if (userJourney) {
@@ -567,7 +567,7 @@ export async function POST(request: NextRequest) {
     if (aiSettingsError) {
       console.error(
         "[Webchat] Failed to load ai_settings api_key:",
-        aiSettingsError
+        aiSettingsError,
       );
     }
 
@@ -575,7 +575,7 @@ export async function POST(request: NextRequest) {
     const analysis = await analyzeMessage(
       message,
       contextMessages,
-      aiSettings?.api_key
+      aiSettings?.api_key,
     );
 
     console.log("[Webchat] Analysis:", {
@@ -633,7 +633,7 @@ export async function POST(request: NextRequest) {
           error: "AI generation failed",
           details: error instanceof Error ? error.message : String(error),
         },
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: corsHeaders },
       );
     }
 
@@ -651,7 +651,7 @@ export async function POST(request: NextRequest) {
           error: "AI failed to generate response",
           details: "Response was undefined",
         },
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: corsHeaders },
       );
     }
 
@@ -675,7 +675,7 @@ export async function POST(request: NextRequest) {
       const quoteInfo = await extractQuoteInfoSmart(
         allMessages,
         { name: customer.name, phone: customer.phone, email: customer.email },
-        aiSettings?.api_key
+        aiSettings?.api_key,
       );
 
       // If we have device/issue info, create or update quote request
@@ -701,6 +701,8 @@ export async function POST(request: NextRequest) {
               device_make: quoteInfo.device_make || "Unknown",
               device_model: quoteInfo.device_model || "Unknown",
               issue: quoteInfo.issue || "Repair enquiry",
+              description: quoteInfo.description || null,
+              additional_issues: quoteInfo.additionalIssues || [],
               source: "webchat",
               status: "pending",
               customer_id: customer.id,
@@ -710,7 +712,7 @@ export async function POST(request: NextRequest) {
           if (quoteError) {
             console.error(
               "[Webchat] Failed to create quote request:",
-              quoteError
+              quoteError,
             );
           } else {
             console.log("[Webchat] ✅ Created quote request from webchat:", {
@@ -727,6 +729,13 @@ export async function POST(request: NextRequest) {
           if (quoteInfo.device_model)
             updates.device_model = quoteInfo.device_model;
           if (quoteInfo.issue) updates.issue = quoteInfo.issue;
+          if (quoteInfo.description)
+            updates.description = quoteInfo.description;
+          if (
+            quoteInfo.additionalIssues &&
+            quoteInfo.additionalIssues.length > 0
+          )
+            updates.additional_issues = quoteInfo.additionalIssues;
 
           if (Object.keys(updates).length > 0) {
             await supabase
@@ -756,7 +765,7 @@ export async function POST(request: NextRequest) {
 
     // Extract device model from AI response
     const iphoneMatch = responseText.match(
-      /iphone\s*(15|14|13|12|11|x[rs]?|se)(\s*pro(\s*max)?|\s*plus|\s*mini)?/i
+      /iphone\s*(15|14|13|12|11|x[rs]?|se)(\s*pro(\s*max)?|\s*plus|\s*mini)?/i,
     );
     if (iphoneMatch) {
       deviceModel =
@@ -843,17 +852,17 @@ export async function POST(request: NextRequest) {
                   "Request a quote/repair - John will get back to you ASAP, usually within 10 minutes",
               }
             : deviceModel && !issue
-            ? {
-                type: "ask_issue",
-                message: "What seems to be the problem with it?",
-              }
-            : issue && !deviceModel
-            ? { type: "ask_device", message: "Which device is this for?" }
-            : {
-                type: "gather_info",
-                message:
-                  "I can help with that! What device do you have and what's the issue?",
-              },
+              ? {
+                  type: "ask_issue",
+                  message: "What seems to be the problem with it?",
+                }
+              : issue && !deviceModel
+                ? { type: "ask_device", message: "Which device is this for?" }
+                : {
+                    type: "gather_info",
+                    message:
+                      "I can help with that! What device do you have and what's the issue?",
+                  },
         metadata: {
           confidence: aiResult.confidence,
           response_time_ms: responseTime,
@@ -862,24 +871,24 @@ export async function POST(request: NextRequest) {
           intent: analysis.intent,
         },
       },
-      { headers: corsHeaders }
+      { headers: corsHeaders },
     );
   } catch (error) {
     console.error("[Webchat] Error:", error);
     console.error(
       "[Webchat] Error stack:",
-      error instanceof Error ? error.stack : "No stack trace"
+      error instanceof Error ? error.stack : "No stack trace",
     );
     console.error(
       "[Webchat] Error message:",
-      error instanceof Error ? error.message : String(error)
+      error instanceof Error ? error.message : String(error),
     );
     return NextResponse.json(
       {
         error: "Failed to process message",
         details: error instanceof Error ? error.message : String(error),
       },
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: corsHeaders },
     );
   }
 }
