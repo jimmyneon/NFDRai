@@ -511,12 +511,12 @@ export function ConversationDialog({
                 </div>
               </div>
             ))}
-          {/* Invisible element to scroll to */}
-          <div ref={messagesEndRef} />
-        </div>
+            {/* Invisible element to scroll to */}
+            <div ref={messagesEndRef} />
+          </div>
 
-        {/* Conversation Controls - includes Send to Repair App button */}
-        <ConversationControls
+          {/* Conversation Controls - includes Send to Repair App button */}
+          <ConversationControls
           conversationId={conversation.id}
           currentStatus={conversationStatus as "auto" | "manual" | "archived"}
           customerPhone={conversation.customer?.phone || undefined}
