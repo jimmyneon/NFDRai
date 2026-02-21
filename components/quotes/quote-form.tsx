@@ -17,6 +17,7 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
     quoteRequest.quoted_price?.toString() || "",
   );
   const [additionalNotes, setAdditionalNotes] = useState("");
+  const [requiresPartsOrder, setRequiresPartsOrder] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUnableToQuote, setIsUnableToQuote] = useState(false);
   const [error, setError] = useState("");
@@ -42,6 +43,7 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
           quote_id: quoteRequest.id,
           quote_amount: parseFloat(quoteAmount),
           additional_notes: additionalNotes,
+          requires_parts_order: requiresPartsOrder,
         }),
       });
 
@@ -137,6 +139,20 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
           <p className="text-xs text-muted-foreground mt-1">
             This will be included in the SMS message
           </p>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="requiresPartsOrder"
+            checked={requiresPartsOrder}
+            onChange={(e) => setRequiresPartsOrder(e.target.checked)}
+            disabled={isSubmitting}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          <Label htmlFor="requiresPartsOrder" className="cursor-pointer">
+            Requires parts to be ordered (next day delivery, excluding weekends)
+          </Label>
         </div>
 
         {error && (
