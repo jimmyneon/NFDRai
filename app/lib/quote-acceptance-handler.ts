@@ -4,8 +4,13 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
-import { getActiveQuoteByPhone, acceptQuote, formatQuoteForAI } from "./quote-lookup";
+import {
+  getActiveQuoteByPhone,
+  acceptQuote,
+  formatQuoteForAI,
+} from "./quote-lookup";
 import { detectQuoteAcceptance } from "./quote-acceptance-detector";
+import { sendToRepairApp, formatQuoteForRepairApp } from "./repair-app-handoff";
 
 export interface QuoteAcceptanceResult {
   hasActiveQuote: boolean;
@@ -21,7 +26,7 @@ export interface QuoteAcceptanceResult {
  */
 export async function checkQuoteAcceptance(
   phone: string,
-  message: string
+  message: string,
 ): Promise<QuoteAcceptanceResult> {
   // Look up active quote
   const quote = await getActiveQuoteByPhone(phone);
@@ -54,18 +59,54 @@ export async function checkQuoteAcceptance(
 }
 
 /**
- * Process quote acceptance - mark as accepted in database
+ * Process quote acceptance - mark as accepted in database and send to repair app
  */
-export async function processQuoteAcceptance(quoteId: string): Promise<boolean> {
+export async function processQuoteAcceptance(
+  quoteId: string,
+): Promise<boolean> {
   const acceptedQuote = await acceptQuote(quoteId);
-  
-  if (acceptedQuote) {
-    console.log("[Quote Acceptance] ✅ Quote marked as accepted:", quoteId);
-    return true;
+
+  if (!acceptedQuote) {
+    console.error(
+      "[Quote Acceptance] ❌ Failed to mark quote as accepted:",
+      quoteId,
+    );
+    return false;
   }
-  
-  console.error("[Quote Acceptance] ❌ Failed to mark quote as accepted:", quoteId);
-  return false;
+
+  console.log("[Quote Acceptance] ✅ Quote marked as accepted:", quoteId);
+
+  // Send to repair app for job creation
+  const handoffData = formatQuoteForRepairApp(acceptedQuote);
+  const handoffResult = await sendToRepairApp(handoffData);
+
+  if (handoffResult.success) {
+    console.log(
+      "[Quote Acceptance] ✅ Sent to repair app. Job ID:",
+      handoffResult.jobId,
+    );
+
+    // Update quote with job ID if returned
+    if (handoffResult.jobId) {
+      const supabase = await createClient();
+      await supabase
+        .from("quote_requests")
+        .update({
+          status: "completed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", quoteId);
+    }
+  } else {
+    console.error(
+      "[Quote Acceptance] ⚠️ Failed to send to repair app:",
+      handoffResult.error,
+    );
+    // Quote is still marked as accepted, but handoff failed
+    // Staff will need to manually create job in repair app
+  }
+
+  return true;
 }
 
 /**
@@ -77,14 +118,14 @@ export function buildQuoteContextForAI(result: QuoteAcceptanceResult): string {
   }
 
   let context = `\n\n[ACTIVE QUOTE FOR THIS CUSTOMER]\n${result.quoteContext}\n`;
-  
+
   if (result.isAcceptance && result.confidence > 0.8) {
     context += `[CUSTOMER APPEARS TO BE ACCEPTING THIS QUOTE - High confidence]\n`;
   } else if (result.isAcceptance && result.needsConfirmation) {
     context += `[CUSTOMER MAY BE ACCEPTING - Ask for confirmation: "Just to confirm - would you like to proceed with this repair?"]\n`;
   }
-  
+
   context += `\nFollow the QUOTE ACCEPTANCE WORKFLOW from your prompt modules.`;
-  
+
   return context;
 }
