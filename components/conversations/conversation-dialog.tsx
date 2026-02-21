@@ -517,66 +517,67 @@ export function ConversationDialog({
 
           {/* Conversation Controls - includes Send to Repair App button */}
           <ConversationControls
-          conversationId={conversation.id}
-          currentStatus={conversationStatus as "auto" | "manual" | "archived"}
-          customerPhone={conversation.customer?.phone || undefined}
-          onStatusChange={(newStatus) => setConversationStatus(newStatus)}
-        />
+            conversationId={conversation.id}
+            currentStatus={conversationStatus as "auto" | "manual" | "archived"}
+            customerPhone={conversation.customer?.phone || undefined}
+            onStatusChange={(newStatus) => setConversationStatus(newStatus)}
+          />
 
-        {/* Additional Actions */}
-        <div className="space-y-2 mt-4">
-          <div className="flex gap-2">
-            {conversation.status === "blocked" ? (
+          {/* Additional Actions */}
+          <div className="space-y-2 mt-4">
+            <div className="flex gap-2">
+              {conversation.status === "blocked" ? (
+                <Button
+                  onClick={handleUnblock}
+                  disabled={loading}
+                  className="flex-1"
+                  variant="outline"
+                >
+                  <Unlock className="w-4 h-4 mr-2" />
+                  Unblock AI
+                </Button>
+              ) : conversation.status === "auto" ? (
+                <>
+                  <Button
+                    onClick={handleRetryAI}
+                    disabled={loading}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry with AI
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleRetryAI}
+                    disabled={loading}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry with AI
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {/* Staff Notes */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Add Internal Note</label>
+              <Textarea
+                placeholder="Add a note for your team..."
+                value={staffNote}
+                onChange={(e) => setStaffNote(e.target.value)}
+              />
               <Button
-                onClick={handleUnblock}
-                disabled={loading}
-                className="flex-1"
-                variant="outline"
+                onClick={handleAddNote}
+                disabled={loading || !staffNote.trim()}
               >
-                <Unlock className="w-4 h-4 mr-2" />
-                Unblock AI
+                Add Note
               </Button>
-            ) : conversation.status === "auto" ? (
-              <>
-                <Button
-                  onClick={handleRetryAI}
-                  disabled={loading}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Retry with AI
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  onClick={handleRetryAI}
-                  disabled={loading}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Retry with AI
-                </Button>
-              </>
-            )}
-          </div>
-
-          {/* Staff Notes */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Add Internal Note</label>
-            <Textarea
-              placeholder="Add a note for your team..."
-              value={staffNote}
-              onChange={(e) => setStaffNote(e.target.value)}
-            />
-            <Button
-              onClick={handleAddNote}
-              disabled={loading || !staffNote.trim()}
-            >
-              Add Note
-            </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
