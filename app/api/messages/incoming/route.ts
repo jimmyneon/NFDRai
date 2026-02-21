@@ -35,6 +35,11 @@ import {
   logModuleSelection,
 } from "@/app/lib/module-selector";
 import { normalizePhoneNumber } from "@/app/lib/phone-normalizer";
+import {
+  checkQuoteAcceptance,
+  buildQuoteContextForAI,
+  processQuoteAcceptance,
+} from "@/app/lib/quote-acceptance-handler";
 
 /**
  * Calculate similarity between two strings (0 = completely different, 1 = identical)
@@ -153,7 +158,7 @@ export async function POST(request: NextRequest) {
 
         console.log(
           "[Incoming] Fixed body preview:",
-          fixedBody.substring(0, 200)
+          fixedBody.substring(0, 200),
         );
         payload = JSON.parse(fixedBody);
       }
@@ -173,7 +178,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
 
       // Log failed request
@@ -201,7 +206,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -209,7 +214,7 @@ export async function POST(request: NextRequest) {
       "[Phone Normalization] Original:",
       from,
       "→ Normalized:",
-      normalizedPhone
+      normalizedPhone,
     );
     from = normalizedPhone;
 
@@ -225,7 +230,7 @@ export async function POST(request: NextRequest) {
       console.log("[Autoresponder] Reason:", reason);
       console.log(
         "[Autoresponder] Message preview:",
-        message.substring(0, 100)
+        message.substring(0, 100),
       );
 
       // Still save the message but don't respond
@@ -288,7 +293,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -310,7 +315,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -357,7 +362,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -393,7 +398,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -425,11 +430,11 @@ export async function POST(request: NextRequest) {
       if (lastMessage.text === message && timeSinceLastMessage < 5) {
         console.log(
           `[Duplicate Webhook] Same message "${message}" received ${timeSinceLastMessage.toFixed(
-            1
-          )}s ago - ignoring`
+            1,
+          )}s ago - ignoring`,
         );
         console.log(
-          `[Duplicate Webhook] This is webhook call #2 for the same message - returning early`
+          `[Duplicate Webhook] This is webhook call #2 for the same message - returning early`,
         );
         return NextResponse.json(
           {
@@ -443,7 +448,7 @@ export async function POST(request: NextRequest) {
             headers: {
               "Content-Type": "application/json; charset=utf-8",
             },
-          }
+          },
         );
       }
     }
@@ -451,8 +456,8 @@ export async function POST(request: NextRequest) {
     console.log(
       `[Message Processing] Inserting customer message: "${message.substring(
         0,
-        50
-      )}..."`
+        50,
+      )}..."`,
     );
 
     // Insert customer message
@@ -469,7 +474,7 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error(
         "[Message Processing] Failed to insert customer message:",
-        insertError
+        insertError,
       );
       // If insert fails due to duplicate, just return success (message already processed)
       if (
@@ -477,7 +482,7 @@ export async function POST(request: NextRequest) {
         insertError.code === "23505"
       ) {
         console.log(
-          "[Duplicate Webhook] Insert failed due to duplicate - message already being processed"
+          "[Duplicate Webhook] Insert failed due to duplicate - message already being processed",
         );
         return NextResponse.json(
           {
@@ -489,7 +494,7 @@ export async function POST(request: NextRequest) {
             headers: {
               "Content-Type": "application/json; charset=utf-8",
             },
-          }
+          },
         );
       }
       throw insertError;
@@ -497,7 +502,7 @@ export async function POST(request: NextRequest) {
 
     const messageId = insertedMessage?.id;
     console.log(
-      `[Message Processing] Customer message inserted successfully (ID: ${messageId})`
+      `[Message Processing] Customer message inserted successfully (ID: ${messageId})`,
     );
 
     // CRITICAL: Check if AI just sent a message (within last 2 seconds)
@@ -512,7 +517,7 @@ export async function POST(request: NextRequest) {
 
     if (recentAIMessages && recentAIMessages.length > 0) {
       const lastAIMessageTime = new Date(
-        recentAIMessages[0].created_at
+        recentAIMessages[0].created_at,
       ).getTime();
       const secondsSinceLastAI = (Date.now() - lastAIMessageTime) / 1000;
 
@@ -524,20 +529,20 @@ export async function POST(request: NextRequest) {
       const isVagueResponse =
         messageWords.length <= 3 &&
         /^(ok|okay|sure|yes|no|not sure|idk|dunno|hmm|uh|um)$/i.test(
-          message.trim()
+          message.trim(),
         );
 
       if (isVeryRecent && isVagueResponse) {
         console.log(
           `[Duplicate Prevention] AI sent message ${secondsSinceLastAI.toFixed(
-            1
-          )}s ago and customer sent vague response "${message}" - waiting`
+            1,
+          )}s ago and customer sent vague response "${message}" - waiting`,
         );
         console.log(
           `[Duplicate Prevention] Last AI message: ${recentAIMessages[0].text.substring(
             0,
-            100
-          )}`
+            100,
+          )}`,
         );
 
         return NextResponse.json(
@@ -551,7 +556,7 @@ export async function POST(request: NextRequest) {
             headers: {
               "Content-Type": "application/json; charset=utf-8",
             },
-          }
+          },
         );
       }
 
@@ -559,8 +564,8 @@ export async function POST(request: NextRequest) {
       if (!isVagueResponse) {
         console.log(
           `[Duplicate Prevention] Customer sent real answer "${message}" - processing even though AI sent ${secondsSinceLastAI.toFixed(
-            1
-          )}s ago`
+            1,
+          )}s ago`,
         );
       }
     }
@@ -569,7 +574,7 @@ export async function POST(request: NextRequest) {
     const batchResult = await checkMessageBatch(
       customer.id,
       conversation.id,
-      message
+      message,
     );
 
     // If this is part of a batch, combine all messages for a comprehensive response
@@ -579,14 +584,14 @@ export async function POST(request: NextRequest) {
 
     if (batchResult.shouldBatch) {
       console.log(
-        `[Batching] Combined ${batchResult.allMessages.length} rapid messages from ${from}`
+        `[Batching] Combined ${batchResult.allMessages.length} rapid messages from ${from}`,
       );
     }
 
     // Only the first resolver should proceed to generate and send the AI response
     if (!batchResult.shouldRespond) {
       console.log(
-        "[Batching] Another request will handle the AI response; returning early"
+        "[Batching] Another request will handle the AI response; returning early",
       );
       return NextResponse.json(
         {
@@ -598,7 +603,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -633,7 +638,7 @@ export async function POST(request: NextRequest) {
     const analysis = await analyzeMessage(
       messageToProcess,
       contextMessages || [],
-      aiSettings?.api_key
+      aiSettings?.api_key,
     );
 
     console.log("[Unified Analysis] Result:", {
@@ -648,7 +653,7 @@ export async function POST(request: NextRequest) {
     // Save analysis to database (async, don't wait)
     if (messageId) {
       saveAnalysisAsync(analysis, messageId, conversation.id, supabase).catch(
-        (err: unknown) => console.error("[Analysis Save] Error:", err)
+        (err: unknown) => console.error("[Analysis Save] Error:", err),
       );
     }
 
@@ -672,13 +677,13 @@ export async function POST(request: NextRequest) {
         (analysis.sentiment === "frustrated" || analysis.sentiment === "angry")
       ) {
         console.log(
-          "[Mode Decision] ⚠️  Ignoring frustration - AI hasn't responded yet!"
+          "[Mode Decision] ⚠️  Ignoring frustration - AI hasn't responded yet!",
         );
         console.log("[Mode Decision] Letting AI try to help first...");
         // Don't switch to manual, let AI respond
       } else {
         console.log(
-          "[Mode Decision] Customer requires staff attention - switching to manual"
+          "[Mode Decision] Customer requires staff attention - switching to manual",
         );
 
         // Switch to manual mode
@@ -710,12 +715,59 @@ export async function POST(request: NextRequest) {
             headers: {
               "Content-Type": "application/json; charset=utf-8",
             },
-          }
+          },
         );
       }
     }
 
-    // Check if should NOT respond
+    // CRITICAL: Check for quote acceptance BEFORE blocking acknowledgments
+    // If customer has an active quote and sends vague response like "Ok thanks",
+    // we need AI to prompt for clear confirmation, not stay silent
+    console.log("[Quote Check] Checking if customer has active quote...");
+    const quoteCheck = await checkQuoteAcceptance(from, messageToProcess);
+
+    if (quoteCheck.hasActiveQuote) {
+      console.log("[Quote Check] ✅ Customer has active quote:", {
+        quoteId: quoteCheck.quote.id,
+        price: quoteCheck.quote.quoted_price,
+        isAcceptance: quoteCheck.isAcceptance,
+        confidence: quoteCheck.confidence,
+        needsConfirmation: quoteCheck.needsConfirmation,
+      });
+
+      // If high confidence acceptance, process it immediately
+      if (quoteCheck.isAcceptance && quoteCheck.confidence > 0.8) {
+        console.log(
+          "[Quote Check] 🎯 High confidence acceptance - processing quote",
+        );
+        await processQuoteAcceptance(quoteCheck.quote.id);
+        // Continue to AI response - AI will confirm acceptance and provide next steps
+      } else if (quoteCheck.isAcceptance && quoteCheck.needsConfirmation) {
+        console.log(
+          "[Quote Check] ⚠️ Medium confidence - AI will ask for confirmation",
+        );
+        // Override shouldAIRespond - we MUST respond to ask for confirmation
+        analysis.shouldAIRespond = true;
+        analysis.reasoning =
+          "Customer has active quote - need to confirm acceptance";
+      } else if (
+        !quoteCheck.isAcceptance &&
+        analysis.intent === "acknowledgment"
+      ) {
+        console.log(
+          "[Quote Check] 💬 Vague response after quote - AI will prompt for decision",
+        );
+        // Customer said something vague like "Ok thanks" after receiving quote
+        // Override acknowledgment blocking - AI should prompt for clear yes/no
+        analysis.shouldAIRespond = true;
+        analysis.reasoning =
+          "Customer has active quote - need clear acceptance/rejection";
+      }
+    } else {
+      console.log("[Quote Check] No active quote for this customer");
+    }
+
+    // Check if should NOT respond (after quote check override)
     if (!analysis.shouldAIRespond) {
       console.log("[Mode Decision] Should not respond:", analysis.reasoning);
 
@@ -729,7 +781,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -744,7 +796,7 @@ export async function POST(request: NextRequest) {
       if (shouldUpdate) {
         console.log(
           "[Name Extraction] Updating customer name:",
-          analysis.customerName
+          analysis.customerName,
         );
         const { error: nameUpdateError } = await supabase
           .from("customers")
@@ -754,18 +806,18 @@ export async function POST(request: NextRequest) {
         if (nameUpdateError) {
           console.error(
             "[Name Extraction] Failed to update name:",
-            nameUpdateError
+            nameUpdateError,
           );
         } else {
           console.log(
             "[Name Extraction] ✅ Updated customer name to:",
-            analysis.customerName
+            analysis.customerName,
           );
         }
       } else {
         console.log(
           "[Name Extraction] Customer already has name:",
-          customer.name
+          customer.name,
         );
       }
     }
@@ -786,7 +838,7 @@ export async function POST(request: NextRequest) {
     if (settingsError) {
       console.error(
         "[AI Settings] Failed to load automation_enabled - defaulting to enabled to avoid outage:",
-        settingsError
+        settingsError,
       );
     }
 
@@ -807,14 +859,14 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
     // Check if conversation is blocked (AI permanently disabled)
     if (conversation.status === "blocked") {
       console.log(
-        "[AI Blocked] This conversation is blocked - AI will never respond"
+        "[AI Blocked] This conversation is blocked - AI will never respond",
       );
       return NextResponse.json({
         success: true,
@@ -838,7 +890,7 @@ export async function POST(request: NextRequest) {
 
       // IMPORTANT: Be resilient to mis-tagged senders by also checking signatures.
       const lastStaffMessage = staffMessages?.find(
-        (m) => m.sender === "staff" || isStaffMessage(m.text || "")
+        (m) => m.sender === "staff" || isStaffMessage(m.text || ""),
       );
 
       const hasStaffReplied = !!lastStaffMessage;
@@ -849,7 +901,7 @@ export async function POST(request: NextRequest) {
       if (hasStaffReplied) {
         // Check how long ago staff replied
         const lastStaffReplyTime = new Date(
-          lastStaffMessage!.created_at
+          lastStaffMessage!.created_at,
         ).getTime();
         const minutesSinceStaffReply =
           (Date.now() - lastStaffReplyTime) / (1000 * 60);
@@ -868,16 +920,16 @@ export async function POST(request: NextRequest) {
           (pauseDecision.shouldRespond && shouldSwitchToAutoMode(message));
         const reason = timeBasedSwitch
           ? `Staff replied ${minutesSinceStaffReply.toFixed(
-              0
+              0,
             )} min ago - switching to auto`
           : pauseDecision.shouldRespond
-          ? getModeDecisionReason(message, shouldAutoSwitch)
-          : pauseDecision.reason;
+            ? getModeDecisionReason(message, shouldAutoSwitch)
+            : pauseDecision.reason;
 
         console.log("[Smart Mode] Message:", message.substring(0, 50));
         console.log(
           "[Smart Mode] Minutes since staff reply:",
-          minutesSinceStaffReply.toFixed(0)
+          minutesSinceStaffReply.toFixed(0),
         );
         console.log("[Smart Mode] Should switch to auto?", shouldAutoSwitch);
         console.log("[Smart Mode] Reason:", reason);
@@ -918,7 +970,7 @@ export async function POST(request: NextRequest) {
             shouldSendNotification(
               conversation.id,
               "manual_required",
-              lastAlertTime ? new Date(lastAlertTime) : undefined
+              lastAlertTime ? new Date(lastAlertTime) : undefined,
             )
           ) {
             // Send SMS notification via MacroDroid
@@ -948,13 +1000,13 @@ export async function POST(request: NextRequest) {
               headers: {
                 "Content-Type": "application/json; charset=utf-8",
               },
-            }
+            },
           );
         }
       } else {
         // No staff reply yet - check if we should switch to auto based on message type
         console.log(
-          "[Smart Mode] No staff reply yet - checking if should switch to auto"
+          "[Smart Mode] No staff reply yet - checking if should switch to auto",
         );
 
         const shouldAutoSwitch = shouldSwitchToAutoMode(message);
@@ -1001,7 +1053,7 @@ export async function POST(request: NextRequest) {
               headers: {
                 "Content-Type": "application/json; charset=utf-8",
               },
-            }
+            },
           );
         }
       }
@@ -1019,7 +1071,8 @@ export async function POST(request: NextRequest) {
       .limit(10);
 
     const recentStaffMessage = recentMessages?.find(
-      (msg) => msg.sender === "staff" || isStaffMessage((msg as any).text || "")
+      (msg) =>
+        msg.sender === "staff" || isStaffMessage((msg as any).text || ""),
     );
 
     if (recentStaffMessage && !justSwitchedToAuto) {
@@ -1031,16 +1084,16 @@ export async function POST(request: NextRequest) {
       // Check if AI should respond based on time and message type
       const aiResponseDecision = shouldAIRespond(
         minutesSinceStaffMessage,
-        message
+        message,
       );
 
       console.log(
         "[Staff Activity Check] Minutes since staff message:",
-        minutesSinceStaffMessage.toFixed(1)
+        minutesSinceStaffMessage.toFixed(1),
       );
       console.log(
         "[Staff Activity Check] Should AI respond?",
-        aiResponseDecision.shouldRespond
+        aiResponseDecision.shouldRespond,
       );
       console.log("[Staff Activity Check] Reason:", aiResponseDecision.reason);
 
@@ -1064,18 +1117,18 @@ export async function POST(request: NextRequest) {
             headers: {
               "Content-Type": "application/json; charset=utf-8",
             },
-          }
+          },
         );
       }
 
       // AI can respond - either it's been 30+ minutes or it's a simple query
       console.log(
         "[Staff Activity Check] ✅ AI will respond:",
-        aiResponseDecision.reason
+        aiResponseDecision.reason,
       );
     } else if (justSwitchedToAuto) {
       console.log(
-        "[Staff Activity Check] ✅ Just switched to auto mode - AI will respond"
+        "[Staff Activity Check] ✅ Just switched to auto mode - AI will respond",
       );
     }
 
@@ -1087,10 +1140,15 @@ export async function POST(request: NextRequest) {
     const modulesToLoad = getModulesForAnalysis(analysis);
     logModuleSelection(analysis, modulesToLoad);
 
+    // Build quote context for AI if customer has active quote
+    const quoteContext = quoteCheck.hasActiveQuote
+      ? buildQuoteContextForAI(quoteCheck)
+      : "";
+
     // Generate AI response with smart state-aware generator (using batched message if applicable)
     console.log("[Smart AI] Generating response with state awareness...");
     const aiResult = await generateSmartResponse({
-      customerMessage: messageToProcess,
+      customerMessage: messageToProcess + quoteContext, // Add quote context to message
       conversationId: conversation.id,
       customerPhone: from, // Pass customer phone for history lookup
       modules: modulesToLoad, // NEW: Load only relevant modules based on analysis
@@ -1125,17 +1183,17 @@ export async function POST(request: NextRequest) {
     ];
 
     const indicatesHandoff = handoffPhrases.some((pattern) =>
-      pattern.test(aiResult.response)
+      pattern.test(aiResult.response),
     );
 
     // Handle multiple messages (split by |||)
     // Send each message separately with a delay between them
     console.log(
-      `[AI Response] Generated ${aiResult.responses.length} message(s)`
+      `[AI Response] Generated ${aiResult.responses.length} message(s)`,
     );
     console.log(
       `[AI Response] Messages:`,
-      aiResult.responses.map((r, i) => `${i + 1}. ${r.substring(0, 50)}...`)
+      aiResult.responses.map((r, i) => `${i + 1}. ${r.substring(0, 50)}...`),
     );
 
     // CRITICAL: Remove duplicate messages from responses array
@@ -1150,28 +1208,28 @@ export async function POST(request: NextRequest) {
             console.log(
               `[Duplicate Prevention] Skipping response ${index + 1} - ${(
                 similarity * 100
-              ).toFixed(0)}% similar to response ${j + 1}`
+              ).toFixed(0)}% similar to response ${j + 1}`,
             );
             console.log(
               `[Duplicate Prevention] Response ${j + 1}: "${self[j].substring(
                 0,
-                80
-              )}..."`
+                80,
+              )}..."`,
             );
             console.log(
               `[Duplicate Prevention] Response ${
                 index + 1
-              }: "${response.substring(0, 80)}..."`
+              }: "${response.substring(0, 80)}..."`,
             );
             return false;
           }
         }
         return true;
-      }
+      },
     );
 
     console.log(
-      `[AI Response] After deduplication: ${uniqueResponses.length} unique message(s)`
+      `[AI Response] After deduplication: ${uniqueResponses.length} unique message(s)`,
     );
 
     // Name extraction already handled by unified analyzer earlier
@@ -1180,7 +1238,7 @@ export async function POST(request: NextRequest) {
       const messageText = uniqueResponses[i];
 
       console.log(
-        `[AI Response] Sending message ${i + 1}/${uniqueResponses.length}`
+        `[AI Response] Sending message ${i + 1}/${uniqueResponses.length}`,
       );
 
       // Insert AI response into database
@@ -1295,7 +1353,7 @@ export async function POST(request: NextRequest) {
         headers: {
           "Content-Type": "application/json; charset=utf-8",
         },
-      }
+      },
     );
   }
 }
@@ -1307,7 +1365,7 @@ async function saveAnalysisAsync(
   analysis: any,
   messageId: string,
   conversationId: string,
-  supabase: any
+  supabase: any,
 ): Promise<void> {
   try {
     console.log("[Analysis Save] Saving to database...");
