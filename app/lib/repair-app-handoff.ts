@@ -105,6 +105,12 @@ export async function sendToRepairApp(
         response.status,
         errorText,
       );
+      console.error("[Repair App Handoff] Request data:", {
+        url: REPAIR_APP_API_URL,
+        quoteId: data.quoteId,
+        customer: data.customerName,
+        phone: data.customerPhone,
+      });
       return {
         success: false,
         error: `HTTP ${response.status}: ${errorText}`,
