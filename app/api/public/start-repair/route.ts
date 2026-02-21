@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
       device_make,
       device_model,
       issue,
+      description,
+      additionalIssues,
       type,
       page,
       source,
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -118,6 +120,8 @@ export async function POST(request: NextRequest) {
       device_make,
       device_model,
       issue: normalizedIssue,
+      description: description || null,
+      additional_issues: additionalIssues || [],
       customer_id: customer?.id || null,
       source:
         typeof source === "string" && source.length > 0 ? source : "website",
@@ -207,7 +211,7 @@ export async function POST(request: NextRequest) {
             "Access-Control-Allow-Origin": "*",
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -239,7 +243,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(
-      `[Start Repair] Quote request created for ${name} (${normalizedPhone}) - ${device_make} ${device_model}`
+      `[Start Repair] Quote request created for ${name} (${normalizedPhone}) - ${device_make} ${device_model}`,
     );
     console.log(`[Start Repair] SMS sent: ${smsResult.sent}`);
 
@@ -254,7 +258,7 @@ export async function POST(request: NextRequest) {
       try {
         const notificationUrl = `${macrodroidBase}/repair-request`;
         console.log(
-          `[Start Repair] Sending notification to: ${notificationUrl}`
+          `[Start Repair] Sending notification to: ${notificationUrl}`,
         );
         console.log(`[Start Repair] Notification payload:`, {
           url: quoteUrl,
@@ -267,12 +271,12 @@ export async function POST(request: NextRequest) {
         });
 
         console.log(
-          `[Start Repair] Notification response status: ${response.status}`
+          `[Start Repair] Notification response status: ${response.status}`,
         );
         if (!response.ok) {
           const responseText = await response.text();
           console.error(
-            `[Start Repair] Notification failed: ${response.status} - ${responseText}`
+            `[Start Repair] Notification failed: ${response.status} - ${responseText}`,
           );
         } else {
           console.log(`[Start Repair] ✅ Notification sent successfully`);
@@ -282,7 +286,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.log(
-        "[Start Repair] No MACRODROID_WEBHOOK_URL configured - skipping notification"
+        "[Start Repair] No MACRODROID_WEBHOOK_URL configured - skipping notification",
       );
     }
 
@@ -299,7 +303,7 @@ export async function POST(request: NextRequest) {
           "Access-Control-Allow-Origin": "*",
           "Content-Type": "application/json; charset=utf-8",
         },
-      }
+      },
     );
   } catch (error) {
     console.error("[Start Repair] Error:", error);
@@ -315,7 +319,7 @@ export async function POST(request: NextRequest) {
           "Access-Control-Allow-Origin": "*",
           "Content-Type": "application/json; charset=utf-8",
         },
-      }
+      },
     );
   }
 }
