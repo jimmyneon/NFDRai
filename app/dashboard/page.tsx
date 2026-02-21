@@ -115,18 +115,20 @@ export default async function DashboardPage() {
           const Icon = stat.icon;
           return (
             <Card key={stat.title} className="tile-button">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground leading-tight">
                   {stat.title}
                 </CardTitle>
                 <div
-                  className={`w-10 h-10 rounded-xl ${stat.color} flex items-center justify-center`}
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl ${stat.color} flex items-center justify-center shrink-0`}
                 >
-                  <Icon className="w-5 h-5 text-white" />
+                  <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stat.value}</div>
+              <CardContent className="px-3 sm:px-6">
+                <div className="text-2xl sm:text-3xl font-bold">
+                  {stat.value}
+                </div>
               </CardContent>
             </Card>
           );
@@ -147,16 +149,16 @@ export default async function DashboardPage() {
                     <a
                       key={conv.id}
                       href={`/dashboard/conversations?id=${conv.id}`}
-                      className="flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent transition-colors"
+                      className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl border border-border hover:bg-accent transition-colors"
                     >
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">
                           {conv.customers?.name || "Unknown Customer"}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground truncate">
                           {conv.customers?.phone || "No phone"}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {new Date(conv.lastMessageTime).toLocaleString(
                             "en-GB",
                             {
@@ -168,7 +170,7 @@ export default async function DashboardPage() {
                           )}
                         </p>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-col items-end gap-1.5 shrink-0 ml-2">
                         <span className="text-xs text-muted-foreground capitalize">
                           {conv.channel}
                         </span>
@@ -197,34 +199,38 @@ export default async function DashboardPage() {
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3">
+            <CardContent className="grid grid-cols-2 gap-2 sm:gap-3">
               <a
                 href="/dashboard/conversations"
-                className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
+                className="p-3 sm:p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
               >
-                <MessageSquare className="w-6 h-6 mx-auto mb-2" />
-                <p className="text-sm font-medium">View Chats</p>
+                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1.5 sm:mb-2" />
+                <p className="text-xs sm:text-sm font-medium">View Chats</p>
               </a>
               <a
                 href="/dashboard/sandbox"
-                className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
+                className="p-3 sm:p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
               >
-                <Bot className="w-6 h-6 mx-auto mb-2" />
-                <p className="text-sm font-medium">Test AI</p>
+                <Bot className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-1.5 sm:mb-2" />
+                <p className="text-xs sm:text-sm font-medium">Test AI</p>
               </a>
               <a
                 href="/dashboard/pricing"
-                className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
+                className="p-3 sm:p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
               >
-                <span className="text-2xl mx-auto mb-2 block">£</span>
-                <p className="text-sm font-medium">Pricing</p>
+                <span className="text-xl sm:text-2xl mx-auto mb-1.5 sm:mb-2 block">
+                  £
+                </span>
+                <p className="text-xs sm:text-sm font-medium">Pricing</p>
               </a>
               <a
                 href="/dashboard/settings"
-                className="p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
+                className="p-3 sm:p-4 rounded-xl border border-border hover:bg-accent transition-colors text-center"
               >
-                <span className="text-2xl mx-auto mb-2 block">⚙️</span>
-                <p className="text-sm font-medium">Settings</p>
+                <span className="text-xl sm:text-2xl mx-auto mb-1.5 sm:mb-2 block">
+                  ⚙️
+                </span>
+                <p className="text-xs sm:text-sm font-medium">Settings</p>
               </a>
             </CardContent>
           </Card>

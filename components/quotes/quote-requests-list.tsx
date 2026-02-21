@@ -301,84 +301,67 @@ New Forest Device Repairs`;
             return (
               <div
                 key={request.id}
-                className={`p-2 sm:p-3 cursor-pointer transition-colors ${
+                className={`p-3 cursor-pointer transition-colors ${
                   isSelected ? "bg-primary/10" : "hover:bg-accent/50"
                 } ${isSent ? "opacity-60" : ""}`}
                 onClick={() => handleSelectRequest(request)}
               >
-                <div className="flex items-center justify-between gap-3">
-                  {/* Name & Contact */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">
-                        {request.name}
-                      </span>
-                      {request.source === "webchat" ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-purple-50 text-purple-700 border-purple-200 text-xs"
-                        >
-                          <MessageSquare className="w-3 h-3 mr-1" />
-                          Chat
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="bg-blue-50 text-blue-700 border-blue-200 text-xs"
-                        >
-                          <Globe className="w-3 h-3 mr-1" />
-                          Web
-                        </Badge>
-                      )}
-                      {requestType === "sell" && (
-                        <Badge
-                          variant="outline"
-                          className="bg-amber-50 text-amber-700 border-amber-200 text-xs"
-                        >
-                          Sell
-                        </Badge>
-                      )}
-                      {getStatusBadge(request.status)}
-                    </div>
-
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {request.phone}
-                      </span>
-                      {request.email && (
-                        <span className="flex items-center gap-1 truncate">
-                          <Mail className="w-3 h-3" />
-                          {request.email}
-                        </span>
-                      )}
-                    </div>
+                {/* Name & Badges */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium">{request.name}</span>
+                    {getStatusBadge(request.status)}
                   </div>
-
-                  {/* Device & Issue */}
-                  <div className="text-right">
-                    <div className="flex items-center gap-1 text-sm">
-                      <Smartphone className="w-3 h-3 text-muted-foreground" />
-                      <span className="truncate max-w-[150px]">
-                        {request.device_make} {request.device_model}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground justify-end">
-                      <Clock className="w-3 h-3" />
-                      {formatTime(request.created_at)}
-                    </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {formatTime(request.created_at)}
                   </div>
                 </div>
 
-                {/* Issue */}
-                <div className="mt-1 text-sm text-muted-foreground flex items-center justify-between">
-                  <span>Issue: {request.issue}</span>
+                {/* Device & Issue */}
+                <div className="space-y-1 mb-2">
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Smartphone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-medium">
+                      {request.device_make} {request.device_model}
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground pl-5">
+                    {request.issue}
+                  </div>
+                </div>
+
+                {/* Contact & Actions */}
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-muted-foreground min-w-0">
+                    <span className="flex items-center gap-1 shrink-0">
+                      <Phone className="w-3 h-3" />
+                      {request.phone}
+                    </span>
+                    {request.source === "webchat" && (
+                      <Badge
+                        variant="outline"
+                        className="bg-purple-50 text-purple-700 border-purple-200 text-xs shrink-0"
+                      >
+                        <MessageSquare className="w-3 h-3 mr-1" />
+                        Chat
+                      </Badge>
+                    )}
+                    {requestType === "sell" && (
+                      <Badge
+                        variant="outline"
+                        className="bg-amber-50 text-amber-700 border-amber-200 text-xs shrink-0"
+                      >
+                        Sell
+                      </Badge>
+                    )}
+                  </div>
                   <Link
                     href={`/dashboard/quotes/${request.id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-primary hover:underline flex items-center gap-1 text-xs"
+                    className="text-primary hover:underline flex items-center gap-1 shrink-0"
                   >
-                    View Details
+                    Details
                     <ExternalLink className="w-3 h-3" />
                   </Link>
                 </div>
@@ -416,12 +399,12 @@ New Forest Device Repairs`;
                     <label className="text-sm font-medium block mb-2">
                       Quote Type
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2">
                       {QUOTE_TYPES.map((type) => (
                         <button
                           key={type.value}
                           onClick={() => setQuoteType(type.value)}
-                          className={`p-2 text-xs rounded-lg border transition-colors ${
+                          className={`p-2.5 text-sm rounded-lg border transition-colors ${
                             quoteType === type.value
                               ? "bg-primary text-primary-foreground border-primary"
                               : "bg-background hover:bg-accent border-border"

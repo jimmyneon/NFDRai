@@ -1,148 +1,167 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { formatRelativeTime } from '@/lib/utils'
-import { MessageSquare, Phone, User, AlertTriangle, AlertCircle } from 'lucide-react'
-import { ConversationDialog } from './conversation-dialog'
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { formatRelativeTime } from "@/lib/utils";
+import {
+  MessageSquare,
+  Phone,
+  User,
+  AlertTriangle,
+  AlertCircle,
+} from "lucide-react";
+import { ConversationDialog } from "./conversation-dialog";
 
 type Conversation = {
-  id: string
-  channel: string
-  status: string
-  updated_at: string
-  last_sentiment?: string | null
-  last_urgency?: string | null
-  requires_urgent_attention?: boolean
-  last_analysis_reasoning?: string | null
+  id: string;
+  channel: string;
+  status: string;
+  updated_at: string;
+  last_sentiment?: string | null;
+  last_urgency?: string | null;
+  requires_urgent_attention?: boolean;
+  last_analysis_reasoning?: string | null;
   customer: {
-    name: string | null
-    phone: string | null
-  }
+    name: string | null;
+    phone: string | null;
+  };
   messages: Array<{
-    id: string
-    text: string
-    sender: string
-    created_at: string
-  }>
-}
+    id: string;
+    text: string;
+    sender: string;
+    created_at: string;
+  }>;
+};
 
-export function ConversationList({ conversations: initialConversations }: { conversations: Conversation[] }) {
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
-  const supabase = createClient()
+export function ConversationList({
+  conversations: initialConversations,
+}: {
+  conversations: Conversation[];
+}) {
+  const [selectedConversation, setSelectedConversation] =
+    useState<Conversation | null>(null);
+  const supabase = createClient();
 
   // Helper function to sort conversations by last message time
   const sortByLastMessage = (convos: any[]) => {
     return convos.sort((a, b) => {
       // Find the ACTUAL latest message by sorting messages by created_at
       // Don't assume last item in array is newest!
-      const aLatestMsg = a.messages?.length > 0
-        ? a.messages.reduce((latest: any, msg: any) => {
-            return new Date(msg.created_at) > new Date(latest.created_at) ? msg : latest
-          })
-        : null
-      
-      const bLatestMsg = b.messages?.length > 0
-        ? b.messages.reduce((latest: any, msg: any) => {
-            return new Date(msg.created_at) > new Date(latest.created_at) ? msg : latest
-          })
-        : null
-      
+      const aLatestMsg =
+        a.messages?.length > 0
+          ? a.messages.reduce((latest: any, msg: any) => {
+              return new Date(msg.created_at) > new Date(latest.created_at)
+                ? msg
+                : latest;
+            })
+          : null;
+
+      const bLatestMsg =
+        b.messages?.length > 0
+          ? b.messages.reduce((latest: any, msg: any) => {
+              return new Date(msg.created_at) > new Date(latest.created_at)
+                ? msg
+                : latest;
+            })
+          : null;
+
       // Use latest message time, or fall back to conversation updated_at
-      const aTime = aLatestMsg?.created_at || a.updated_at
-      const bTime = bLatestMsg?.created_at || b.updated_at
-      
+      const aTime = aLatestMsg?.created_at || a.updated_at;
+      const bTime = bLatestMsg?.created_at || b.updated_at;
+
       // Sort descending (most recent first)
-      return new Date(bTime).getTime() - new Date(aTime).getTime()
-    })
-  }
+      return new Date(bTime).getTime() - new Date(aTime).getTime();
+    });
+  };
 
   // Initialize with sorted conversations
-  const [conversations, setConversations] = useState<Conversation[]>(sortByLastMessage([...initialConversations]))
+  const [conversations, setConversations] = useState<Conversation[]>(
+    sortByLastMessage([...initialConversations]),
+  );
 
   useEffect(() => {
-    setConversations(sortByLastMessage([...initialConversations]))
-  }, [initialConversations])
+    setConversations(sortByLastMessage([...initialConversations]));
+  }, [initialConversations]);
 
   useEffect(() => {
     const channel = supabase
-      .channel('realtime-conversations')
+      .channel("realtime-conversations")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'conversations' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
         async () => {
           const { data } = await supabase
-            .from('conversations')
-            .select('*, customer:customers(*), messages(*)')
-            .order('updated_at', { ascending: false })
+            .from("conversations")
+            .select("*, customer:customers(*), messages(*)")
+            .order("updated_at", { ascending: false });
           if (data) {
-            setConversations(sortByLastMessage(data))
+            setConversations(sortByLastMessage(data));
           }
-        }
+        },
       )
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
         async () => {
           const { data } = await supabase
-            .from('conversations')
-            .select('*, customer:customers(*), messages(*)')
-            .order('updated_at', { ascending: false })
+            .from("conversations")
+            .select("*, customer:customers(*), messages(*)")
+            .order("updated_at", { ascending: false });
           if (data) {
-            setConversations(sortByLastMessage(data))
+            setConversations(sortByLastMessage(data));
           }
-        }
+        },
       )
       .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
         async () => {
           const { data } = await supabase
-            .from('conversations')
-            .select('*, customer:customers(*), messages(*)')
-            .order('updated_at', { ascending: false })
+            .from("conversations")
+            .select("*, customer:customers(*), messages(*)")
+            .order("updated_at", { ascending: false });
           if (data) {
-            setConversations(sortByLastMessage(data))
+            setConversations(sortByLastMessage(data));
           }
-        }
+        },
       )
-      .subscribe()
+      .subscribe();
 
     return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase])
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'auto':
-        return 'bg-green-500'
-      case 'manual':
-        return 'bg-amber-500'
-      case 'blocked':
-        return 'bg-red-500'
-      case 'paused':
-        return 'bg-red-500'
+      case "auto":
+        return "bg-green-500";
+      case "manual":
+        return "bg-amber-500";
+      case "blocked":
+        return "bg-red-500";
+      case "paused":
+        return "bg-red-500";
       default:
-        return 'bg-gray-500'
+        return "bg-gray-500";
     }
-  }
+  };
 
   const getChannelIcon = (channel: string) => {
     switch (channel) {
-      case 'sms':
-        return 'SMS'
-      case 'whatsapp':
-        return 'WA'
-      case 'messenger':
-        return 'MSG'
+      case "sms":
+        return "SMS";
+      case "whatsapp":
+        return "WA";
+      case "messenger":
+        return "MSG";
       default:
-        return 'MSG'
+        return "MSG";
     }
-  }
+  };
 
   if (!conversations || conversations.length === 0) {
     return (
@@ -152,96 +171,135 @@ export function ConversationList({ conversations: initialConversations }: { conv
           <p className="text-muted-foreground">No conversations yet</p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
     <>
       <div className="grid grid-cols-1 gap-4">
         {conversations.map((conversation) => {
-          const lastMessage = conversation.messages?.[conversation.messages.length - 1]
-          
+          const lastMessage =
+            conversation.messages?.[conversation.messages.length - 1];
+
           return (
             <Card
               key={conversation.id}
               className="tile-button cursor-pointer hover:shadow-lg"
               onClick={() => setSelectedConversation(conversation)}
             >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1 min-w-0">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold">{getChannelIcon(conversation.channel)}</span>
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-start justify-between gap-2 sm:gap-4">
+                  <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold">
+                        {getChannelIcon(conversation.channel)}
+                      </span>
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-semibold truncate">
-                          {conversation.customer?.name || 'Unknown Customer'}
+                      <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
+                        <h3 className="font-semibold text-sm sm:text-base truncate">
+                          {conversation.customer?.name || "Unknown Customer"}
                         </h3>
-                        <Badge 
+                        <Badge
                           className={getStatusColor(conversation.status)}
-                          variant={conversation.status === 'blocked' ? 'destructive' : 'default'}
+                          variant={
+                            conversation.status === "blocked"
+                              ? "destructive"
+                              : "default"
+                          }
                         >
-                          {conversation.status === 'blocked' && '🚫 '}
+                          {conversation.status === "blocked" && "🚫 "}
                           {conversation.status}
                         </Badge>
                         {conversation.requires_urgent_attention && (
-                          <Badge variant="destructive" className="flex items-center gap-1">
-                            {conversation.last_sentiment === 'angry' ? (
-                              <><AlertCircle className="w-3 h-3" /> Angry</>
+                          <Badge
+                            variant="destructive"
+                            className="flex items-center gap-1"
+                          >
+                            {conversation.last_sentiment === "angry" ? (
+                              <>
+                                <AlertCircle className="w-3 h-3" /> Angry
+                              </>
                             ) : (
-                              <><AlertTriangle className="w-3 h-3" /> Frustrated</>
+                              <>
+                                <AlertTriangle className="w-3 h-3" /> Frustrated
+                              </>
                             )}
                           </Badge>
                         )}
-                        {conversation.last_analysis_reasoning && conversation.last_analysis_reasoning.includes('callback') && (
-                          <Badge variant="outline" className="flex items-center gap-1 text-xs">
-                            📞 Callback Request
-                          </Badge>
-                        )}
-                        {conversation.last_analysis_reasoning && conversation.last_analysis_reasoning.includes('directed at') && (
-                          <Badge variant="outline" className="flex items-center gap-1 text-xs">
-                            👤 For Staff
-                          </Badge>
-                        )}
-                        {conversation.last_analysis_reasoning && conversation.last_analysis_reasoning.includes('acknowledgment') && (
-                          <Badge variant="outline" className="flex items-center gap-1 text-xs">
-                            ✓ Acknowledged
-                          </Badge>
-                        )}
+                        {conversation.last_analysis_reasoning &&
+                          conversation.last_analysis_reasoning.includes(
+                            "callback",
+                          ) && (
+                            <Badge
+                              variant="outline"
+                              className="flex items-center gap-1 text-xs"
+                            >
+                              📞 Callback Request
+                            </Badge>
+                          )}
+                        {conversation.last_analysis_reasoning &&
+                          conversation.last_analysis_reasoning.includes(
+                            "directed at",
+                          ) && (
+                            <Badge
+                              variant="outline"
+                              className="flex items-center gap-1 text-xs"
+                            >
+                              👤 For Staff
+                            </Badge>
+                          )}
+                        {conversation.last_analysis_reasoning &&
+                          conversation.last_analysis_reasoning.includes(
+                            "acknowledgment",
+                          ) && (
+                            <Badge
+                              variant="outline"
+                              className="flex items-center gap-1 text-xs"
+                            >
+                              ✓ Acknowledged
+                            </Badge>
+                          )}
                       </div>
-                      
+
                       {conversation.customer?.phone && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1 mb-2">
+                        <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 mb-1.5 sm:mb-2">
                           <Phone className="w-3 h-3" />
                           {conversation.customer.phone}
                         </p>
                       )}
-                      
+
                       {lastMessage && (
-                        <p className="text-sm text-muted-foreground truncate">
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           <span className="font-semibold">
-                            {lastMessage.sender === 'customer' ? 'Customer' : lastMessage.sender === 'ai' ? 'AI' : 'Staff'}:
-                          </span>{' '}
+                            {lastMessage.sender === "customer"
+                              ? "Customer"
+                              : lastMessage.sender === "ai"
+                                ? "AI"
+                                : "Staff"}
+                            :
+                          </span>{" "}
                           {lastMessage.text}
                         </p>
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="text-right flex-shrink-0">
-                    <p className="text-xs text-muted-foreground">
-                      {formatRelativeTime(lastMessage?.created_at || conversation.updated_at)}
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                      {formatRelativeTime(
+                        lastMessage?.created_at || conversation.updated_at,
+                      )}
                     </p>
-                    <Badge variant="outline" className="mt-2">
+                    <Badge variant="outline" className="mt-1 sm:mt-2 text-xs">
                       {conversation.messages?.length || 0} msgs
                     </Badge>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -253,5 +311,5 @@ export function ConversationList({ conversations: initialConversations }: { conv
         />
       )}
     </>
-  )
+  );
 }
