@@ -40,6 +40,11 @@ import {
   buildQuoteContextForAI,
   processQuoteAcceptance,
 } from "@/app/lib/quote-acceptance-handler";
+import {
+  checkRepairStatus,
+  formatRepairStatusForAI,
+  getNoJobsFoundTemplate,
+} from "@/app/lib/repair-status-checker";
 
 /**
  * Calculate similarity between two strings (0 = completely different, 1 = identical)
@@ -1142,10 +1147,47 @@ export async function POST(request: NextRequest) {
       ? buildQuoteContextForAI(quoteCheck)
       : "";
 
+    // Check repair status if customer is asking about their repair
+    let repairStatusContext = "";
+    const isStatusInquiry =
+      /status|ready|update|how'?s|progress|when will|finished|done|collect/i.test(
+        messageToProcess,
+      );
+
+    if (isStatusInquiry) {
+      console.log(
+        "[Repair Status] Customer may be asking about repair status - checking...",
+      );
+      const statusResult = await checkRepairStatus(from);
+
+      if (statusResult.success && statusResult.jobs.length > 0) {
+        const formattedStatus = formatRepairStatusForAI(statusResult);
+        if (formattedStatus) {
+          repairStatusContext = `\n\n[REPAIR STATUS INFORMATION]\n${formattedStatus}\n[END REPAIR STATUS]`;
+          console.log(
+            "[Repair Status] ✅ Found",
+            statusResult.jobs.length,
+            "job(s) - added to AI context",
+          );
+        }
+      } else if (statusResult.success && statusResult.jobs.length === 0) {
+        // No jobs found - add special template to context
+        repairStatusContext = `\n\n[NO REPAIR JOBS FOUND]\n${getNoJobsFoundTemplate()}\n[END REPAIR STATUS]`;
+        console.log(
+          "[Repair Status] ⚠️ No jobs found - added no-jobs template to context",
+        );
+      } else {
+        console.log(
+          "[Repair Status] ❌ Failed to check status:",
+          statusResult.error,
+        );
+      }
+    }
+
     // Generate AI response with smart state-aware generator (using batched message if applicable)
     console.log("[Smart AI] Generating response with state awareness...");
     const aiResult = await generateSmartResponse({
-      customerMessage: messageToProcess + quoteContext, // Add quote context to message
+      customerMessage: messageToProcess + quoteContext + repairStatusContext, // Add quote and repair status context to message
       conversationId: conversation.id,
       customerPhone: from, // Pass customer phone for history lookup
       modules: modulesToLoad, // NEW: Load only relevant modules based on analysis
