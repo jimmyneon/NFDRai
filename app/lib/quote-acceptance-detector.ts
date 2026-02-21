@@ -23,6 +23,7 @@ export function detectQuoteAcceptance(message: string): {
     /^sure$/i,
     /^ok$/i,
     /^okay$/i,
+    /^please\s+go\s+ahead$/i,
     /go\s+ahead/i,
     /proceed/i,
     /book\s+(it\s+)?in/i,

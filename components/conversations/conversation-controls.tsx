@@ -29,12 +29,14 @@ import {
   PauseCircle,
   UserCheck,
   AlertTriangle,
+  Send,
 } from "lucide-react";
 
 type ConversationControlsProps = {
   conversationId: string;
   currentStatus: "auto" | "manual" | "archived";
   assignedTo?: string | null;
+  customerPhone?: string;
   onStatusChange?: (newStatus: string) => void;
 };
 
@@ -42,6 +44,7 @@ export function ConversationControls({
   conversationId,
   currentStatus,
   assignedTo,
+  customerPhone,
   onStatusChange,
 }: ConversationControlsProps) {
   const [status, setStatus] = useState(currentStatus);
@@ -50,6 +53,7 @@ export function ConversationControls({
   const [pendingAction, setPendingAction] = useState<"auto" | "manual" | null>(
     null,
   );
+  const [sendingToRepairApp, setSendingToRepairApp] = useState(false);
   const supabase = createClient();
   const { toast } = useToast();
 
@@ -121,6 +125,80 @@ export function ConversationControls({
     }
   };
 
+  const handleSendToRepairApp = async () => {
+    if (!customerPhone) {
+      toast({
+        title: "Error",
+        description: "Customer phone number not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingToRepairApp(true);
+    try {
+      // Check for active quote
+      const { data: quotes, error: quoteError } = await supabase
+        .from("quote_requests")
+        .select("*")
+        .eq("phone", customerPhone)
+        .in("status", ["quoted", "pending"])
+        .order("quoted_at", { ascending: false, nullsFirst: false })
+        .limit(1);
+
+      if (quoteError) throw quoteError;
+
+      if (!quotes || quotes.length === 0) {
+        toast({
+          title: "No Active Quote",
+          description: "This customer doesn't have an active quote to send",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const quote = quotes[0];
+
+      // Check if expired
+      if (quote.expires_at && new Date(quote.expires_at) < new Date()) {
+        toast({
+          title: "Quote Expired",
+          description: "This quote has expired and cannot be sent",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Send to repair app
+      const response = await fetch("/api/quotes/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteId: quote.id }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to send to repair app");
+      }
+
+      toast({
+        title: "Success",
+        description: `Quote accepted and sent to repair app (£${quote.quoted_price})`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to send to repair app",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingToRepairApp(false);
+    }
+  };
+
   return (
     <>
       <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl">
@@ -147,6 +225,19 @@ export function ConversationControls({
 
         {/* Control Buttons */}
         <div className="flex gap-2 ml-auto">
+          {/* Send to Repair App Button */}
+          {customerPhone && (
+            <button
+              onClick={handleSendToRepairApp}
+              disabled={sendingToRepairApp}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-green-600 text-white hover:bg-green-700 transition-colors flex flex-col items-center justify-center gap-1 disabled:opacity-50"
+              title="Send to Repair App"
+            >
+              <Send className="w-5 h-5 sm:w-6 sm:h-6" />
+              <span className="text-xs font-medium">Send</span>
+            </button>
+          )}
+
           {status === "auto" ? (
             <button
               onClick={handleTakeOver}
