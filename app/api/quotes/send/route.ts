@@ -163,6 +163,8 @@ function buildQuoteSms(details: {
     message += `) is £${quote_amount.toFixed(2)}.`;
   }
 
+  message += `\n\nThis quote is valid for 7 days.`;
+
   if (additional_notes && additional_notes.trim().length > 0) {
     message += `\n\n${additional_notes.trim()}`;
   }
