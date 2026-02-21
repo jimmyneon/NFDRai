@@ -152,9 +152,16 @@ function buildQuoteSms(details: {
   // Check if there are multiple repairs
   const hasAdditionalIssues = additional_issues && additional_issues.length > 0;
 
+  // Build device name - avoid duplication (e.g., "iPhone iPhone 13")
+  const deviceName = device_model
+    .toLowerCase()
+    .includes(device_make.toLowerCase())
+    ? device_model
+    : `${device_make} ${device_model}`;
+
   if (hasAdditionalIssues) {
     // Multiple repairs - use bullet list format
-    message += `Your quote for the ${device_make} ${device_model}:\n`;
+    message += `Your quote for the ${deviceName}:\n`;
 
     // Main repair
     message += `• ${issue}`;
@@ -171,7 +178,7 @@ function buildQuoteSms(details: {
     message += `\nTotal: £${quote_amount.toFixed(2)}`;
   } else {
     // Single repair - original format
-    message += `Your quote for the ${device_make} ${device_model} (${issue}`;
+    message += `Your quote for the ${deviceName} (${issue}`;
     if (description) message += ` - ${description}`;
     message += `) is £${quote_amount.toFixed(2)}.`;
   }
@@ -215,9 +222,16 @@ function buildPartsOrderQuoteSms(details: {
   // Check if there are multiple repairs
   const hasAdditionalIssues = additional_issues && additional_issues.length > 0;
 
+  // Build device name - avoid duplication (e.g., "iPhone iPhone 13")
+  const deviceName = device_model
+    .toLowerCase()
+    .includes(device_make.toLowerCase())
+    ? device_model
+    : `${device_make} ${device_model}`;
+
   if (hasAdditionalIssues) {
     // Multiple repairs - use bullet list format
-    message += `Your quote for the ${device_make} ${device_model}:\n`;
+    message += `Your quote for the ${deviceName}:\n`;
 
     // Main repair
     message += `• ${issue}`;
@@ -234,7 +248,7 @@ function buildPartsOrderQuoteSms(details: {
     message += `\nTotal: £${quote_amount.toFixed(2)}`;
   } else {
     // Single repair - original format
-    message += `Your quote for the ${device_make} ${device_model} (${issue}`;
+    message += `Your quote for the ${deviceName} (${issue}`;
     if (description) message += ` - ${description}`;
     message += `) is £${quote_amount.toFixed(2)}.`;
   }
