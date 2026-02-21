@@ -30,9 +30,11 @@ New Forest Device Repairs`;
 
   return `Hi ${firstName},
 
-Thanks for getting in touch! I've passed your details to John and he'll send you a quote for your ${deviceDescription} (${issue}) very soon.
+Thanks for getting in touch with New Forest Device Repairs. Your repair/quote request for your ${deviceDescription} (${issue}) has been received and is being reviewed.
 
-Feel free to reply if you have any questions in the meantime.
+Our technician will respond shortly with the next steps.
+
+You're welcome to reply to this message if you need to add any further information or have any questions.
 
 Many thanks,
 New Forest Device Repairs`;

@@ -14,10 +14,11 @@ interface QuoteFormProps {
 export function QuoteForm({ quoteRequest }: QuoteFormProps) {
   const router = useRouter();
   const [quoteAmount, setQuoteAmount] = useState(
-    quoteRequest.quoted_price?.toString() || ""
+    quoteRequest.quoted_price?.toString() || "",
   );
   const [additionalNotes, setAdditionalNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUnableToQuote, setIsUnableToQuote] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -59,6 +60,46 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
       setError(err instanceof Error ? err.message : "Failed to send quote");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleUnableToQuote = async () => {
+    if (
+      !confirm(
+        "Send 'Unable to Quote' message? This will inform the customer they need an in-store assessment.",
+      )
+    ) {
+      return;
+    }
+
+    setError("");
+    setSuccess(false);
+    setIsUnableToQuote(true);
+
+    try {
+      const response = await fetch("/api/quotes/unable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quote_id: quoteRequest.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send message");
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/dashboard/quotes");
+        router.refresh();
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
+      setIsUnableToQuote(false);
     }
   };
 
@@ -115,16 +156,24 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
         <div className="flex gap-3 pt-2">
           <Button
             type="submit"
-            disabled={isSubmitting || success}
+            disabled={isSubmitting || isUnableToQuote || success}
             className="flex-1"
           >
             {isSubmitting ? "Sending..." : "Send Quote via SMS"}
           </Button>
           <Button
             type="button"
+            variant="destructive"
+            onClick={handleUnableToQuote}
+            disabled={isSubmitting || isUnableToQuote || success}
+          >
+            {isUnableToQuote ? "Sending..." : "Unable to Quote"}
+          </Button>
+          <Button
+            type="button"
             variant="outline"
             onClick={() => router.push("/dashboard/quotes")}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUnableToQuote}
           >
             Cancel
           </Button>
