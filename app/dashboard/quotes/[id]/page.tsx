@@ -20,18 +20,20 @@ export default async function QuoteDetailPage({
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Quote Request</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl sm:text-3xl font-bold">Quote Request</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">
           Enter the quote amount and send via SMS
         </p>
       </div>
 
-      <div className="bg-card border rounded-lg p-6 space-y-4">
+      <div className="bg-card border rounded-lg p-4 sm:p-6 space-y-4">
         <div>
-          <h2 className="text-xl font-semibold mb-4">Customer Details</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">
+            Customer Details
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Name</p>
               <p className="font-medium">{quoteRequest.name}</p>
@@ -50,8 +52,10 @@ export default async function QuoteDetailPage({
         </div>
 
         <div className="border-t pt-4">
-          <h2 className="text-xl font-semibold mb-4">Repair Details</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">
+            Repair Details
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Device Make</p>
               <p className="font-medium">{quoteRequest.device_make}</p>

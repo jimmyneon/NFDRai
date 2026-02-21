@@ -68,7 +68,7 @@ export function QuoteRequestsList({
   title,
 }: QuoteRequestsListProps) {
   const [selectedRequest, setSelectedRequest] = useState<QuoteRequest | null>(
-    null
+    null,
   );
   const [price, setPrice] = useState("");
   const [diagnosticFee, setDiagnosticFee] = useState("20");
@@ -85,7 +85,7 @@ export function QuoteRequestsList({
     setSelectedRequest(request);
     setPrice(request.quoted_price?.toString() || "");
     setRepairDescription(
-      `${request.device_make} ${request.device_model} ${request.issue}`
+      `${request.device_make} ${request.device_model} ${request.issue}`,
     );
     setCustomMessage("");
 
@@ -98,7 +98,7 @@ export function QuoteRequestsList({
     // Auto-detect if diagnostic might be needed
     const needsDiagnostic =
       /won'?t\s+(turn|power|switch)\s+on|no\s+power|dead|water\s+damage|not\s+working|unknown/i.test(
-        request.issue
+        request.issue,
       );
     setQuoteType(needsDiagnostic ? "diagnostic" : "fixed");
   };
@@ -285,10 +285,10 @@ New Forest Device Repairs`;
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
       {/* Quote Requests List */}
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <h2 className="text-base sm:text-lg font-semibold mb-3 flex items-center gap-2">
           {title || "Quote Requests"} ({quoteRequests.length})
         </h2>
 
@@ -301,7 +301,7 @@ New Forest Device Repairs`;
             return (
               <div
                 key={request.id}
-                className={`p-3 cursor-pointer transition-colors ${
+                className={`p-2 sm:p-3 cursor-pointer transition-colors ${
                   isSelected ? "bg-primary/10" : "hover:bg-accent/50"
                 } ${isSent ? "opacity-60" : ""}`}
                 onClick={() => handleSelectRequest(request)}
@@ -391,12 +391,12 @@ New Forest Device Repairs`;
       {/* Quote Panel */}
       <div className="lg:sticky lg:top-24 h-fit">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Send Quote</CardTitle>
+          <CardHeader className="pb-3 px-4 sm:px-6">
+            <CardTitle className="text-base sm:text-lg">Send Quote</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             {selectedRequest ? (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {/* Customer Summary */}
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="font-medium">{selectedRequest.name}</p>
@@ -464,8 +464,8 @@ New Forest Device Repairs`;
                       {selectedType === "sell"
                         ? "Offer Amount"
                         : quoteType === "estimate"
-                        ? "Estimated Price"
-                        : "Quote Price"}
+                          ? "Estimated Price"
+                          : "Quote Price"}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -555,8 +555,8 @@ New Forest Device Repairs`;
                   {selectedType === "sell"
                     ? "Offer"
                     : quoteType === "diagnostic"
-                    ? "Diagnostic Request"
-                    : "Quote"}
+                      ? "Diagnostic Request"
+                      : "Quote"}
                 </Button>
 
                 {selectedRequest.status === "quoted" && (

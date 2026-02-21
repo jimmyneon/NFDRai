@@ -43,7 +43,7 @@ export default async function QuotesPage() {
         sender,
         created_at
       )
-    `
+    `,
     )
     .eq("channel", "webchat")
     .order("updated_at", { ascending: false })
@@ -61,10 +61,10 @@ export default async function QuotesPage() {
     }) || [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Send Quotes</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl sm:text-3xl font-bold">Send Quotes</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">
           Review quote requests and webchat leads, then send quotes via SMS
         </p>
       </div>

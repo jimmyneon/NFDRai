@@ -106,8 +106,11 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card border rounded-lg p-6">
-      <h2 className="text-xl font-semibold mb-4">Send Quote</h2>
+    <form
+      onSubmit={handleSubmit}
+      className="bg-card border rounded-lg p-4 sm:p-6"
+    >
+      <h2 className="text-lg sm:text-xl font-semibold mb-4">Send Quote</h2>
 
       <div className="space-y-4">
         <div>
@@ -169,11 +172,11 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
           </div>
         )}
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Button
             type="submit"
             disabled={isSubmitting || isUnableToQuote || success}
-            className="flex-1"
+            className="w-full sm:flex-1"
           >
             {isSubmitting ? "Sending..." : "Send Quote via SMS"}
           </Button>
@@ -182,6 +185,7 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
             variant="destructive"
             onClick={handleUnableToQuote}
             disabled={isSubmitting || isUnableToQuote || success}
+            className="w-full sm:w-auto"
           >
             {isUnableToQuote ? "Sending..." : "Unable to Quote"}
           </Button>
@@ -190,6 +194,7 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
             variant="outline"
             onClick={() => router.push("/dashboard/quotes")}
             disabled={isSubmitting || isUnableToQuote}
+            className="w-full sm:w-auto"
           >
             Cancel
           </Button>

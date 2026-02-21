@@ -1,15 +1,16 @@
-import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ConversationList } from '@/components/conversations/conversation-list'
-import { formatRelativeTime } from '@/lib/utils'
+import { createClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ConversationList } from "@/components/conversations/conversation-list";
+import { formatRelativeTime } from "@/lib/utils";
 
 export default async function ConversationsPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   const { data: conversations, error: queryError } = await supabase
-    .from('conversations')
-    .select(`
+    .from("conversations")
+    .select(
+      `
       *,
       customer:customers(*),
       messages(
@@ -30,24 +31,25 @@ export default async function ConversationsPage() {
           analysis_method
         )
       )
-    `)
-    .order('updated_at', { ascending: false })
-    .order('created_at', { foreignTable: 'messages', ascending: true })
-  
+    `,
+    )
+    .order("updated_at", { ascending: false })
+    .order("created_at", { foreignTable: "messages", ascending: true });
+
   if (queryError) {
-    console.error('[Conversations] Query error:', queryError)
+    console.error("[Conversations] Query error:", queryError);
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Conversations</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl sm:text-3xl font-bold">Conversations</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">
           Manage customer conversations and AI responses
         </p>
       </div>
 
       <ConversationList conversations={conversations || []} />
     </div>
-  )
+  );
 }

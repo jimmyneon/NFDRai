@@ -1,41 +1,42 @@
-import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { MessageSquare, Bot, User, AlertCircle } from 'lucide-react'
-import { GlobalKillSwitch } from '@/components/dashboard/kill-switch'
-import { OpenAIUsageCard } from '@/components/dashboard/openai-usage-card'
+import { createClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MessageSquare, Bot, User, AlertCircle } from "lucide-react";
+import { GlobalKillSwitch } from "@/components/dashboard/kill-switch";
+import { OpenAIUsageCard } from "@/components/dashboard/openai-usage-card";
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   // Get stats
   const { count: totalConversations } = await supabase
-    .from('conversations')
-    .select('*', { count: 'exact', head: true })
+    .from("conversations")
+    .select("*", { count: "exact", head: true });
 
   // Get auto responses from last 24 hours
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
   const { count: autoResponses } = await supabase
-    .from('messages')
-    .select('*', { count: 'exact', head: true })
-    .eq('sender', 'ai')
-    .gte('created_at', yesterday.toISOString())
+    .from("messages")
+    .select("*", { count: "exact", head: true })
+    .eq("sender", "ai")
+    .gte("created_at", yesterday.toISOString());
 
   const { count: manualConversations } = await supabase
-    .from('conversations')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'manual')
+    .from("conversations")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "manual");
 
   const { count: pausedConversations } = await supabase
-    .from('conversations')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'paused')
+    .from("conversations")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "paused");
 
   // Get recent activity with latest message
   const { data: recentConversations } = await supabase
-    .from('conversations')
-    .select(`
+    .from("conversations")
+    .select(
+      `
       *,
       customers:customer_id (
         name,
@@ -46,72 +47,81 @@ export default async function DashboardPage() {
         created_at,
         text
       )
-    `)
-    .order('updated_at', { ascending: false })
-    .limit(10)
+    `,
+    )
+    .order("updated_at", { ascending: false })
+    .limit(10);
 
   // Sort by most recent message timestamp
   const sortedRecentConversations = recentConversations
-    ?.map(conv => {
+    ?.map((conv) => {
       // Sort messages by created_at to get the latest one
-      const sortedMessages = conv.messages?.sort((a: any, b: any) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-      const lastMessageTime = sortedMessages?.[0]?.created_at || conv.updated_at
-      return { ...conv, lastMessageTime }
+      const sortedMessages = conv.messages?.sort(
+        (a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      const lastMessageTime =
+        sortedMessages?.[0]?.created_at || conv.updated_at;
+      return { ...conv, lastMessageTime };
     })
-    .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
-    .slice(0, 5)
+    .sort(
+      (a, b) =>
+        new Date(b.lastMessageTime).getTime() -
+        new Date(a.lastMessageTime).getTime(),
+    )
+    .slice(0, 5);
 
   const stats = [
     {
-      title: 'Total Conversations',
+      title: "Total Conversations",
       value: totalConversations || 0,
       icon: MessageSquare,
-      color: 'bg-blue-500',
+      color: "bg-blue-500",
     },
     {
-      title: 'Auto Responses (24h)',
+      title: "Auto Responses (24h)",
       value: autoResponses || 0,
       icon: Bot,
-      color: 'bg-green-500',
+      color: "bg-green-500",
     },
     {
-      title: 'Manual Required',
+      title: "Manual Required",
       value: manualConversations || 0,
       icon: User,
-      color: 'bg-amber-500',
+      color: "bg-amber-500",
     },
     {
-      title: 'Paused',
+      title: "Paused",
       value: pausedConversations || 0,
       icon: AlertCircle,
-      color: 'bg-red-500',
+      color: "bg-red-500",
     },
-  ]
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             Welcome to New Forest Device Repairs AI Admin
           </p>
         </div>
         <GlobalKillSwitch />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map((stat) => {
-          const Icon = stat.icon
+          const Icon = stat.icon;
           return (
             <Card key={stat.title} className="tile-button">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.title}
                 </CardTitle>
-                <div className={`w-10 h-10 rounded-xl ${stat.color} flex items-center justify-center`}>
+                <div
+                  className={`w-10 h-10 rounded-xl ${stat.color} flex items-center justify-center`}
+                >
                   <Icon className="w-5 h-5 text-white" />
                 </div>
               </CardHeader>
@@ -119,7 +129,7 @@ export default async function DashboardPage() {
                 <div className="text-3xl font-bold">{stat.value}</div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -130,7 +140,8 @@ export default async function DashboardPage() {
               <CardTitle>Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              {sortedRecentConversations && sortedRecentConversations.length > 0 ? (
+              {sortedRecentConversations &&
+              sortedRecentConversations.length > 0 ? (
                 <div className="space-y-3">
                   {sortedRecentConversations.map((conv) => (
                     <a
@@ -140,18 +151,21 @@ export default async function DashboardPage() {
                     >
                       <div className="flex-1">
                         <p className="font-medium text-sm">
-                          {conv.customers?.name || 'Unknown Customer'}
+                          {conv.customers?.name || "Unknown Customer"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {conv.customers?.phone || 'No phone'}
+                          {conv.customers?.phone || "No phone"}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(conv.lastMessageTime).toLocaleString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                          {new Date(conv.lastMessageTime).toLocaleString(
+                            "en-GB",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
@@ -160,11 +174,11 @@ export default async function DashboardPage() {
                         </span>
                         <span
                           className={`w-2 h-2 rounded-full ${
-                            conv.status === 'auto'
-                              ? 'bg-green-500'
-                              : conv.status === 'manual'
-                              ? 'bg-amber-500'
-                              : 'bg-red-500'
+                            conv.status === "auto"
+                              ? "bg-green-500"
+                              : conv.status === "manual"
+                                ? "bg-amber-500"
+                                : "bg-red-500"
                           }`}
                         />
                       </div>
@@ -221,5 +235,5 @@ export default async function DashboardPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
