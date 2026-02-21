@@ -735,6 +735,12 @@ export async function POST(request: NextRequest) {
         needsConfirmation: quoteCheck.needsConfirmation,
       });
 
+      // CLOSED SYSTEM: If customer has active quote, AI MUST ALWAYS respond
+      // NEVER go to manual mode, NEVER stay silent
+      console.log(
+        "[Quote Check] 🔒 CLOSED SYSTEM: Customer has active quote - AI MUST respond",
+      );
+
       // If high confidence acceptance, process it immediately
       if (quoteCheck.isAcceptance && quoteCheck.confidence > 0.8) {
         console.log(
@@ -742,27 +748,18 @@ export async function POST(request: NextRequest) {
         );
         await processQuoteAcceptance(quoteCheck.quote.id);
         // Continue to AI response - AI will confirm acceptance and provide next steps
-      } else if (quoteCheck.isAcceptance && quoteCheck.needsConfirmation) {
-        console.log(
-          "[Quote Check] ⚠️ Medium confidence - AI will ask for confirmation",
-        );
-        // Override shouldAIRespond - we MUST respond to ask for confirmation
-        analysis.shouldAIRespond = true;
-        analysis.reasoning =
-          "Customer has active quote - need to confirm acceptance";
-      } else if (
-        !quoteCheck.isAcceptance &&
-        analysis.intent === "acknowledgment"
-      ) {
-        console.log(
-          "[Quote Check] 💬 Vague response after quote - AI will prompt for decision",
-        );
-        // Customer said something vague like "Ok thanks" after receiving quote
-        // Override acknowledgment blocking - AI should prompt for clear yes/no
-        analysis.shouldAIRespond = true;
-        analysis.reasoning =
-          "Customer has active quote - need clear acceptance/rejection";
       }
+
+      // CRITICAL: Override ALL blocking - AI MUST respond when quote exists
+      // Force explicit yes/no confirmation for ANY vague response
+      analysis.shouldAIRespond = true;
+      analysis.reasoning = quoteCheck.isAcceptance
+        ? "Customer has active quote - confirming acceptance"
+        : "Customer has active quote - forcing explicit yes/no confirmation";
+
+      console.log(
+        "[Quote Check] ✅ Forcing AI response - closed system, no manual mode",
+      );
     } else {
       console.log("[Quote Check] No active quote for this customer");
     }
