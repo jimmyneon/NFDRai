@@ -64,49 +64,76 @@ export async function checkQuoteAcceptance(
 export async function processQuoteAcceptance(
   quoteId: string,
 ): Promise<boolean> {
-  const acceptedQuote = await acceptQuote(quoteId);
+  try {
+    console.log("[Quote Acceptance] Starting process for quote:", quoteId);
 
-  if (!acceptedQuote) {
+    const acceptedQuote = await acceptQuote(quoteId);
+
+    if (!acceptedQuote) {
+      console.error(
+        "[Quote Acceptance] ❌ Failed to mark quote as accepted:",
+        quoteId,
+      );
+      return false;
+    }
+
+    console.log("[Quote Acceptance] ✅ Quote marked as accepted:", quoteId);
+    console.log("[Quote Acceptance] Quote data:", {
+      id: acceptedQuote.id,
+      name: acceptedQuote.name,
+      phone: acceptedQuote.phone,
+      device: `${acceptedQuote.device_make} ${acceptedQuote.device_model}`,
+      price: acceptedQuote.quoted_price,
+    });
+
+    // Send to repair app for job creation
+    console.log("[Quote Acceptance] Formatting quote for repair app...");
+    const handoffData = formatQuoteForRepairApp(acceptedQuote);
+    console.log("[Quote Acceptance] Handoff data prepared:", {
+      customerName: handoffData.customerName,
+      customerPhone: handoffData.customerPhone,
+      device: `${handoffData.deviceMake} ${handoffData.deviceModel}`,
+      price: handoffData.quotedPrice,
+    });
+
+    console.log("[Quote Acceptance] Calling sendToRepairApp...");
+    const handoffResult = await sendToRepairApp(handoffData);
+    console.log("[Quote Acceptance] Handoff result:", handoffResult);
+
+    if (handoffResult.success) {
+      console.log(
+        "[Quote Acceptance] ✅ Sent to repair app. Job ID:",
+        handoffResult.jobId,
+      );
+
+      // Update quote with job ID if returned
+      if (handoffResult.jobId) {
+        const supabase = await createClient();
+        await supabase
+          .from("quote_requests")
+          .update({
+            status: "completed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", quoteId);
+      }
+      return true;
+    } else {
+      console.error(
+        "[Quote Acceptance] ⚠️ Failed to send to repair app:",
+        handoffResult.error,
+      );
+      // Return false so the API returns 500 error
+      return false;
+    }
+  } catch (error) {
+    console.error("[Quote Acceptance] Exception:", error);
     console.error(
-      "[Quote Acceptance] ❌ Failed to mark quote as accepted:",
-      quoteId,
+      "[Quote Acceptance] Stack:",
+      error instanceof Error ? error.stack : "No stack",
     );
     return false;
   }
-
-  console.log("[Quote Acceptance] ✅ Quote marked as accepted:", quoteId);
-
-  // Send to repair app for job creation
-  const handoffData = formatQuoteForRepairApp(acceptedQuote);
-  const handoffResult = await sendToRepairApp(handoffData);
-
-  if (handoffResult.success) {
-    console.log(
-      "[Quote Acceptance] ✅ Sent to repair app. Job ID:",
-      handoffResult.jobId,
-    );
-
-    // Update quote with job ID if returned
-    if (handoffResult.jobId) {
-      const supabase = await createClient();
-      await supabase
-        .from("quote_requests")
-        .update({
-          status: "completed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", quoteId);
-    }
-  } else {
-    console.error(
-      "[Quote Acceptance] ⚠️ Failed to send to repair app:",
-      handoffResult.error,
-    );
-    // Quote is still marked as accepted, but handoff failed
-    // Staff will need to manually create job in repair app
-  }
-
-  return true;
 }
 
 /**

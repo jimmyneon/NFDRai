@@ -5,7 +5,7 @@ import { processQuoteAcceptance } from "@/app/lib/quote-acceptance-handler";
 /**
  * API endpoint to manually accept a quote and trigger repair app handoff
  * This can be called when AI detects quote acceptance or manually by staff
- * 
+ *
  * POST /api/quotes/accept
  * Body: { quoteId: string }
  */
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     if (!quoteId) {
       return NextResponse.json(
         { error: "Quote ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -32,31 +32,30 @@ export async function POST(request: NextRequest) {
 
     if (fetchError || !quote) {
       console.error("[Quote Accept API] Quote not found:", quoteId);
-      return NextResponse.json(
-        { error: "Quote not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Quote not found" }, { status: 404 });
     }
 
     if (quote.status !== "quoted" && quote.status !== "pending") {
-      console.error("[Quote Accept API] Quote not in valid status:", quote.status);
+      console.error(
+        "[Quote Accept API] Quote not in valid status:",
+        quote.status,
+      );
       return NextResponse.json(
         { error: `Quote is already ${quote.status}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Check if expired
     if (quote.expires_at && new Date(quote.expires_at) < new Date()) {
       console.error("[Quote Accept API] Quote has expired");
-      return NextResponse.json(
-        { error: "Quote has expired" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Quote has expired" }, { status: 400 });
     }
 
     // Process acceptance and send to repair app
+    console.log("[Quote Accept API] Calling processQuoteAcceptance...");
     const success = await processQuoteAcceptance(quoteId);
+    console.log("[Quote Accept API] processQuoteAcceptance result:", success);
 
     if (success) {
       return NextResponse.json({
@@ -65,16 +64,24 @@ export async function POST(request: NextRequest) {
         quoteId,
       });
     } else {
+      console.error("[Quote Accept API] processQuoteAcceptance returned false");
       return NextResponse.json(
         { error: "Failed to process quote acceptance" },
-        { status: 500 }
+        { status: 500 },
       );
     }
   } catch (error) {
-    console.error("[Quote Accept API] Error:", error);
+    console.error("[Quote Accept API] Exception caught:", error);
+    console.error(
+      "[Quote Accept API] Error stack:",
+      error instanceof Error ? error.stack : "No stack trace",
+    );
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
     );
   }
 }
