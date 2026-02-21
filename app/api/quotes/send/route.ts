@@ -178,10 +178,6 @@ function buildQuoteSms(details: {
 
   message += `\n\nThis quote is valid for 7 days.`;
 
-  if (additional_notes && additional_notes.trim().length > 0) {
-    message += `\n\n${additional_notes.trim()}`;
-  }
-
   message += `\n\nJust reply to this message if you'd like to book in, or if you have any questions.`;
   message += `\n\nMany thanks, John\nNew Forest Device Repairs`;
 
@@ -245,10 +241,6 @@ function buildPartsOrderQuoteSms(details: {
 
   message += `\n\nWe will need to order parts for this job. Normally next day delivery, excluding weekends.`;
   message += `\n\nThis quote is valid for 7 days.`;
-
-  if (additional_notes && additional_notes.trim().length > 0) {
-    message += `\n\n${additional_notes.trim()}`;
-  }
 
   message += `\n\nJust reply to this message if you'd like to book in, or if you have any questions.`;
   message += `\n\nMany thanks, John\nNew Forest Device Repairs`;
