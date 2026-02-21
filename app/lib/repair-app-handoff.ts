@@ -3,7 +3,8 @@
  * Sends accepted quotes to the repair app for job creation
  */
 
-const REPAIR_APP_API_URL = "https://nfd-repairs-app.vercel.app/api/sms/send";
+const REPAIR_APP_API_URL =
+  "https://nfd-repairs-app.vercel.app/api/jobs/create-v3";
 
 export interface RepairAppHandoffData {
   // Quote identification
@@ -76,48 +77,24 @@ export async function sendToRepairApp(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        // Quote identification
-        quote_id: data.quoteId,
-
-        // Customer details
-        customer_name: data.customerName,
-        customer_phone: data.customerPhone,
-        customer_email: data.customerEmail,
-        customer_id: data.customerId,
-
-        // Device details
+        // Required fields
+        name: data.customerName,
+        phone: data.customerPhone,
         device_make: data.deviceMake,
         device_model: data.deviceModel,
         issue: data.issue,
+        quoted_price: data.quotedPrice,
+
+        // Optional fields
+        email: data.customerEmail,
         description: data.description,
         additional_issues: data.additionalIssues,
-
-        // Quote details
-        quoted_price: data.quotedPrice,
-        quoted_at: data.quotedAt,
-        quoted_by: data.quotedBy,
-        expires_at: data.expiresAt,
         requires_parts_order: data.requiresPartsOrder,
-
-        // Source tracking
-        type: data.type,
-        source: data.source,
+        type: data.type || "repair",
+        source: data.source || "ai_responder",
         page: data.page,
-
-        // Timestamps
-        created_at: data.createdAt,
-        updated_at: data.updatedAt,
-
-        // SMS/Notification tracking
-        sms_sent: data.smsSent,
-        sms_sent_at: data.smsSentAt,
-        notification_url: data.notificationUrl,
-        notification_received_at: data.notificationReceivedAt,
-        quote_sent_at: data.quoteSentAt,
-        quote_sent_by: data.quoteSentBy,
-
-        // Conversation link
         conversation_id: data.conversationId,
+        customer_id: data.customerId,
       }),
     });
 
@@ -139,7 +116,7 @@ export async function sendToRepairApp(
 
     return {
       success: true,
-      jobId: result.job_id || result.id,
+      jobId: result.job?.id || result.job?.job_ref,
     };
   } catch (error) {
     console.error("[Repair App Handoff] ❌ Error:", error);
