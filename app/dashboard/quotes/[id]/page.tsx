@@ -61,9 +61,43 @@ export default async function QuoteDetailPage({
               <p className="font-medium">{quoteRequest.device_model}</p>
             </div>
             <div className="col-span-2">
-              <p className="text-sm text-muted-foreground">Issue</p>
+              <p className="text-sm text-muted-foreground">Main Issue</p>
               <p className="font-medium">{quoteRequest.issue}</p>
+              {quoteRequest.description && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {quoteRequest.description}
+                </p>
+              )}
             </div>
+            {quoteRequest.additional_issues &&
+              Array.isArray(quoteRequest.additional_issues) &&
+              quoteRequest.additional_issues.length > 0 && (
+                <div className="col-span-2">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Additional Repairs
+                  </p>
+                  <div className="space-y-2">
+                    {quoteRequest.additional_issues.map(
+                      (
+                        repair: { issue: string; description: string },
+                        index: number,
+                      ) => (
+                        <div
+                          key={index}
+                          className="bg-muted/50 rounded-md p-3 border"
+                        >
+                          <p className="font-medium text-sm">{repair.issue}</p>
+                          {repair.description && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {repair.description}
+                            </p>
+                          )}
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
           </div>
         </div>
 
