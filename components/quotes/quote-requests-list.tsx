@@ -254,7 +254,7 @@ New Forest Device Repairs`;
             variant="outline"
             className="bg-blue-50 text-blue-700 border-blue-200"
           >
-            Quoted
+            Quote Sent
           </Badge>
         );
       case "accepted":
@@ -264,6 +264,24 @@ New Forest Device Repairs`;
             className="bg-green-50 text-green-700 border-green-200"
           >
             Accepted
+          </Badge>
+        );
+      case "rejected":
+        return (
+          <Badge
+            variant="outline"
+            className="bg-red-50 text-red-700 border-red-200"
+          >
+            Rejected
+          </Badge>
+        );
+      case "declined":
+        return (
+          <Badge
+            variant="outline"
+            className="bg-orange-50 text-orange-700 border-orange-200"
+          >
+            Unable to Quote
           </Badge>
         );
       case "completed":
@@ -299,12 +317,12 @@ New Forest Device Repairs`;
             const requestType = request.type || "repair";
 
             return (
-              <div
+              <Link
                 key={request.id}
-                className={`p-3 cursor-pointer transition-colors ${
+                href={`/dashboard/quotes/${request.id}`}
+                className={`block p-3 cursor-pointer transition-colors ${
                   isSelected ? "bg-primary/10" : "hover:bg-accent/50"
                 } ${isSent ? "opacity-60" : ""}`}
-                onClick={() => handleSelectRequest(request)}
               >
                 {/* Name & Badges */}
                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -331,41 +349,31 @@ New Forest Device Repairs`;
                   </div>
                 </div>
 
-                {/* Contact & Actions */}
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 text-muted-foreground min-w-0">
-                    <span className="flex items-center gap-1 shrink-0">
-                      <Phone className="w-3 h-3" />
-                      {request.phone}
-                    </span>
-                    {request.source === "webchat" && (
-                      <Badge
-                        variant="outline"
-                        className="bg-purple-50 text-purple-700 border-purple-200 text-xs shrink-0"
-                      >
-                        <MessageSquare className="w-3 h-3 mr-1" />
-                        Chat
-                      </Badge>
-                    )}
-                    {requestType === "sell" && (
-                      <Badge
-                        variant="outline"
-                        className="bg-amber-50 text-amber-700 border-amber-200 text-xs shrink-0"
-                      >
-                        Sell
-                      </Badge>
-                    )}
-                  </div>
-                  <Link
-                    href={`/dashboard/quotes/${request.id}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-primary hover:underline flex items-center gap-1 shrink-0"
-                  >
-                    Details
-                    <ExternalLink className="w-3 h-3" />
-                  </Link>
+                {/* Contact & Source Badges */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 shrink-0">
+                    <Phone className="w-3 h-3" />
+                    {request.phone}
+                  </span>
+                  {request.source === "webchat" && (
+                    <Badge
+                      variant="outline"
+                      className="bg-purple-50 text-purple-700 border-purple-200 text-xs shrink-0"
+                    >
+                      <MessageSquare className="w-3 h-3 mr-1" />
+                      Chat
+                    </Badge>
+                  )}
+                  {requestType === "sell" && (
+                    <Badge
+                      variant="outline"
+                      className="bg-amber-50 text-amber-700 border-amber-200 text-xs shrink-0"
+                    >
+                      Sell
+                    </Badge>
+                  )}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
