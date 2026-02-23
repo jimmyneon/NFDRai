@@ -24,7 +24,7 @@ CORRECT RESPONSE:
 
 Let me get you the correct quote for your Pixel 6a battery replacement. John will send it over shortly!
 
-No need to fill out the form again - we'll sort this out for you."
+No need to fill out the form again - we''ll sort this out for you."
 
 WRONG RESPONSES:
 ❌ "Perfect! I''ve booked in your Pixel 6 battery replacement" (wrong device!)
