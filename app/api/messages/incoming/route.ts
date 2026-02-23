@@ -762,6 +762,24 @@ export async function POST(request: NextRequest) {
         ? "Customer has active quote - confirming acceptance"
         : "Customer has active quote - forcing explicit yes/no confirmation";
 
+      // CLOSED LOOP: Force conversation to auto mode when quote exists
+      // This ensures AI handles the entire quote acceptance flow automatically
+      if (conversation.status !== "auto") {
+        console.log(
+          "[Quote Check] 🔄 Switching conversation to auto mode - closed loop for quote handling",
+        );
+        await supabase
+          .from("conversations")
+          .update({
+            status: "auto",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", conversation.id);
+
+        // Update local conversation object
+        conversation.status = "auto";
+      }
+
       console.log(
         "[Quote Check] ✅ Forcing AI response - closed system, no manual mode",
       );
