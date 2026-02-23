@@ -756,11 +756,29 @@ export async function POST(request: NextRequest) {
           confidence: mismatchCheck.confidence,
         });
 
-        // Don't process acceptance - let AI handle the mismatch
-        // AI will explain the difference and ask customer to resubmit via repair-request
+        // Create alert for staff to re-quote with correct device
+        await supabase.from("alerts").insert({
+          conversation_id: conversation.id,
+          type: "manual_required",
+          message: `Device mismatch: Customer has ${mismatchCheck.mentionedModel} but quote was for ${mismatchCheck.quotedModel}. Please send updated quote for correct device.`,
+          created_at: new Date().toISOString(),
+        });
+
+        // Switch to manual mode so staff can send corrected quote
+        await supabase
+          .from("conversations")
+          .update({
+            status: "manual",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", conversation.id);
+
+        conversation.status = "manual";
+
+        // AI will respond explaining the mismatch and that you'll send correct quote
         analysis.shouldAIRespond = true;
         analysis.reasoning =
-          "Device model mismatch - AI will redirect to repair-request form";
+          "Device model mismatch - AI will explain and staff will re-quote";
       } else {
         // CLOSED SYSTEM: If customer has active quote, AI MUST ALWAYS respond
         // NEVER go to manual mode, NEVER stay silent

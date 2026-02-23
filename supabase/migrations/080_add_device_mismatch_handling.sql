@@ -20,16 +20,16 @@ Quote: Pixel 6 battery replacement - £65
 Customer: "Thanks John. It is a pixel 6a Yes to battery replacement, pls go ahead"
 
 CORRECT RESPONSE:
-"I notice you mentioned a Pixel 6a, but the quote we sent was for a Pixel 6. These are different models and may have different pricing.
+"Thanks for clarifying! I see you have a Pixel 6a - the quote we sent was for a Pixel 6. These are different models and may have different pricing.
 
-To get an accurate quote for your Pixel 6a battery replacement, please submit a new request here:
-https://www.newforestdevicerepairs.co.uk/repair-request
+Let me get you the correct quote for your Pixel 6a battery replacement. John will send it over shortly!
 
-This ensures you get the correct price for your specific device!"
+No need to fill out the form again - we'll sort this out for you."
 
 WRONG RESPONSES:
 ❌ "Perfect! I''ve booked in your Pixel 6 battery replacement" (wrong device!)
-❌ "Let me update that to Pixel 6a" (can''t change quotes)
+❌ "Let me update that to Pixel 6a" (can''t change quotes without verification)
+❌ "Please fill out the repair-request form again" (too much friction!)
 ❌ Proceeding with acceptance without addressing the mismatch
 
 DETECTION:
@@ -38,12 +38,21 @@ DETECTION:
 - Any clarification about device model
 
 ALWAYS:
-- Acknowledge the difference
-- Explain why it matters (different pricing/parts)
-- Provide repair-request link
+- Acknowledge the clarification positively ("Thanks for clarifying!")
+- Explain the difference briefly
+- Say John will send the correct quote
+- Reassure customer they don''t need to fill out form again
 - Be helpful and friendly, not accusatory
 
-This prevents booking wrong repairs and ensures accurate pricing!',
+WORKFLOW:
+1. AI detects mismatch and responds as above
+2. System creates alert for John
+3. Conversation switches to manual mode
+4. John sends corrected quote
+5. Customer accepts
+6. Done
+
+This prevents booking wrong repairs while keeping customer experience smooth!',
   true,
   95,
   'quote_handling'
