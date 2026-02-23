@@ -735,24 +735,47 @@ export async function POST(request: NextRequest) {
       console.log("[Quote Check] ✅ Customer has active quote:", {
         quoteId: quoteCheck.quote.id,
         price: quoteCheck.quote.quoted_price,
+        device: `${quoteCheck.quote.device_make} ${quoteCheck.quote.device_model}`,
         isAcceptance: quoteCheck.isAcceptance,
         confidence: quoteCheck.confidence,
         needsConfirmation: quoteCheck.needsConfirmation,
       });
 
-      // CLOSED SYSTEM: If customer has active quote, AI MUST ALWAYS respond
-      // NEVER go to manual mode, NEVER stay silent
-      console.log(
-        "[Quote Check] 🔒 CLOSED SYSTEM: Customer has active quote - AI MUST respond",
+      // Check for device model mismatch
+      const { detectDeviceMismatch } =
+        await import("@/app/lib/device-mismatch-detector");
+      const mismatchCheck = detectDeviceMismatch(
+        messageToProcess,
+        quoteCheck.quote.device_model,
       );
 
-      // If high confidence acceptance, process it immediately
-      if (quoteCheck.isAcceptance && quoteCheck.confidence > 0.8) {
+      if (mismatchCheck.hasMismatch) {
+        console.log("[Quote Check] ⚠️ Device mismatch detected:", {
+          quoted: mismatchCheck.quotedModel,
+          mentioned: mismatchCheck.mentionedModel,
+          confidence: mismatchCheck.confidence,
+        });
+
+        // Don't process acceptance - let AI handle the mismatch
+        // AI will explain the difference and ask customer to resubmit via repair-request
+        analysis.shouldAIRespond = true;
+        analysis.reasoning =
+          "Device model mismatch - AI will redirect to repair-request form";
+      } else {
+        // CLOSED SYSTEM: If customer has active quote, AI MUST ALWAYS respond
+        // NEVER go to manual mode, NEVER stay silent
         console.log(
-          "[Quote Check] 🎯 High confidence acceptance - processing quote",
+          "[Quote Check] 🔒 CLOSED SYSTEM: Customer has active quote - AI MUST respond",
         );
-        await processQuoteAcceptance(quoteCheck.quote.id);
-        // Continue to AI response - AI will confirm acceptance and provide next steps
+
+        // If high confidence acceptance, process it immediately
+        if (quoteCheck.isAcceptance && quoteCheck.confidence > 0.8) {
+          console.log(
+            "[Quote Check] 🎯 High confidence acceptance - processing quote",
+          );
+          await processQuoteAcceptance(quoteCheck.quote.id);
+          // Continue to AI response - AI will confirm acceptance and provide next steps
+        }
       }
 
       // CRITICAL: Override ALL blocking - AI MUST respond when quote exists
