@@ -119,7 +119,7 @@ interface SmartResponseResult {
  * Generate AI response with state awareness and learning
  */
 export async function generateSmartResponse(
-  params: SmartResponseParams
+  params: SmartResponseParams,
 ): Promise<SmartResponseResult> {
   const startTime = Date.now();
   const supabase = await createClient();
@@ -160,7 +160,7 @@ export async function generateSmartResponse(
       created_at:
         msg.created_at ||
         new Date(
-          now - (params.conversationHistory!.length - index - 1) * 30000
+          now - (params.conversationHistory!.length - index - 1) * 30000,
         ).toISOString(), // 30 seconds apart, most recent message is ~now
     }));
     console.log("[Smart AI] Using provided conversation history:", {
@@ -195,7 +195,7 @@ export async function generateSmartResponse(
   if (params.unifiedAnalysis) {
     // Use analysis from unified analyzer - NO DUPLICATE AI CALL!
     console.log(
-      "[Smart AI] Using unified analysis (skipping duplicate classification)"
+      "[Smart AI] Using unified analysis (skipping duplicate classification)",
     );
     intentClassification = {
       intent: params.unifiedAnalysis.contentType as any, // contentType is more specific than intent
@@ -244,7 +244,7 @@ export async function generateSmartResponse(
     console.warn(
       "[Smart AI] Low confidence classification:",
       intentClassification.confidence,
-      "- defaulting to unknown"
+      "- defaulting to unknown",
     );
     intentClassification.intent = "unknown";
   }
@@ -258,14 +258,14 @@ export async function generateSmartResponse(
     context.deviceType = intentClassification.deviceType;
     console.log(
       "[Smart AI] Using classifier device type:",
-      intentClassification.deviceType
+      intentClassification.deviceType,
     );
   }
   if (intentClassification.deviceModel && !context.deviceModel) {
     context.deviceModel = intentClassification.deviceModel;
     console.log(
       "[Smart AI] Using classifier device model:",
-      intentClassification.deviceModel
+      intentClassification.deviceModel,
     );
   }
 
@@ -277,7 +277,7 @@ export async function generateSmartResponse(
     context.intent = intentClassification.intent;
     console.log(
       "[Smart AI] Using classifier intent:",
-      intentClassification.intent
+      intentClassification.intent,
     );
   }
 
@@ -347,7 +347,7 @@ export async function generateSmartResponse(
   const { modules: promptModules, moduleNames } = await loadPromptModules(
     supabase,
     context.intent || "unknown",
-    params.modules // NEW: Pass specific modules from unified analyzer
+    params.modules, // NEW: Pass specific modules from unified analyzer
   );
 
   // STEP 4: Build focused prompt based on state
@@ -381,7 +381,7 @@ export async function generateSmartResponse(
   console.log(
     "[Smart AI] Message history:",
     conversationMessages.length,
-    "messages"
+    "messages",
   );
 
   // STEP 6: Generate response
@@ -390,7 +390,7 @@ export async function generateSmartResponse(
     "[Smart AI] Calling provider:",
     settings.provider,
     "with model:",
-    settings.model_name
+    settings.model_name,
   );
 
   let result;
@@ -435,7 +435,7 @@ export async function generateSmartResponse(
     adjustedResponse = applyResponseFixes(
       result.response,
       context,
-      validation.issues
+      validation.issues,
     );
   }
 
@@ -485,7 +485,7 @@ export async function generateSmartResponse(
       supabase,
       params.conversationId,
       context,
-      result.response
+      result.response,
     ).catch((err) => console.error("[Learning] Error:", err));
   }
 
@@ -548,7 +548,7 @@ export async function generateSmartResponse(
       signOff;
 
     console.log(
-      "[AI Disclosure] Sending disclosure as SEPARATE message (using |||)"
+      "[AI Disclosure] Sending disclosure as SEPARATE message (using |||)",
     );
 
     // Remove any greeting from the main response since disclosure has one
@@ -576,7 +576,7 @@ export async function generateSmartResponse(
       } else {
         // Response was just a greeting, only send disclosure
         console.log(
-          "[AI Disclosure] Response was only greeting - sending disclosure only"
+          "[AI Disclosure] Response was only greeting - sending disclosure only",
         );
         finalResponse = disclosure;
       }
@@ -647,7 +647,7 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
   // Intent classifier might miss repair intent, so load pricing if device is mentioned
   const shouldLoadPricing =
     ["screen_repair", "battery_replacement", "diagnostic", "unknown"].includes(
-      context.intent
+      context.intent,
     ) ||
     context.deviceType || // If device mentioned, likely repair
     context.deviceModel; // If model mentioned, likely repair
@@ -661,7 +661,7 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
     // Filter to relevant device type if known
     if (context.deviceType) {
       data.prices = prices?.filter((p: any) =>
-        p.device.toLowerCase().includes(context.deviceType || "")
+        p.device.toLowerCase().includes(context.deviceType || ""),
       );
 
       // Log if no prices found for this device type
@@ -673,14 +673,14 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
             deviceModel: context.deviceModel,
             intent: context.intent,
             totalPricesInDb: prices?.length || 0,
-          }
+          },
         );
       } else {
         console.log(
           "[Pricing] Loaded",
           data.prices.length,
           "prices for",
-          context.deviceType
+          context.deviceType,
         );
       }
     } else {
@@ -688,7 +688,7 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
       data.prices = prices;
       console.log(
         "[Pricing] Loaded all prices (device type unknown):",
-        prices?.length || 0
+        prices?.length || 0,
       );
     }
   }
@@ -708,7 +708,7 @@ async function getRelevantData(supabase: any, context: ConversationContext) {
 async function loadPromptModules(
   supabase: any,
   intent: string,
-  specificModules?: string[] // NEW: Load only these specific modules
+  specificModules?: string[], // NEW: Load only these specific modules
 ): Promise<{
   modules: Array<{
     module_name: string;
@@ -722,7 +722,7 @@ async function loadPromptModules(
     if (specificModules && specificModules.length > 0) {
       console.log(
         "[Prompt Modules] Loading specific modules from unified analyzer:",
-        specificModules
+        specificModules,
       );
 
       const { data: modules, error } = await supabase
@@ -735,7 +735,7 @@ async function loadPromptModules(
       if (error) {
         console.error(
           "[Prompt Modules] Error loading specific modules:",
-          error
+          error,
         );
         throw new Error(`Failed to load specific modules: ${error.message}`);
       }
@@ -743,14 +743,14 @@ async function loadPromptModules(
       if (!modules || modules.length === 0) {
         console.error(
           "[Prompt Modules] No modules found for:",
-          specificModules
+          specificModules,
         );
         throw new Error("No modules found for specified module names");
       }
 
       console.log(
         "[Prompt Modules] Loaded specific modules:",
-        modules.map((m: any) => m.module_name)
+        modules.map((m: any) => m.module_name),
       );
 
       // Update usage stats for each module (async, don't wait)
@@ -759,7 +759,7 @@ async function loadPromptModules(
           .rpc("update_prompt_usage", { p_module_name: m.module_name })
           .then(() => {})
           .catch((err: any) =>
-            console.error("[Prompt Modules] Usage update failed:", err)
+            console.error("[Prompt Modules] Usage update failed:", err),
           );
       });
 
@@ -772,7 +772,7 @@ async function loadPromptModules(
     // Otherwise, use intent-based loading (legacy behavior)
     console.log(
       "[Prompt Modules] Calling get_prompt_modules with intent:",
-      intent
+      intent,
     );
     const { data: modules, error } = await supabase.rpc("get_prompt_modules", {
       p_intent: intent,
@@ -797,7 +797,7 @@ async function loadPromptModules(
 
     console.log(
       "[Prompt Modules] Loaded from database:",
-      modules.map((m: any) => m.module_name)
+      modules.map((m: any) => m.module_name),
     );
 
     // Update usage stats for each module (async, don't wait)
@@ -806,7 +806,7 @@ async function loadPromptModules(
         .rpc("update_prompt_usage", { p_module_name: m.module_name })
         .then(() => {})
         .catch((err: any) =>
-          console.error("[Prompt Modules] Usage update failed:", err)
+          console.error("[Prompt Modules] Usage update failed:", err),
         );
     });
 
@@ -903,7 +903,7 @@ function buildFocusedPrompt(params: {
     context.intent === "diagnostic";
   const needsDifferenceInfo =
     /what'?s the difference|difference between|what is the difference/i.test(
-      conversationText
+      conversationText,
     );
 
   // Webchat contact status for AI context
@@ -920,8 +920,8 @@ ${
   !customerContactStatus.hasPhone && !customerContactStatus.hasEmail
     ? "⚠️ NO CONTACT DETAILS YET - Ask for mobile or email when giving quotes!"
     : customerContactStatus.hasPhone || customerContactStatus.hasEmail
-    ? "✓ Have contact details - can follow up with quote"
-    : ""
+      ? "✓ Have contact details - can follow up with quote"
+      : ""
 }
 `
       : "";
@@ -1018,8 +1018,8 @@ ${
   !userJourney?.deviceType
     ? `📍 On ${userJourney.currentPage.type} page - Ask which specific ${userJourney.currentPage.type} model`
     : userJourney?.currentPage?.type
-    ? `📍 On ${userJourney.currentPage.type} page`
-    : ""
+      ? `📍 On ${userJourney.currentPage.type} page`
+      : ""
 }
 
 🚨 CONVERSATION SUMMARY - WHAT CUSTOMER ALREADY TOLD YOU 🚨
@@ -1033,11 +1033,11 @@ ${(() => {
   // Extract what they told us about device
   if (context.deviceModel) {
     summary.push(
-      `✅ DEVICE: ${context.deviceModel} (they already told you this!)`
+      `✅ DEVICE: ${context.deviceModel} (they already told you this!)`,
     );
   } else if (context.deviceType) {
     summary.push(
-      `✅ DEVICE TYPE: ${context.deviceType} (they told you this - now ask for specific model)`
+      `✅ DEVICE TYPE: ${context.deviceType} (they told you this - now ask for specific model)`,
     );
   }
 
@@ -1100,11 +1100,11 @@ CRITICAL RULES:
 4. ${
     channel === "webchat"
       ? "Use customer name if they provided it with a greeting like 'Hi [name]!'"
-      : `ALWAYS greet with customer name if known: "Hi ${
+      : `ALWAYS greet warmly: "Hi!" or "Hi there!" - If you know customer name, say "Hi ${
           context.customerName || "[name]"
         }!" or "Hi there, ${context.customerName || "[name]"}!" - NEVER just "${
           context.customerName || "[name]"
-        }!" alone (sounds rude)`
+        }!" alone (sounds aggressive and shouty)`
   }
 5. ${
     channel === "webchat"
@@ -1116,38 +1116,43 @@ CRITICAL RULES:
       ? "Keep responses in single messages (no ||| splitting needed)"
       : "Split multiple topics with ||| for separate messages"
   }
-7. IF CUSTOMER IS FRUSTRATED WITH AI (says "AI failure", "not helping", "useless", etc) - IMMEDIATELY say: "I understand this isn't working for you. Let me pass you to John who'll message you back ASAP." Then STOP responding.
+7. IF CUSTOMER IS FRUSTRATED WITH AI (says "AI failure", "not helping", "useless", etc) - Stay silent and let staff handle it manually (conversation will be switched to manual mode automatically)
 
 PRICING POLICY (CRITICAL):
-- ALWAYS give PRICE RANGES, never exact prices
-- Use the price ranges from the data context below
-- ALWAYS say: "John will confirm the exact price when he assesses it"
-- NEVER quote exact prices like "£89" - always use ranges like "£80-120"
-- Example: "For an iPhone screen repair, it's typically around £80-120 depending on the model. John will confirm the exact price when he sees it."
-- Be helpful with estimates but make it clear John confirms final price
-- EXCEPTION: If John already quoted a specific price in this conversation, you may reference it: "As John mentioned, it's £X"
-- But for NEW inquiries, always use ranges until John confirms
+🚨 NEVER GIVE PRICE QUOTES, ESTIMATES, OR RANGES 🚨
 
-${
-  relevantData.priceRanges && relevantData.priceRanges.length > 0
-    ? `
-AVAILABLE PRICE RANGES:
-${relevantData.priceRanges
-  .map((r: any) => `- ${r.category}: £${r.min}-${r.max} ${r.description}`)
-  .join("\n")}
-`
-    : ""
-}
+❌ NEVER say: "typically £80-120"
+❌ NEVER say: "around £X"
+❌ NEVER say: "usually costs £X"
+❌ NEVER say: "price ranges from £X-Y"
+❌ NEVER say: "John will confirm the price"
+❌ NEVER mention John at all
+
+✅ INSTEAD: Direct to repair request form for quotes
+✅ Say: "You can get a quote here: https://www.newforestdevicerepairs.co.uk/repair-request"
+✅ Alternative: "Or pop in during opening hours for an instant quote"
+
+EXAMPLES:
+
+Customer: "How much for iPhone screen?"
+You: "You can get a quote here: https://www.newforestdevicerepairs.co.uk/repair-request - or pop in during opening hours for an instant quote!"
+
+Customer: "What do you charge for battery replacement?"
+You: "You can get a quote here: https://www.newforestdevicerepairs.co.uk/repair-request - we'll give you an exact price based on your device!"
+
+Customer: "I need a repair"
+You: "Perfect! You can get started here: https://www.newforestdevicerepairs.co.uk/repair-request - or pop in during opening hours and we'll sort you out!"
+
 
 BUDGET CONSTRAINTS (CRITICAL):
 - If customer mentions a budget or says price is too high:
   * Be empathetic: "I understand budget is important"
-  * Offer flexibility: "We try to work with all budgets - let me see what John can do for you"
+  * Direct to repair request form: "You can get a detailed quote here: https://www.newforestdevicerepairs.co.uk/repair-request"
+  * Or suggest walk-in: "Pop in during opening hours and we can discuss options that work for your budget"
   * NEVER say "unfortunately we can't" or "the price is fixed"
-  * ALWAYS offer to check with John for options
-  * Example: "I understand you're working with a budget of £35. We try to meet all budgets where we can - let me pass this to John and he'll see what options he can offer you. He'll be in touch shortly!"
+  * Example: "I understand you're working with a budget of £35. Pop in during opening hours and we can discuss what options work best for you!"
 - Be helpful and solution-focused, not rigid
-- John can offer payment plans, discounts, or alternative solutions
+- We can offer payment plans, discounts, or alternative solutions
 
 MULTIPLE MESSAGES:
 - If response has multiple parts, BREAK INTO SEPARATE MESSAGES with |||
@@ -1162,7 +1167,7 @@ MULTIPLE MESSAGES:
   if (promptModules && promptModules.length > 0) {
     console.log(
       "[Prompt Builder] Database modules available:",
-      promptModules.map((m) => m.module_name)
+      promptModules.map((m) => m.module_name),
     );
 
     const modulesUsed: string[] = [];
@@ -1176,7 +1181,7 @@ MULTIPLE MESSAGES:
       if (module.priority >= 99) {
         shouldInclude = true;
         console.log(
-          `[Prompt Builder] Including high-priority module: ${moduleName} (priority ${module.priority})`
+          `[Prompt Builder] Including high-priority module: ${moduleName} (priority ${module.priority})`,
         );
       }
 
@@ -1266,10 +1271,10 @@ MULTIPLE MESSAGES:
   } else {
     // NO FALLBACK - Database must work!
     console.error(
-      "[Prompt Builder] No database modules provided - this is a critical error!"
+      "[Prompt Builder] No database modules provided - this is a critical error!",
     );
     throw new Error(
-      "Database prompt modules not loaded - check RLS policies and database connection"
+      "Database prompt modules not loaded - check RLS policies and database connection",
     );
   }
 
@@ -1297,9 +1302,9 @@ MULTIPLE MESSAGES:
                 m.sender === "customer"
                   ? "Customer"
                   : m.sender === "ai"
-                  ? "You"
-                  : "John"
-              }: ${m.text}`
+                    ? "You"
+                    : "John"
+              }: ${m.text}`,
           )
           .join("\n")}`
       : "";
@@ -1346,7 +1351,7 @@ function buildConversationMessages(params: {
 function applyResponseFixes(
   response: string,
   context: ConversationContext,
-  issues: string[]
+  issues: string[],
 ): string {
   let out = response;
 
@@ -1355,7 +1360,7 @@ function applyResponseFixes(
 
   if (
     issues.some((i) =>
-      i.toLowerCase().includes("quote price without knowing specific model")
+      i.toLowerCase().includes("quote price without knowing specific model"),
     )
   ) {
     const lines = out.split("\n").filter((l) => !l.match(/£|price|cost/i));
@@ -1387,7 +1392,7 @@ function applyResponseFixes(
     console.log(
       "[Response Fix] Removed model questions (already have:",
       context.deviceModel,
-      ")"
+      ")",
     );
   }
 
@@ -1418,7 +1423,7 @@ async function learnFromInteraction(
   supabase: any,
   conversationId: string,
   context: ConversationContext,
-  response: string
+  response: string,
 ) {
   // Store intent classification for accuracy tracking
   await supabase.from("intent_classifications").insert({
@@ -1443,7 +1448,7 @@ async function learnFromInteraction(
       {
         onConflict: "pattern_text",
         ignoreDuplicates: false,
-      }
+      },
     );
   }
 }

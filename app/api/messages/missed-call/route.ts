@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     if (!rateLimit.allowed) {
       console.log(
-        `[Missed Call] Rate limited: ${from} (retry after ${rateLimit.retryAfter}s)`
+        `[Missed Call] Rate limited: ${from} (retry after ${rateLimit.retryAfter}s)`,
       );
       return NextResponse.json(
         {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
           },
-        }
+        },
       );
     }
 
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
         headers: {
           "Content-Type": "application/json; charset=utf-8",
         },
-      }
+      },
     );
   } catch (error) {
     console.error("Missed call handler error:", error);
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
         headers: {
           "Content-Type": "application/json; charset=utf-8",
         },
-      }
+      },
     );
   }
 }
@@ -217,7 +217,7 @@ function generateMissedCallMessage(context: {
     lines.push(message);
     lines.push("");
     lines.push(
-      "I can provide repair estimates and answer questions right now. John will confirm all quotes and bookings when he returns."
+      "I can provide repair estimates and answer questions right now. John will confirm all quotes and bookings when he returns.",
     );
 
     // Add return date if it's different from today
@@ -250,7 +250,7 @@ function generateMissedCallMessage(context: {
     lines.push(context.holidayStatus.holidayMessage);
     lines.push("");
     lines.push(
-      "I can provide repair estimates and answer questions right now. John will confirm all quotes and bookings when he returns."
+      "I can provide repair estimates and answer questions right now. John will confirm all quotes and bookings when he returns.",
     );
 
     if (context.holidayStatus.returnDate) {
@@ -263,31 +263,43 @@ function generateMissedCallMessage(context: {
     const closeTime = extractCloseTime(context.todayHours);
     lines.push(`We're currently OPEN until ${closeTime}.`);
     lines.push("");
-    lines.push("TEXT ME for instant help with:");
-    lines.push("• Repair quotes (no need to call!)");
-    lines.push("• Opening hours");
-    lines.push("• Booking appointments");
-    lines.push("• Any device questions");
+    lines.push("Need help? Here's the quickest way:");
     lines.push("");
-    lines.push("I'll reply straight away - much faster than waiting on hold!");
+    lines.push("📱 REPAIR QUOTES & APPOINTMENTS:");
+    lines.push("https://www.newforestdevicerepairs.co.uk/repair-request");
+    lines.push("");
+    lines.push("❓ QUESTIONS & STATUS CHECKS:");
+    lines.push(
+      "Text me or visit: https://www.newforestdevicerepairs.co.uk/start",
+    );
+    lines.push("");
+    lines.push(
+      "I can help with opening hours, repair status checks, and answer any questions you have!",
+    );
   }
   // CURRENTLY CLOSED
   else {
     if (context.nextOpenTime) {
       lines.push(
-        `We're currently CLOSED. We'll be open ${context.nextOpenTime}.`
+        `We're currently CLOSED. We'll be open ${context.nextOpenTime}.`,
       );
     } else {
       lines.push(`We're currently CLOSED. ${context.todayHours}`);
     }
     lines.push("");
-    lines.push("TEXT ME now for instant help with:");
-    lines.push("• Repair quotes (no need to call back!)");
-    lines.push("• Opening hours");
-    lines.push("• Booking appointments");
-    lines.push("• Any questions");
+    lines.push("Need help? Here's the quickest way:");
     lines.push("");
-    lines.push("I'll reply straight away - saves you calling back!");
+    lines.push("📱 REPAIR QUOTES & APPOINTMENTS:");
+    lines.push("https://www.newforestdevicerepairs.co.uk/repair-request");
+    lines.push("");
+    lines.push("❓ QUESTIONS & STATUS CHECKS:");
+    lines.push(
+      "Text me or visit: https://www.newforestdevicerepairs.co.uk/start",
+    );
+    lines.push("");
+    lines.push(
+      "I can help with opening hours, repair status checks, and answer any questions you have!",
+    );
   }
 
   // Add Google Maps link (if available)

@@ -126,3 +126,6 @@ You: "Ha! That''s a bit beyond us I''m afraid. We stick to phones, tablets, and 
 
 Remember: You''re friendly, confident, and helpful. You can handle most queries yourself - only pass to John when it truly needs his personal attention. We''re a real local business that cares about our customers!'
 WHERE id = (SELECT id FROM ai_settings LIMIT 1);
+
+
+

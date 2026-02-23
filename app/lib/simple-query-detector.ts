@@ -222,7 +222,7 @@ function isAcknowledgment(message: string): boolean {
  */
 export function shouldAIRespond(
   minutesSinceStaffMessage: number,
-  message: string
+  message: string,
 ): {
   shouldRespond: boolean;
   reason: string;
@@ -238,7 +238,7 @@ export function shouldAIRespond(
       return {
         shouldRespond: false,
         reason: `Staff replied ${minutesSinceStaffMessage.toFixed(
-          1
+          1,
         )} minutes ago - no AI response needed`,
         queryInfo,
       };
@@ -250,8 +250,25 @@ export function shouldAIRespond(
     return {
       shouldRespond: true,
       reason: `Staff replied ${minutesSinceStaffMessage.toFixed(
-        0
+        0,
       )} minutes ago - resuming full AI mode`,
+    };
+  }
+
+  // CRITICAL: Check for simple queries FIRST, before checking acknowledgments
+  // This allows AI to respond to "when are you open?" even if staff just replied
+  const queryInfo = isSimpleQuery(message);
+
+  if (queryInfo.isSimpleQuery) {
+    console.log("[AI Pause] Simple query detected:", {
+      type: queryInfo.queryType,
+      message: message.substring(0, 100),
+      minutesSinceStaff: minutesSinceStaffMessage.toFixed(1),
+    });
+    return {
+      shouldRespond: true,
+      reason: `Simple ${queryInfo.queryType} query - AI can answer even during pause`,
+      queryInfo,
     };
   }
 
@@ -284,25 +301,14 @@ export function shouldAIRespond(
     };
   }
 
-  // Within 30-minute pause window - check if it's a simple query
-  const queryInfo = isSimpleQuery(message);
-
-  if (queryInfo.isSimpleQuery) {
-    return {
-      shouldRespond: true,
-      reason: `Simple ${queryInfo.queryType} query - AI can answer even during pause`,
-      queryInfo,
-    };
-  }
-
   // Not a simple query and within pause window - don't respond
   const remainingMinutes = Math.ceil(
-    PAUSE_DURATION_MINUTES - minutesSinceStaffMessage
+    PAUSE_DURATION_MINUTES - minutesSinceStaffMessage,
   );
   return {
     shouldRespond: false,
     reason: `Staff replied ${minutesSinceStaffMessage.toFixed(
-      0
+      0,
     )} minutes ago - waiting for staff (${remainingMinutes} min remaining)`,
     queryInfo,
   };

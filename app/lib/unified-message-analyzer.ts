@@ -168,7 +168,7 @@ function capitalizeFirstLetter(name: string): string {
  */
 export function quickAnalysis(
   message: string,
-  recentMessages: Array<{ sender: string; text: string }>
+  recentMessages: Array<{ sender: string; text: string }>,
 ): UnifiedAnalysis | null {
   const lowerMessage = message.toLowerCase().trim();
 
@@ -211,10 +211,10 @@ export function quickAnalysis(
         intent: "acknowledgment",
         intentConfidence: 0.9,
         contentType: "acknowledgment",
-        shouldAIRespond: false,
+        shouldAIRespond: true, // Changed to true - AI should respond warmly to acknowledgments
         contextConfidence: 0.9,
-        isDirectedAtAI: false,
-        reasoning: "Pure acknowledgment - no response needed",
+        isDirectedAtAI: true,
+        reasoning: "Acknowledgment - AI will respond warmly",
         customerName: extractedName,
         nameConfidence: extractedName ? 0.8 : 0,
         overallConfidence: 0.9,
@@ -240,7 +240,7 @@ export function quickAnalysis(
   ];
 
   const hasFrustration = frustrationKeywords.some((kw) =>
-    lowerMessage.includes(kw)
+    lowerMessage.includes(kw),
   );
   if (hasFrustration) {
     return {
@@ -248,7 +248,7 @@ export function quickAnalysis(
       urgency: "high",
       requiresStaffAttention: true,
       sentimentKeywords: frustrationKeywords.filter((kw) =>
-        lowerMessage.includes(kw)
+        lowerMessage.includes(kw),
       ),
       intent: "complaint",
       intentConfidence: 0.8,
@@ -285,7 +285,7 @@ export function quickAnalysis(
       urgency: "critical",
       requiresStaffAttention: true,
       sentimentKeywords: angerKeywords.filter((kw) =>
-        lowerMessage.includes(kw)
+        lowerMessage.includes(kw),
       ),
       intent: "complaint",
       intentConfidence: 0.9,
@@ -441,13 +441,13 @@ export function quickAnalysis(
       let contentType: UnifiedAnalysis["contentType"] = "unclear";
       if (
         /when (are|do) you (open|close)|what (time|are your hours)|are you (in|at) (the )?(shop|store)|are you there (today|tomorrow|now)|is (the )?(shop|store) open|you open (today|tomorrow|now)|are you open/i.test(
-          message
+          message,
         )
       ) {
         contentType = "business_hours";
       } else if (
         /(what|which)\s+days\s+(are\s+you\s+)?(open|shut|closed)|what\s+days\s+are\s+you\s+(shut|closed)|(shut|closed)\s+over\s+(christmas|xmas|new\s+year)/i.test(
-          message
+          message,
         )
       ) {
         contentType = "business_hours";
@@ -490,7 +490,7 @@ export function quickAnalysis(
 export async function analyzeWithAI(
   message: string,
   recentMessages: Array<{ sender: string; text: string }>,
-  apiKey: string
+  apiKey: string,
 ): Promise<UnifiedAnalysis> {
   try {
     const openai = new OpenAI({ apiKey });
@@ -500,7 +500,7 @@ export async function analyzeWithAI(
       .slice(-10) // Last 10 messages
       .map(
         (m) =>
-          `${m.sender === "staff" ? "John (Owner)" : "Customer"}: ${m.text}`
+          `${m.sender === "staff" ? "John (Owner)" : "Customer"}: ${m.text}`,
       )
       .join("\n");
 
@@ -677,7 +677,7 @@ OUTPUT FORMAT (JSON only, no markdown):
       if (invalidNames.includes(analysis.customerName.toLowerCase())) {
         console.log(
           "[Unified Analysis] ❌ Rejected invalid name:",
-          analysis.customerName
+          analysis.customerName,
         );
         analysis.customerName = null;
         analysis.nameConfidence = 0;
@@ -693,7 +693,7 @@ OUTPUT FORMAT (JSON only, no markdown):
         analysis.sentiment !== "angry"
       ) {
         console.log(
-          "[Unified Analysis] ✅ Override: Device issue/question - AI can handle"
+          "[Unified Analysis] ✅ Override: Device issue/question - AI can handle",
         );
         analysis.requiresStaffAttention = false;
         analysis.shouldAIRespond = true;
@@ -739,7 +739,7 @@ OUTPUT FORMAT (JSON only, no markdown):
 export async function analyzeMessage(
   message: string,
   recentMessages: Array<{ sender: string; text: string }>,
-  apiKey?: string
+  apiKey?: string,
 ): Promise<UnifiedAnalysis> {
   // Try quick regex analysis first
   const quickResult = quickAnalysis(message, recentMessages);
