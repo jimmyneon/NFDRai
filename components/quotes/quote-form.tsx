@@ -20,6 +20,7 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
   const [requiresPartsOrder, setRequiresPartsOrder] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUnableToQuote, setIsUnableToQuote] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -105,6 +106,46 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
     }
   };
 
+  const handleRejectQuote = async () => {
+    if (
+      !confirm(
+        "Reject this quote request? This will inform the customer you're unable to take on this repair (low value, complexity, etc.).",
+      )
+    ) {
+      return;
+    }
+
+    setError("");
+    setSuccess(false);
+    setIsRejecting(true);
+
+    try {
+      const response = await fetch("/api/quotes/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quote_id: quoteRequest.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send message");
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/dashboard/quotes");
+        router.refresh();
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -175,7 +216,7 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Button
             type="submit"
-            disabled={isSubmitting || isUnableToQuote || success}
+            disabled={isSubmitting || isUnableToQuote || isRejecting || success}
             className="w-full sm:flex-1"
           >
             {isSubmitting ? "Sending..." : "Send Quote via SMS"}
@@ -184,16 +225,25 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
             type="button"
             variant="destructive"
             onClick={handleUnableToQuote}
-            disabled={isSubmitting || isUnableToQuote || success}
+            disabled={isSubmitting || isUnableToQuote || isRejecting || success}
             className="w-full sm:w-auto"
           >
             {isUnableToQuote ? "Sending..." : "Unable to Quote"}
           </Button>
           <Button
             type="button"
+            variant="destructive"
+            onClick={handleRejectQuote}
+            disabled={isSubmitting || isUnableToQuote || isRejecting || success}
+            className="w-full sm:w-auto"
+          >
+            {isRejecting ? "Sending..." : "Reject Quote"}
+          </Button>
+          <Button
+            type="button"
             variant="outline"
             onClick={() => router.push("/dashboard/quotes")}
-            disabled={isSubmitting || isUnableToQuote}
+            disabled={isSubmitting || isUnableToQuote || isRejecting}
             className="w-full sm:w-auto"
           >
             Cancel
