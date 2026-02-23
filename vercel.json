@@ -1,1 +1,8 @@
-{}
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-completed-quotes",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}
