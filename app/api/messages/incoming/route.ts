@@ -757,6 +757,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Create alert for staff to re-quote with correct device
+        // Keep conversation in auto mode - AI will handle follow-up questions
         await supabase.from("alerts").insert({
           conversation_id: conversation.id,
           type: "manual_required",
@@ -764,18 +765,8 @@ export async function POST(request: NextRequest) {
           created_at: new Date().toISOString(),
         });
 
-        // Switch to manual mode so staff can send corrected quote
-        await supabase
-          .from("conversations")
-          .update({
-            status: "manual",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", conversation.id);
-
-        conversation.status = "manual";
-
         // AI will respond explaining the mismatch and that you'll send correct quote
+        // Conversation stays in AUTO mode for 98% automation
         analysis.shouldAIRespond = true;
         analysis.reasoning =
           "Device model mismatch - AI will explain and staff will re-quote";

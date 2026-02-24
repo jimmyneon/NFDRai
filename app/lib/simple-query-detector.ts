@@ -228,70 +228,19 @@ export function shouldAIRespond(
   reason: string;
   queryInfo?: SimpleQueryResult;
 } {
-  const PAUSE_DURATION_MINUTES = 30;
-
-  // HARD GUARD: If staff replied within the last 2 minutes, AI should stay silent
-  // except for very clear simple queries (handled below).
-  if (minutesSinceStaffMessage < 2) {
-    const queryInfo = isSimpleQuery(message);
-    if (!queryInfo.isSimpleQuery) {
-      return {
-        shouldRespond: false,
-        reason: `Staff replied ${minutesSinceStaffMessage.toFixed(
-          1,
-        )} minutes ago - no AI response needed`,
-        queryInfo,
-      };
-    }
-  }
-
-  // If staff replied more than 30 minutes ago, AI can respond to anything
-  if (minutesSinceStaffMessage >= PAUSE_DURATION_MINUTES) {
-    return {
-      shouldRespond: true,
-      reason: `Staff replied ${minutesSinceStaffMessage.toFixed(
-        0,
-      )} minutes ago - resuming full AI mode`,
-    };
-  }
-
-  // CRITICAL: Check for simple queries FIRST, before checking acknowledgments
-  // This allows AI to respond to "when are you open?" even if staff just replied
-  const queryInfo = isSimpleQuery(message);
-
-  if (queryInfo.isSimpleQuery) {
-    console.log("[AI Pause] Simple query detected:", {
-      type: queryInfo.queryType,
-      message: message.substring(0, 100),
-      minutesSinceStaff: minutesSinceStaffMessage.toFixed(1),
-    });
-    return {
-      shouldRespond: true,
-      reason: `Simple ${queryInfo.queryType} query - AI can answer even during pause`,
-      queryInfo,
-    };
-  }
+  // 98% AUTOMATION: AI responds to everything except pure acknowledgments
+  // No more 30-minute pause or 2-minute guard
+  // AI uses staff message as context and responds appropriately
 
   // Check if it's just an acknowledgment (thanks John, ok, bye, etc.)
   // These don't need AI responses - customer is just acknowledging staff
   const isAck = isAcknowledgment(message);
-  console.log("[AI Pause] Acknowledgment check:", {
+  console.log("[AI Response Check] Acknowledgment check:", {
     message: message.substring(0, 100),
     isAcknowledgment: isAck,
+    minutesSinceStaff: minutesSinceStaffMessage.toFixed(1),
     hasQuestionMark: message.includes("?"),
     length: message.length,
-    hasQuestionWords: [
-      "how",
-      "what",
-      "when",
-      "where",
-      "why",
-      "which",
-      "who",
-      "much",
-      "many",
-      "owe",
-    ].some((w) => message.toLowerCase().includes(w)),
   });
 
   if (isAck) {
@@ -301,15 +250,17 @@ export function shouldAIRespond(
     };
   }
 
-  // Not a simple query and within pause window - don't respond
-  const remainingMinutes = Math.ceil(
-    PAUSE_DURATION_MINUTES - minutesSinceStaffMessage,
-  );
+  // Check if it's a simple query for logging purposes
+  const queryInfo = isSimpleQuery(message);
+
+  // AI ALWAYS responds to non-acknowledgment messages
+  // Staff message is in conversation context, AI will use it appropriately
   return {
-    shouldRespond: false,
-    reason: `Staff replied ${minutesSinceStaffMessage.toFixed(
-      0,
-    )} minutes ago - waiting for staff (${remainingMinutes} min remaining)`,
+    shouldRespond: true,
+    reason:
+      minutesSinceStaffMessage < 30
+        ? `AI responding (staff replied ${minutesSinceStaffMessage.toFixed(1)} min ago - using as context)`
+        : `AI responding (staff replied ${minutesSinceStaffMessage.toFixed(0)} min ago)`,
     queryInfo,
   };
 }
