@@ -265,10 +265,10 @@ function generateMissedCallMessage(context: {
     lines.push("");
     lines.push("Need help? Here's the quickest way:");
     lines.push("");
-    lines.push("📱 REPAIR QUOTES & APPOINTMENTS:");
+    lines.push("REPAIR QUOTES & APPOINTMENTS:");
     lines.push("https://www.newforestdevicerepairs.co.uk/repair-request");
     lines.push("");
-    lines.push("❓ QUESTIONS & STATUS CHECKS:");
+    lines.push("QUESTIONS & STATUS CHECKS:");
     lines.push(
       "Text me or visit: https://www.newforestdevicerepairs.co.uk/start",
     );
@@ -289,10 +289,10 @@ function generateMissedCallMessage(context: {
     lines.push("");
     lines.push("Need help? Here's the quickest way:");
     lines.push("");
-    lines.push("📱 REPAIR QUOTES & APPOINTMENTS:");
+    lines.push("REPAIR QUOTES & APPOINTMENTS:");
     lines.push("https://www.newforestdevicerepairs.co.uk/repair-request");
     lines.push("");
-    lines.push("❓ QUESTIONS & STATUS CHECKS:");
+    lines.push("QUESTIONS & STATUS CHECKS:");
     lines.push(
       "Text me or visit: https://www.newforestdevicerepairs.co.uk/start",
     );
