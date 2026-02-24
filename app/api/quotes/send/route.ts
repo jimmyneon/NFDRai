@@ -102,6 +102,21 @@ export async function POST(request: NextRequest) {
       console.error("[Quote Send] Error updating quote request:", updateError);
     }
 
+    // CLOSED LOOP: Switch conversation to auto mode after sending quote
+    // This ensures AI handles all quote-related responses automatically
+    if (quoteRequest.conversation_id) {
+      console.log(
+        "[Quote Send] Switching conversation to auto mode for closed loop quote handling",
+      );
+      await supabase
+        .from("conversations")
+        .update({
+          status: "auto",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", quoteRequest.conversation_id);
+    }
+
     console.log(`[Quote Send] Quote sent successfully for ${quote_id}`);
 
     return NextResponse.json({
