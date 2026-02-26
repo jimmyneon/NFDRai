@@ -20,6 +20,7 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
   const [requiresPartsOrder, setRequiresPartsOrder] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUnableToQuote, setIsUnableToQuote] = useState(false);
+  const [isDiagnostics, setIsDiagnostics] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -146,6 +147,46 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
     }
   };
 
+  const handleDiagnostics = async () => {
+    if (
+      !confirm(
+        "Send 'Diagnostics Required' message? This will ask the customer to bring the device in for a £40 diagnostic fee (deducted from final bill if they proceed).",
+      )
+    ) {
+      return;
+    }
+
+    setError("");
+    setSuccess(false);
+    setIsDiagnostics(true);
+
+    try {
+      const response = await fetch("/api/quotes/diagnostics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quote_id: quoteRequest.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send message");
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/dashboard/quotes");
+        router.refresh();
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
+      setIsDiagnostics(false);
+    }
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -216,16 +257,43 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Button
             type="submit"
-            disabled={isSubmitting || isUnableToQuote || isRejecting || success}
+            disabled={
+              isSubmitting ||
+              isUnableToQuote ||
+              isDiagnostics ||
+              isRejecting ||
+              success
+            }
             className="w-full sm:flex-1"
           >
             {isSubmitting ? "Sending..." : "Send Quote via SMS"}
           </Button>
           <Button
             type="button"
+            variant="secondary"
+            onClick={handleDiagnostics}
+            disabled={
+              isSubmitting ||
+              isUnableToQuote ||
+              isDiagnostics ||
+              isRejecting ||
+              success
+            }
+            className="w-full sm:w-auto"
+          >
+            {isDiagnostics ? "Sending..." : "Diagnostics Required"}
+          </Button>
+          <Button
+            type="button"
             variant="destructive"
             onClick={handleUnableToQuote}
-            disabled={isSubmitting || isUnableToQuote || isRejecting || success}
+            disabled={
+              isSubmitting ||
+              isUnableToQuote ||
+              isDiagnostics ||
+              isRejecting ||
+              success
+            }
             className="w-full sm:w-auto"
           >
             {isUnableToQuote ? "Sending..." : "Unable to Quote"}
@@ -234,7 +302,13 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
             type="button"
             variant="destructive"
             onClick={handleRejectQuote}
-            disabled={isSubmitting || isUnableToQuote || isRejecting || success}
+            disabled={
+              isSubmitting ||
+              isUnableToQuote ||
+              isDiagnostics ||
+              isRejecting ||
+              success
+            }
             className="w-full sm:w-auto"
           >
             {isRejecting ? "Sending..." : "Reject Quote"}
@@ -243,7 +317,9 @@ export function QuoteForm({ quoteRequest }: QuoteFormProps) {
             type="button"
             variant="outline"
             onClick={() => router.push("/dashboard/quotes")}
-            disabled={isSubmitting || isUnableToQuote || isRejecting}
+            disabled={
+              isSubmitting || isUnableToQuote || isDiagnostics || isRejecting
+            }
             className="w-full sm:w-auto"
           >
             Cancel
