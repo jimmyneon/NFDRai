@@ -4,6 +4,7 @@ import { sendMessageViaProvider } from "@/app/lib/messaging/provider";
 import { checkRateLimit } from "@/app/lib/rate-limiter";
 import { getBusinessHoursStatus } from "@/lib/business-hours";
 import { detectHolidayMode } from "@/app/lib/holiday-mode-detector";
+import { shouldSendSMS, getPhoneCountry } from "@/lib/phone-validator";
 
 /**
  * POST /api/messages/missed-call
@@ -34,6 +35,37 @@ export async function POST(request: NextRequest) {
         },
       );
     }
+
+    // Check if this is a UK number (block international to avoid SMS costs)
+    const smsCheck = shouldSendSMS(from);
+    if (!smsCheck.allowed) {
+      console.log("[Missed Call - International Block] ❌", smsCheck.reason);
+      console.log(
+        "[Missed Call - International Block] Country:",
+        smsCheck.country,
+      );
+      console.log("[Missed Call - International Block] Number:", from);
+
+      return NextResponse.json(
+        {
+          success: true,
+          blocked: true,
+          reason: smsCheck.reason,
+          country: smsCheck.country,
+          message: "Missed call logged but no SMS sent (international number)",
+        },
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        },
+      );
+    }
+
+    console.log(
+      "[Missed Call - UK Number] ✅ Verified UK number - SMS allowed",
+    );
 
     // Rate limiting: Max 1 missed call response per 2 minutes per phone number
     const rateLimit = checkRateLimit(from, "missed-call", {

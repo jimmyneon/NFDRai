@@ -35,6 +35,7 @@ import {
   logModuleSelection,
 } from "@/app/lib/module-selector";
 import { normalizePhoneNumber } from "@/app/lib/phone-normalizer";
+import { shouldSendSMS, getPhoneCountry } from "@/lib/phone-validator";
 import {
   checkQuoteAcceptance,
   buildQuoteContextForAI,
@@ -222,6 +223,32 @@ export async function POST(request: NextRequest) {
       normalizedPhone,
     );
     from = normalizedPhone;
+
+    // Check if this is a UK number (block international to avoid SMS costs)
+    const smsCheck = shouldSendSMS(from);
+    if (!smsCheck.allowed) {
+      console.log("[International Block] ❌", smsCheck.reason);
+      console.log("[International Block] Country:", smsCheck.country);
+      console.log("[International Block] Number:", from);
+
+      return NextResponse.json(
+        {
+          success: true,
+          blocked: true,
+          reason: smsCheck.reason,
+          country: smsCheck.country,
+          message: "Message received but not processed (international number)",
+        },
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        },
+      );
+    }
+
+    console.log("[UK Number] ✅ Verified UK number - processing allowed");
 
     const supabase = await createClient();
     const supabaseService = createServiceClient(); // For operations that bypass RLS (alerts, etc.)
