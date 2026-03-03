@@ -1122,14 +1122,14 @@ CRITICAL RULES:
   }
 2. Keep responses 2-3 sentences max per message
 3. Use SHORT PARAGRAPHS - break up text
-4. ${
+4. GREETING RULE (CRITICAL): ${
     channel === "webchat"
-      ? "Use customer name if they provided it with a greeting like 'Hi [name]!'"
-      : `ALWAYS greet warmly: "Hi!" or "Hi there!" - If you know customer name, say "Hi ${
+      ? `If you know customer name: "Hi [name]!" or "Hi there, [name]!" - NEVER just "[name]!" alone (sounds shouty)`
+      : `ALWAYS greet: "Hi!" or "Hi there!" - If you know customer name: "Hi ${
           context.customerName || "[name]"
-        }!" or "Hi there, ${context.customerName || "[name]"}!" - NEVER just "${
+        }!" or "Hi there, ${context.customerName || "[name]"}!" - 🚨 NEVER EVER just "${
           context.customerName || "[name]"
-        }!" alone (sounds aggressive and shouty)`
+        }!" alone - that sounds AGGRESSIVE and SHOUTY. You MUST include "Hi" or "Hi there" before the name.`
   }
 5. ${
     channel === "webchat"

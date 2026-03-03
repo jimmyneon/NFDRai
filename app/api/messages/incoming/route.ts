@@ -1224,6 +1224,36 @@ export async function POST(request: NextRequest) {
       ? buildQuoteContextForAI(quoteCheck)
       : "";
 
+    // Get recent conversation history to check for John's previous messages
+    const { data: recentHistory } = await supabase
+      .from("messages")
+      .select("sender, text, created_at")
+      .eq("conversation_id", conversation.id)
+      .order("created_at", { ascending: false })
+      .limit(15);
+
+    let conversationHistoryContext = "";
+    if (recentHistory && recentHistory.length > 0) {
+      // Check for John's messages about repairs being ready or quotes sent
+      const staffMessages = recentHistory.filter(
+        (m) => m.sender === "staff" || isStaffMessage(m.text || ""),
+      );
+
+      if (staffMessages.length > 0) {
+        conversationHistoryContext =
+          "\n\n[RECENT STAFF MESSAGES - CHECK THESE FIRST]\n";
+        staffMessages.slice(0, 5).forEach((msg) => {
+          conversationHistoryContext += `John said: "${msg.text}"\n`;
+        });
+        conversationHistoryContext += "[END STAFF MESSAGES]\n";
+        console.log(
+          "[Conversation History] ✅ Added",
+          staffMessages.length,
+          "staff message(s) to context",
+        );
+      }
+    }
+
     // Check repair status if customer is asking about their repair
     let repairStatusContext = "";
     const isStatusInquiry =
@@ -1264,7 +1294,11 @@ export async function POST(request: NextRequest) {
     // Generate AI response with smart state-aware generator (using batched message if applicable)
     console.log("[Smart AI] Generating response with state awareness...");
     const aiResult = await generateSmartResponse({
-      customerMessage: messageToProcess + quoteContext + repairStatusContext, // Add quote and repair status context to message
+      customerMessage:
+        messageToProcess +
+        conversationHistoryContext +
+        quoteContext +
+        repairStatusContext, // Add conversation history, quote and repair status context to message
       conversationId: conversation.id,
       customerPhone: from, // Pass customer phone for history lookup
       modules: modulesToLoad, // NEW: Load only relevant modules based on analysis
