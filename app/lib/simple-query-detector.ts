@@ -5,7 +5,13 @@
 
 export interface SimpleQueryResult {
   isSimpleQuery: boolean;
-  queryType?: "hours" | "location" | "directions" | "contact" | "general_info";
+  queryType?:
+    | "hours"
+    | "location"
+    | "directions"
+    | "contact"
+    | "general_info"
+    | "turnaround_time";
   reason: string;
 }
 
@@ -96,6 +102,31 @@ export function isSimpleQuery(message: string): SimpleQueryResult {
         queryType: "contact",
         reason: "Contact information query",
       };
+    }
+  }
+
+  // Turnaround time queries (general timeframes, not specific job status)
+  const turnaroundPatterns = [
+    /how\s+long\s+(does|will|would)\s+(it|this|that)\s+take/i,
+    /how\s+long\s+(for|to)\s+(repair|fix)/i,
+    /what.*turnaround\s+time/i,
+    /when\s+will\s+it\s+be\s+(ready|done|finished)/i,
+    /how\s+quickly\s+can\s+you/i,
+    /same\s+day\s+(repair|service)/i,
+    /turn\s*around\s+time/i,
+  ];
+
+  for (const pattern of turnaroundPatterns) {
+    if (pattern.test(lowerMessage)) {
+      // Only treat as simple if it's a general question, not asking about a specific repair in progress
+      // If message contains "my" it's likely asking about their specific repair
+      if (!/\bmy\b/i.test(lowerMessage)) {
+        return {
+          isSimpleQuery: true,
+          queryType: "turnaround_time",
+          reason: "General turnaround time query",
+        };
+      }
     }
   }
 

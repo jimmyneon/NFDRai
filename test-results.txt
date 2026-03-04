@@ -1,0 +1,706 @@
+=== AI STEVE COMPREHENSIVE TEST SUITE ===
+
+Testing all critical behaviors to prevent 'daft stuff'
+
+Total test scenarios: 28
+
+TEST CATEGORIES:
+1. greeting: 2 tests
+2. timestampAwareness: 3 tests
+3. apiAccess: 3 tests
+4. conversationHistory: 3 tests
+5. pricing: 3 tests
+6. walkInAlternatives: 2 tests
+7. dualVoice: 3 tests
+8. deviceIdentification: 2 tests
+9. acknowledgments: 3 tests
+10. signOff: 2 tests
+11. readyForCollection: 2 tests
+
+================================================================================
+INSTRUCTIONS FOR MANUAL TESTING:
+================================================================================
+
+1. Run migrations first:
+   cd /Users/johnhopwood/NFDRAIRESPONDER
+   supabase migration up
+
+2. For each test scenario below:
+   - Send the test message via SMS/webchat
+   - Check the AI response against the criteria
+   - Mark as PASS ✅ or FAIL ❌
+
+3. Priority levels:
+   - CRITICAL: Must pass - breaks core functionality
+   - HIGH: Should pass - causes customer confusion
+   - MEDIUM: Nice to have - minor issues
+
+4. Focus on CRITICAL tests first
+
+5. Log any failures and patterns
+
+
+================================================================================
+TEST SCENARIOS:
+================================================================================
+
+
+################################################################################
+CATEGORY 1: GREETING
+################################################################################
+
+
+Test 1.1: Should say 'Hi [name]!' not '[name]!'
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Customer Name: Edita
+Message: "Hello, I need help"
+
+✅ MUST INCLUDE:
+  - "Hi Edita"
+  - "Hi there"
+
+❌ MUST NOT INCLUDE:
+  - "Edita!"
+
+❌ MUST NOT START WITH:
+  - "Edita!"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 1.2: Should greet warmly without name
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Hello"
+
+✅ MUST INCLUDE:
+  - "Hi!"
+  - "Hi there!"
+
+❌ MUST NOT INCLUDE:
+  - "Hi [name]"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 2: TIMESTAMPAWARENESS
+################################################################################
+
+
+Test 2.1: Should ignore 'ready for collection' from 15 days ago
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "Is my iPad ready?"
+
+Conversation History:
+  - [staff] (15 days ago): "Your devices are ready for collection"
+
+API Response:
+  Success: true
+  Jobs: 0
+
+✅ MUST INCLUDE:
+  - "don't see any active repairs"
+  - "check current status"
+
+❌ MUST NOT INCLUDE:
+  - "ready for collection"
+  - "it's ready"
+  - "you can collect"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 2.2: Should use recent message from today
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Is my phone ready?"
+
+Conversation History:
+  - [staff] (0 days ago): "Your device is ready for collection"
+
+✅ MUST INCLUDE:
+  - "ready for collection"
+  - "John sent a message"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 2.3: Should prefer API data over old messages
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "How's my repair going?"
+
+Conversation History:
+  - [staff] (10 days ago): "Your device is ready"
+
+API Response:
+  Success: true
+  Jobs: 1
+    - Status: In progress, Ref: #12345
+
+✅ MUST INCLUDE:
+  - "in progress"
+  - "#12345"
+
+❌ MUST NOT INCLUDE:
+  - "ready for collection"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 3: APIACCESS
+################################################################################
+
+
+Test 3.1: Should NOT say 'I don't have access to repair statuses'
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "Is my Samsung S22 done?"
+
+API Response:
+  Success: true
+  Jobs: 1
+    - Status: Ready for collection, Ref: #12345
+
+✅ MUST INCLUDE:
+  - "ready"
+  - "#12345"
+
+❌ MUST NOT INCLUDE:
+  - "I don't have access"
+  - "I can't check repair status"
+  - "I don't have that information"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 3.2: Should use API data when available
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Where's my repair?"
+
+API Response:
+  Success: true
+  Jobs: 1
+    - Status: Parts ordered, Ref: #67890
+
+✅ MUST INCLUDE:
+  - "parts"
+  - "#67890"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 3.3: Should handle no jobs found gracefully
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Is my phone ready?"
+
+API Response:
+  Success: true
+  Jobs: 0
+
+✅ MUST INCLUDE:
+  - "don't see any active repairs"
+
+❌ MUST NOT INCLUDE:
+  - "ready for collection"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 4: CONVERSATIONHISTORY
+################################################################################
+
+
+Test 4.1: Should reference John's recent quote
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "Can I get the cheaper option?"
+
+Conversation History:
+  - [staff] (0 days ago): "£130 for OLED or £110 for LCD"
+
+✅ MUST INCLUDE:
+  - "£110"
+  - "LCD"
+  - "John mentioned"
+
+❌ MUST NOT INCLUDE:
+  - "get a quote here"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 4.2: Should see John's 'ready' message from earlier today
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Is my phone ready?"
+
+Conversation History:
+  - [staff] (0 days ago): "Your device is repaired and ready for collection"
+
+✅ MUST INCLUDE:
+  - "ready"
+  - "John"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 4.3: Should NOT reference stale quotes from 2 weeks ago
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "How much for screen repair?"
+
+Conversation History:
+  - [staff] (14 days ago): "Your quote is £150"
+
+✅ MUST INCLUDE:
+  - "repair-request"
+  - "quote"
+
+❌ MUST NOT INCLUDE:
+  - "£150"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 5: PRICING
+################################################################################
+
+
+Test 5.1: Should NEVER give pricing estimates
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "How much for iPhone 13 screen?"
+
+✅ MUST INCLUDE:
+  - "repair-request"
+
+❌ MUST NOT INCLUDE:
+  - "£"
+  - "typically"
+  - "around"
+  - "usually"
+  - "roughly"
+  - "between"
+  - "ranges from"
+  - "costs about"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 5.2: Should NOT mention John for pricing
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "What's the cost for battery replacement?"
+
+✅ MUST INCLUDE:
+  - "repair-request"
+
+❌ MUST NOT INCLUDE:
+  - "John will"
+  - "I'll let John"
+  - "ask John"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 5.3: Should reference existing quote if available
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "How much will it cost?"
+
+Quote Context:
+  Amount: £65
+  Device: Pixel 6a
+  Issue: Battery
+
+✅ MUST INCLUDE:
+  - "£65"
+  - "Pixel 6a"
+
+❌ MUST NOT INCLUDE:
+  - "I'll get you a quote"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 6: WALKINALTERNATIVES
+################################################################################
+
+
+Test 6.1: Should NEVER suggest walk-in for device identification
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "I don't know what model my phone is"
+
+✅ MUST INCLUDE:
+  - "repair-request"
+
+❌ MUST NOT INCLUDE:
+  - "pop in"
+  - "bring it in"
+  - "come by"
+  - "drop in"
+  - "visit us"
+  - "stop by"
+  - "walk in"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 6.2: Should NEVER suggest walk-in for pricing
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "How much for screen repair?"
+
+✅ MUST INCLUDE:
+  - "repair-request"
+
+❌ MUST NOT INCLUDE:
+  - "pop in"
+  - "bring it in"
+  - "come by"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 7: DUALVOICE
+################################################################################
+
+
+Test 7.1: Should NOT respond within 30 min of John's message (complex query)
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "How much for iPhone screen?"
+
+Conversation History:
+  - [staff] (15 minutes ago): "I'll check on that for you"
+
+Should AI Respond: NO
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 7.2: Should respond to simple query even if John replied recently
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "When are you open?"
+
+Conversation History:
+  - [staff] (15 minutes ago): "I'll check on that"
+
+Should AI Respond: YES
+
+✅ MUST INCLUDE:
+  - "open"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 7.3: Should respond after 30 minutes
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "How much for screen?"
+
+Conversation History:
+  - [staff] (35 minutes ago): "I'll check on that"
+
+Should AI Respond: YES
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 8: DEVICEIDENTIFICATION
+################################################################################
+
+
+Test 8.1: Should NOT help find device in Settings
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "How do I find my phone model?"
+
+✅ MUST INCLUDE:
+  - "repair-request"
+
+❌ MUST NOT INCLUDE:
+  - "Settings"
+  - "About"
+  - "tap"
+  - "go to"
+  - "open"
+  - "navigate"
+  - "find it in"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 8.2: Should route to website for device help
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "I don't know what iPhone I have"
+
+✅ MUST INCLUDE:
+  - "repair-request"
+
+❌ MUST NOT INCLUDE:
+  - "Settings > General > About"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 9: ACKNOWLEDGMENTS
+################################################################################
+
+
+Test 9.1: Should NOT respond to pure acknowledgment
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Thanks John"
+
+Should AI Respond: NO
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 9.2: Should NOT respond to 'Ok'
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Ok"
+
+Should AI Respond: NO
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 9.3: Should respond to acknowledgment with question
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Thanks John! When are you open?"
+
+Should AI Respond: YES
+
+✅ MUST INCLUDE:
+  - "open"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 10: SIGNOFF
+################################################################################
+
+
+Test 10.1: Should always sign as AI Steve
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "When are you open?"
+
+✅ MUST INCLUDE:
+  - "AI Steve"
+  - "New Forest Device Repairs"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 10.2: Should use proper sign-off format
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Hello"
+
+✅ MUST INCLUDE:
+  - "Many Thanks"
+  - "AI Steve"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+################################################################################
+CATEGORY 11: READYFORCOLLECTION
+################################################################################
+
+
+Test 11.1: Should ONLY say ready if API confirms
+Severity: CRITICAL
+--------------------------------------------------------------------------------
+Message: "Is my phone ready?"
+
+Conversation History:
+  - [staff] (5 days ago): "Your device is ready"
+
+API Response:
+  Success: true
+  Jobs: 0
+
+❌ MUST NOT INCLUDE:
+  - "ready for collection"
+  - "it's ready"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+Test 11.2: Should say ready if API shows ready
+Severity: HIGH
+--------------------------------------------------------------------------------
+Message: "Can I collect my phone?"
+
+API Response:
+  Success: true
+  Jobs: 1
+    - Status: Ready for collection, Ref: #12345
+
+✅ MUST INCLUDE:
+  - "ready"
+  - "#12345"
+
+Result: [ ] PASS  [ ] FAIL
+Notes: _________________________________
+--------------------------------------------------------------------------------
+
+
+================================================================================
+AUTOMATED VALIDATION CHECKLIST
+================================================================================
+
+1. Database Migrations
+   [ ] 085_fix_ai_steve_critical_issues.sql applied
+   [ ] 086_fix_stale_message_context.sql applied
+   [ ] All prompt modules loaded correctly
+   [ ] No SQL errors in migration logs
+
+2. Greeting Policy
+   [ ] greeting_policy module active (priority 99)
+   [ ] No responses starting with just '[name]!'
+   [ ] All greetings include 'Hi' or 'Hi there'
+
+3. Timestamp Awareness
+   [ ] timestamp_awareness module active (priority 100)
+   [ ] Staff messages labeled with age (RECENT/STALE)
+   [ ] Messages >7 days marked as STALE
+   [ ] No status claims from stale messages
+
+4. API Access
+   [ ] repair_status_api module updated
+   [ ] No 'I don't have access' responses
+   [ ] API checked for status inquiries
+   [ ] [REPAIR STATUS INFORMATION] marker used
+
+5. Ready for Collection
+   [ ] ready_for_collection_guardrails module active (priority 100)
+   [ ] Only says 'ready' if API confirms
+   [ ] Never uses old messages for ready status
+   [ ] Mentions date if referencing old messages
+
+6. Pricing Policy
+   [ ] No pricing estimates given
+   [ ] No mentions of John for pricing
+   [ ] Always routes to repair-request form
+   [ ] References existing quotes when available
+
+7. Walk-in Alternatives
+   [ ] No 'pop in' suggestions for device ID
+   [ ] No 'bring it in' for pricing
+   [ ] Always routes to website workflow
+
+8. Dual-Voice Protection
+   [ ] 30-minute pause after John's message
+   [ ] Simple queries allowed during pause
+   [ ] Complex queries blocked during pause
+   [ ] Auto-resume after 30 minutes
+
+
+================================================================================
+MONITORING & LOGGING
+================================================================================
+
+Check Vercel logs for these patterns:
+
+1. Pattern: "[Conversation History] ✅ Added X staff message(s) to context (X recent, X stale)"
+   Meaning: Conversation history loaded with timestamp awareness
+
+2. Pattern: "[Repair Status] Customer asking about repair - FORCING API check..."
+   Meaning: API check triggered for status inquiry
+
+3. Pattern: "[Repair Status] ✅ Found X job(s) - added to AI context"
+   Meaning: API data successfully added to context
+
+4. Pattern: "[Routing Validator] ⚠️ Violations found"
+   Meaning: Response validation caught forbidden content
+
+5. Pattern: "[Staff Activity Check] Should AI respond? false"
+   Meaning: Dual-voice protection active
+
+6. Pattern: "[International Block] ❌"
+   Meaning: International number blocked (cost control)
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+Total Test Scenarios: 28
+Critical Tests: 15
+High Priority Tests: 13
+Medium Priority Tests: 0
+
+📋 NEXT STEPS:
+1. Run database migrations
+2. Test CRITICAL scenarios first
+3. Monitor Vercel logs for patterns
+4. Document any failures
+5. Iterate and refine based on results
+
+✅ This test suite covers:
+- Greeting behavior
+- Timestamp awareness
+- API access and usage
+- Conversation history awareness
+- Pricing policy enforcement
+- Walk-in alternative prevention
+- Dual-voice protection
+- Device identification routing
+- Acknowledgment detection
+- Sign-off format
+- Ready for collection guardrails
+
+================================================================================
+END OF TEST SUITE
+================================================================================
