@@ -1240,16 +1240,40 @@ export async function POST(request: NextRequest) {
       );
 
       if (staffMessages.length > 0) {
+        const now = Date.now();
+        const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
         conversationHistoryContext =
-          "\n\n[RECENT STAFF MESSAGES - CHECK THESE FIRST]\n";
+          "\n\n[RECENT STAFF MESSAGES - CHECK TIMESTAMPS]\n";
+        conversationHistoryContext +=
+          "IMPORTANT: Check message dates before using for current status!\n";
+        conversationHistoryContext +=
+          "Messages >7 days old are STALE - do NOT use for current repair status.\n\n";
+
         staffMessages.slice(0, 5).forEach((msg) => {
-          conversationHistoryContext += `John said: "${msg.text}"\n`;
+          const messageDate = new Date(msg.created_at);
+          const daysAgo = Math.floor(
+            (now - messageDate.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          const isStale = messageDate.getTime() < sevenDaysAgo;
+
+          conversationHistoryContext += `${isStale ? "⚠️ STALE" : "✅ RECENT"} (${daysAgo} days ago - ${messageDate.toLocaleDateString()}): John said: "${msg.text}"\n`;
         });
-        conversationHistoryContext += "[END STAFF MESSAGES]\n";
+        conversationHistoryContext += "\n[END STAFF MESSAGES]\n";
+
+        const recentCount = staffMessages.filter(
+          (m) => new Date(m.created_at).getTime() >= sevenDaysAgo,
+        ).length;
+        const staleCount = staffMessages.length - recentCount;
+
         console.log(
           "[Conversation History] ✅ Added",
           staffMessages.length,
-          "staff message(s) to context",
+          "staff message(s) to context (",
+          recentCount,
+          "recent,",
+          staleCount,
+          "stale)",
         );
       }
     }
@@ -1257,13 +1281,13 @@ export async function POST(request: NextRequest) {
     // Check repair status if customer is asking about their repair
     let repairStatusContext = "";
     const isStatusInquiry =
-      /status|ready|update|how'?s|progress|when will|finished|done|collect/i.test(
+      /status|ready|update|how'?s|progress|when will|finished|done|collect|check|left|dropped off|repair/i.test(
         messageToProcess,
       );
 
     if (isStatusInquiry) {
       console.log(
-        "[Repair Status] Customer may be asking about repair status - checking...",
+        "[Repair Status] Customer asking about repair - FORCING API check...",
       );
       const statusResult = await checkRepairStatus(from);
 
