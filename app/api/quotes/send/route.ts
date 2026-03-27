@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendMessageViaProvider } from "@/app/lib/messaging/provider";
+import { syncQuoteToRepairApp } from "@/app/lib/repair-app-sync";
 
 /**
  * POST /api/quotes/send
@@ -118,6 +119,27 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Quote Send] Quote sent successfully for ${quote_id}`);
+
+    // Sync updated quote to Repair App
+    await syncQuoteToRepairApp({
+      id: quoteRequest.id,
+      name: quoteRequest.name,
+      phone: quoteRequest.phone,
+      email: quoteRequest.email,
+      device_make: quoteRequest.device_make,
+      device_model: quoteRequest.device_model,
+      issue: quoteRequest.issue,
+      description: quoteRequest.description,
+      additional_issues: quoteRequest.additional_issues,
+      quoted_price: quote_amount,
+      status: "quoted",
+      type: quoteRequest.type,
+      page: quoteRequest.page,
+      source: quoteRequest.source,
+      requires_parts_order: requires_parts_order || false,
+      conversation_id: quoteRequest.conversation_id,
+      created_at: quoteRequest.created_at,
+    });
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendMessageViaProvider } from "@/app/lib/messaging/provider";
 import { buildQuoteRequestConfirmationSms } from "@/app/lib/quote-request-sms";
+import { syncQuoteToRepairApp } from "@/app/lib/repair-app-sync";
 
 // Use service role for public access (no auth required)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -246,6 +247,26 @@ export async function POST(request: NextRequest) {
       `[Start Repair] Quote request created for ${name} (${normalizedPhone}) - ${device_make} ${device_model}`,
     );
     console.log(`[Start Repair] SMS sent: ${smsResult.sent}`);
+
+    // Sync quote to Repair App
+    if (quoteRequest) {
+      await syncQuoteToRepairApp({
+        id: quoteRequest.id,
+        name,
+        phone: normalizedPhone,
+        email: email || null,
+        device_make,
+        device_model,
+        issue: normalizedIssue,
+        description: description || null,
+        additional_issues: additionalIssues || null,
+        type: requestType,
+        page: page || null,
+        source:
+          typeof source === "string" && source.length > 0 ? source : "website",
+        created_at: quoteRequest.created_at,
+      });
+    }
 
     // Build quote URL for dashboard
     const quoteUrl = `${
