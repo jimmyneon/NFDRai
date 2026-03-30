@@ -59,7 +59,7 @@ export function analyzeConversationState(
     sender: "customer" | "ai" | "staff";
     text: string;
     created_at: string;
-  }>
+  }>,
 ): ConversationContext {
   if (messages.length === 0) {
     return {
@@ -111,7 +111,7 @@ export function analyzeConversationState(
   // Detect topic switch / clarification in last customer message
   const lastText = (lastCustomerMessage?.text || "").toLowerCase();
   const topicSwitch = /\b(i mean|actually|instead|no,? i want|i meant)\b/.test(
-    lastText
+    lastText,
   );
 
   // Extract device info if mentioned (only from recent context)
@@ -132,7 +132,7 @@ export function analyzeConversationState(
   // If topic switch indicates moving to repair, downrank status_check
   if (topicSwitch) {
     const repairCue = /(fix|repair|screen|broken|crack|diagnos|battery)/.test(
-      allText
+      allText,
     );
     if (repairCue && intent === "status_check") {
       intent = "diagnostic";
@@ -246,7 +246,7 @@ function extractDeviceModel(text: string): string | undefined {
   // iPhone models - must have number or specific identifier
   // Match iPhone with model number and optional Pro/Pro Max/Plus/Mini suffix
   const iphoneMatch = text.match(
-    /iphone\s*(1[0-6]|[6-9]|x[rs]?|se)(\s*(pro\s*max|pro|plus|mini))?/i
+    /iphone\s*(1[0-6]|[6-9]|x[rs]?|se)(\s*(pro\s*max|pro|plus|mini))?/i,
   );
   if (iphoneMatch) return iphoneMatch[0];
 
@@ -256,7 +256,7 @@ function extractDeviceModel(text: string): string | undefined {
 
   // Samsung Galaxy models - broader detection with Ultra/Plus/FE variants
   const samsungMatch = text.match(
-    /galaxy\s*(s\d+\s*(ultra|plus|\+|fe)?|a\d+\s*(ultra|plus|\+)?|note\s*\d+|z?\s*fold\s*\d*|z?\s*flip\s*\d*)/i
+    /galaxy\s*(s\d+\s*(ultra|plus|\+|fe)?|a\d+\s*(ultra|plus|\+)?|note\s*\d+|z?\s*fold\s*\d*|z?\s*flip\s*\d*)/i,
   );
   if (samsungMatch) return samsungMatch[0];
 
@@ -266,7 +266,7 @@ function extractDeviceModel(text: string): string | undefined {
 
   // Motorola/Moto models - CRITICAL: This was missing!
   const motoMatch = text.match(
-    /(?:motorola\s*)?moto\s*([gex]\s*\d+|g\s*power|g\s*stylus|edge|razr)/i
+    /(?:motorola\s*)?moto\s*([gex]\s*\d+|g\s*power|g\s*stylus|edge|razr)/i,
   );
   if (motoMatch) return `Moto ${motoMatch[1]}`;
 
@@ -280,7 +280,7 @@ function extractDeviceModel(text: string): string | undefined {
 
   // Xiaomi/Redmi models
   const xiaomiMatch = text.match(
-    /(xiaomi|redmi)\s*(note\s*\d+|mi\s*\d+|\d+[a-z]*)/i
+    /(xiaomi|redmi)\s*(note\s*\d+|mi\s*\d+|\d+[a-z]*)/i,
   );
   if (xiaomiMatch) return `${xiaomiMatch[1]} ${xiaomiMatch[2]}`;
 
@@ -291,7 +291,7 @@ function extractDeviceModel(text: string): string | undefined {
 
   // Generic laptop brands with model numbers
   const laptopMatch = text.match(
-    /(dell|hp|lenovo|asus|acer)\s*([\w\d]+\s*[\w\d]*)/i
+    /(dell|hp|lenovo|asus|acer)\s*([\w\d]+\s*[\w\d]*)/i,
   );
   if (laptopMatch) return `${laptopMatch[1]} ${laptopMatch[2]}`.trim();
 
@@ -304,7 +304,7 @@ function extractDeviceModel(text: string): string | undefined {
  * Extract customer name from messages
  */
 function extractNameFromRecent(
-  messages: Array<{ sender: string; text: string }>
+  messages: Array<{ sender: string; text: string }>,
 ): string | undefined {
   for (const msg of messages) {
     if (msg.sender === "customer") {
@@ -434,11 +434,12 @@ DEVICE INFO REQUIREMENTS:
     follow_up: `
 🎯 STATE: Follow-up / Status Check
 - Customer asking about existing repair status
-- CRITICAL: You CANNOT check repair status - you don't have access
-- DO NOT say "I'll check on your repair" or "Let me check" - you can't
-- INSTEAD: "I don't have access to repair statuses, but if you give me your name and device details, I'll pass this to John who'll get back to you ASAP - normally within an hour unless he's really busy"
-- Be honest about your limitations but reassuring
-- Set realistic expectations: "normally within an hour unless he's really busy"`,
+- CRITICAL: Check [REPAIR STATUS INFORMATION] in your context AND conversation history
+- Look for John's previous messages about status, parts, timelines
+- Share what you find from API data or conversation history
+- Provide tracking link for live updates
+- NEVER say "I don't have access" - you DO have access via API and conversation history
+- If genuinely no data: Provide tracking link only`,
 
     general_inquiry: `
 🎯 STATE: General Inquiry
@@ -461,7 +462,7 @@ DEVICE INFO REQUIREMENTS:
  */
 export function validateResponseForState(
   response: string,
-  context: ConversationContext
+  context: ConversationContext,
 ): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
 
@@ -508,7 +509,7 @@ export function validateResponseForState(
         response.toLowerCase().includes("let me check")
       ) {
         issues.push(
-          "Promised to check status but Steve has no access - should handoff to John"
+          "Promised to check status but Steve has no access - should handoff to John",
         );
       }
       break;
@@ -535,7 +536,7 @@ export function validateResponseForState(
       response.toLowerCase().includes("cost")
     ) {
       issues.push(
-        `Attempted to quote price without knowing specific model - only know device type: ${context.deviceType}`
+        `Attempted to quote price without knowing specific model - only know device type: ${context.deviceType}`,
       );
     }
 
@@ -555,12 +556,12 @@ export function validateResponseForState(
 
     if (
       bringItInPhrases.some((phrase) =>
-        response.toLowerCase().includes(phrase)
+        response.toLowerCase().includes(phrase),
       ) &&
       !hasHelpedFindModel
     ) {
       issues.push(
-        `Suggested "bring it in" without first helping customer find their device model - should guide them to Settings > General > About (iPhone) or Settings > About Phone (Android)`
+        `Suggested "bring it in" without first helping customer find their device model - should guide them to Settings > General > About (iPhone) or Settings > About Phone (Android)`,
       );
     }
   }
