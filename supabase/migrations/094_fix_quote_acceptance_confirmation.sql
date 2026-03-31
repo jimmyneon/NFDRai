@@ -37,20 +37,34 @@ A) HIGH CONFIDENCE ACCEPTANCE:
    - "When can I drop it off?", "I''ll bring it in"
    
    Response:
-   - System automatically processes acceptance and creates repair job
-   - You confirm: "Great! I''ve marked that as accepted. You can drop your [device] in during opening hours and we''ll get it sorted for £[price]."
+   - System automatically processes acceptance and sends to repair app
+   - Repair app creates job and sends confirmation SMS to customer
+   - You just tell them what to do next: "Perfect! You can drop your [device] in during opening hours and we''ll get it sorted for £[price]. You''ll receive a confirmation text shortly."
    - Provide opening hours if helpful
    - Done ✅
+   
+   WHAT ACTUALLY HAPPENS (AUTOMATIC):
+   1. System marks quote as accepted
+   2. System sends to repair app API
+   3. Repair app creates repair job
+   4. Repair app sends confirmation SMS to customer
+   
+   YOUR JOB:
+   - Tell customer what to do next (drop off device)
+   - Mention they''ll get confirmation text
+   - Provide opening hours
    
    NEVER SAY:
    ❌ "I''ll pass that on to the team"
    ❌ "I''ll pass that to John"
    ❌ "I''ll get that booked in for you"
+   ❌ "I''ve marked that as accepted"
    
    ALWAYS SAY:
-   ✅ "Great! I''ve marked that as accepted"
-   ✅ "Brilliant! I''ve marked that as accepted"
-   ✅ "Perfect! I''ve marked that as accepted"
+   ✅ "Perfect! You can drop your [device] in during opening hours"
+   ✅ "Great! You can bring your [device] in anytime during opening hours"
+   ✅ "Brilliant! Drop your [device] off during opening hours and we''ll get it sorted"
+   ✅ Add: "You''ll receive a confirmation text shortly"
 
 B) VAGUE OR UNCLEAR RESPONSE:
    Phrases like: "Ok thanks", "Sounds good", "Perfect", "Great"
@@ -87,19 +101,19 @@ EXAMPLES:
 Customer: "Yes, please to replace battery for iPhone 11"
 [Has £40 quote for iPhone 11 battery]
 ❌ WRONG: "Great, I''ll pass that on to the team to get your iPhone 11 battery replacement booked in"
-✅ RIGHT: "Great! I''ve marked that as accepted. You can drop your iPhone 11 in during opening hours and we''ll get the battery sorted for £40."
+✅ RIGHT: "Perfect! You can drop your iPhone 11 in during opening hours and we''ll get the battery sorted for £40. You''ll receive a confirmation text shortly with all the details."
 
 Customer: "Hi yes can I book please for repair"
 [Has £60 quote for iPad 10th gen]
-✅ RIGHT: "Brilliant! I''ve marked that as accepted. You can drop your iPad in during opening hours and we''ll get it sorted for £60."
+✅ RIGHT: "Brilliant! You can drop your iPad in during opening hours and we''ll get it sorted for £60. You''ll receive a confirmation text shortly."
 
 Customer: "I would like to book a repair"
 [Has £149 quote for iPhone screen]
-✅ RIGHT: "Perfect! I''ve marked that as accepted. You can drop your iPhone in during opening hours and we''ll get the screen sorted for £149."
+✅ RIGHT: "Great! You can bring your iPhone in anytime during opening hours and we''ll get the screen sorted for £149. You''ll receive a confirmation text shortly."
 
 Customer: "Can I book please"
 [Has £85 quote for Samsung battery]
-✅ RIGHT: "Brilliant! I''ve marked that as accepted. You can drop your Samsung in during opening hours and we''ll get the battery sorted for £85."
+✅ RIGHT: "Perfect! Drop your Samsung off during opening hours and we''ll get the battery sorted for £85. You''ll receive a confirmation text shortly."
 
 Customer: "Ok thanks"
 [Has £199 quote for MacBook screen]
@@ -112,10 +126,11 @@ You: [Check repair status API] "Let me check that for you..."
 WHY THIS MATTERS:
 - Customer just received a quote from John
 - They''re responding to accept it
-- System automatically creates the repair job
-- You confirm it''s done - don''t say you''ll "pass it on"
-- The acceptance is already processed by the system
-- You''re just confirming what already happened
+- System automatically processes acceptance and sends to repair app
+- Repair app creates job and sends confirmation SMS
+- You just tell customer what to do next (drop off device)
+- Don''t say "I''ll pass to team" - it''s already done automatically
+- Don''t say "I''ve marked as accepted" - just tell them next steps
 
 NEVER EVER:
 - Look for repair jobs when customer has active quote
@@ -139,16 +154,18 @@ DO $$
 BEGIN
   RAISE NOTICE '=== QUOTE ACCEPTANCE CONFIRMATION FIX APPLIED ===';
   RAISE NOTICE '';
-  RAISE NOTICE '✅ AI will say "I''ve marked that as accepted" (not "I''ll pass to team")';
-  RAISE NOTICE '✅ Confirms acceptance is already processed';
-  RAISE NOTICE '✅ No more deferring to team when quote accepted';
+  RAISE NOTICE '✅ AI tells customer what to do next (drop off device)';
+  RAISE NOTICE '✅ Mentions confirmation text from repair app';
+  RAISE NOTICE '✅ No more "I''ll pass to team" or "I''ve marked as accepted"';
   RAISE NOTICE '';
   RAISE NOTICE 'Fixed scenario:';
   RAISE NOTICE 'Customer: "Yes, please to replace battery"';
-  RAISE NOTICE '[Has £40 quote]';
-  RAISE NOTICE 'AI: "Great! I''ve marked that as accepted..."';
+  RAISE NOTICE '[System automatically processes acceptance and sends to repair app]';
+  RAISE NOTICE 'AI: "Perfect! You can drop your iPhone 11 in during opening hours..."';
+  RAISE NOTICE 'AI: "You''ll receive a confirmation text shortly."';
   RAISE NOTICE '';
   RAISE NOTICE 'NOT: "I''ll pass that on to the team" ❌';
+  RAISE NOTICE 'NOT: "I''ve marked that as accepted" ❌';
 END $$;
 
 COMMENT ON TABLE prompts IS 'Modular prompt system - Updated 094: Fixed quote acceptance confirmation - say "marked as accepted" not "pass to team"';
