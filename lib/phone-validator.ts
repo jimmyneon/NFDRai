@@ -4,7 +4,32 @@
  */
 
 /**
- * Check if a phone number is a UK number
+ * Check if a phone number is a UK MOBILE number
+ * UK mobiles start with 07 (national) or +447/00447 (international)
+ * This BLOCKS landlines (01/02), 0800 numbers, and other non-mobile UK numbers
+ */
+export function isUKMobileNumber(phone: string): boolean {
+  if (!phone) return false;
+
+  // Remove all spaces, dashes, and parentheses
+  const cleaned = phone.replace(/[\s\-\(\)]/g, "");
+
+  // UK MOBILE number patterns ONLY:
+  // +447... (international format)
+  // 00447... (alternative international format)
+  // 07... (national format)
+  // 7... (mobile without leading 0 - edge case)
+
+  if (cleaned.startsWith("+447")) return true;
+  if (cleaned.startsWith("00447")) return true;
+  if (cleaned.startsWith("07") && cleaned.length >= 10) return true;
+  if (cleaned.startsWith("7") && cleaned.length === 10) return true; // Mobile without 0
+
+  return false;
+}
+
+/**
+ * Check if a phone number is a UK number (mobile OR landline)
  * UK numbers start with +44 or 44 or 0
  */
 export function isUKNumber(phone: string): boolean {
@@ -18,7 +43,7 @@ export function isUKNumber(phone: string): boolean {
   // 44... (international without +)
   // 0... (national format)
   // 7... (mobile without leading 0)
-  
+
   if (cleaned.startsWith("+44")) return true;
   if (cleaned.startsWith("44") && cleaned.length >= 12) return true;
   if (cleaned.startsWith("0") && cleaned.length >= 10) return true;
@@ -42,7 +67,11 @@ export function isInternationalNumber(phone: string): boolean {
   }
 
   // If it's a long number starting with a country code (not 44)
-  if (cleaned.length > 11 && !cleaned.startsWith("44") && !cleaned.startsWith("0")) {
+  if (
+    cleaned.length > 11 &&
+    !cleaned.startsWith("44") &&
+    !cleaned.startsWith("0")
+  ) {
     return true;
   }
 
@@ -58,7 +87,7 @@ export function getPhoneCountry(phone: string): string {
   const cleaned = phone.replace(/[\s\-\(\)]/g, "");
 
   if (isUKNumber(cleaned)) return "UK";
-  
+
   // Common international prefixes
   if (cleaned.startsWith("+1") || cleaned.startsWith("1")) return "US/Canada";
   if (cleaned.startsWith("+33")) return "France";
@@ -75,6 +104,8 @@ export function getPhoneCountry(phone: string): string {
 
 /**
  * Validate if we should send SMS to this number (cost control)
+ * ONLY allows UK MOBILE numbers (07/+447/00447)
+ * BLOCKS: landlines (01/02), 0800 numbers, international numbers
  */
 export function shouldSendSMS(phone: string): {
   allowed: boolean;
@@ -89,18 +120,21 @@ export function shouldSendSMS(phone: string): {
     };
   }
 
+  const cleaned = phone.replace(/[\s\-\(\)]/g, "");
   const country = getPhoneCountry(phone);
-  const isUK = isUKNumber(phone);
+  const isUKMobile = isUKMobileNumber(phone);
   const isInternational = isInternationalNumber(phone);
 
-  if (isUK) {
+  // ONLY allow UK mobile numbers
+  if (isUKMobile) {
     return {
       allowed: true,
-      reason: "UK number - SMS allowed",
+      reason: "UK mobile number - SMS allowed",
       country: "UK",
     };
   }
 
+  // Block international numbers
   if (isInternational) {
     return {
       allowed: false,
@@ -109,10 +143,39 @@ export function shouldSendSMS(phone: string): {
     };
   }
 
+  // Block UK landlines and 0800 numbers
+  if (
+    cleaned.startsWith("+4401") ||
+    cleaned.startsWith("+4402") ||
+    cleaned.startsWith("004401") ||
+    cleaned.startsWith("004402") ||
+    cleaned.startsWith("01") ||
+    cleaned.startsWith("02")
+  ) {
+    return {
+      allowed: false,
+      reason: "UK landline - SMS blocked (landlines cannot receive SMS)",
+      country: "UK",
+    };
+  }
+
+  if (
+    cleaned.startsWith("+44800") ||
+    cleaned.startsWith("00448") ||
+    cleaned.startsWith("0800") ||
+    cleaned.startsWith("08")
+  ) {
+    return {
+      allowed: false,
+      reason: "0800/freephone number - SMS blocked",
+      country: "UK",
+    };
+  }
+
   // If we can't determine, be cautious and block
   return {
     allowed: false,
-    reason: "Unable to verify UK number - SMS blocked for safety",
+    reason: "Unable to verify UK mobile number - SMS blocked for safety",
     country: "unknown",
   };
 }

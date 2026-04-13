@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendMessageViaProvider } from "@/app/lib/messaging/provider";
 import { syncQuoteToRepairApp } from "@/app/lib/repair-app-sync";
+import { shouldSendSMS } from "@/lib/phone-validator";
 
 /**
  * POST /api/quotes/send
@@ -47,6 +48,27 @@ export async function POST(request: NextRequest) {
         { status: 404 },
       );
     }
+
+    // Check if this is a UK mobile number (block landlines, 0800, international)
+    const smsCheck = shouldSendSMS(quoteRequest.phone);
+    if (!smsCheck.allowed) {
+      console.log("[Quote Send - Phone Block] ❌", smsCheck.reason);
+      console.log("[Quote Send - Phone Block] Country:", smsCheck.country);
+      console.log("[Quote Send - Phone Block] Number:", quoteRequest.phone);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Cannot send SMS to this number",
+          reason: smsCheck.reason,
+          country: smsCheck.country,
+          message: `Quote cannot be sent via SMS: ${smsCheck.reason}`,
+        },
+        { status: 400 },
+      );
+    }
+
+    console.log("[Quote Send - UK Mobile] ✅ Verified UK mobile - SMS allowed");
 
     // Build the SMS message (different template if parts need ordering)
     const smsMessage = requires_parts_order

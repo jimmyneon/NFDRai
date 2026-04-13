@@ -65,20 +65,42 @@ export async function acceptQuote(quoteId: string) {
 export function formatQuoteForAI(quote: any): string {
   if (!quote) return "";
 
+  const quoteType = quote.type || "repair";
+
   const parts = [
+    `Type: ${quoteType === "sell" ? "BUYBACK/SELL" : "REPAIR"}`,
     `Device: ${quote.device_make} ${quote.device_model}`,
-    `Issue: ${quote.issue}`,
   ];
 
-  if (quote.description) {
-    parts.push(`Description: ${quote.description}`);
-  }
+  // For repair quotes, include issue details
+  if (quoteType === "repair") {
+    parts.push(`Issue: ${quote.issue}`);
 
-  if (quote.additional_issues && Array.isArray(quote.additional_issues) && quote.additional_issues.length > 0) {
-    const additionalIssues = quote.additional_issues
-      .map((repair: any) => `${repair.issue}${repair.description ? ` (${repair.description})` : ""}`)
-      .join(", ");
-    parts.push(`Additional repairs: ${additionalIssues}`);
+    if (quote.description) {
+      parts.push(`Description: ${quote.description}`);
+    }
+
+    if (
+      quote.additional_issues &&
+      Array.isArray(quote.additional_issues) &&
+      quote.additional_issues.length > 0
+    ) {
+      const additionalIssues = quote.additional_issues
+        .map(
+          (repair: any) =>
+            `${repair.issue}${repair.description ? ` (${repair.description})` : ""}`,
+        )
+        .join(", ");
+      parts.push(`Additional repairs: ${additionalIssues}`);
+    }
+  } else {
+    // For sell quotes, show it's a buyback enquiry
+    if (quote.issue && quote.issue !== "Device sell enquiry") {
+      parts.push(`Condition/Notes: ${quote.issue}`);
+    }
+    if (quote.description) {
+      parts.push(`Details: ${quote.description}`);
+    }
   }
 
   if (quote.quoted_price) {
@@ -87,8 +109,12 @@ export function formatQuoteForAI(quote: any): string {
 
   if (quote.expires_at) {
     const expiryDate = new Date(quote.expires_at);
-    const daysUntilExpiry = Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    parts.push(`Expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}`);
+    const daysUntilExpiry = Math.ceil(
+      (expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+    );
+    parts.push(
+      `Expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? "s" : ""}`,
+    );
   }
 
   return parts.join(" | ");
