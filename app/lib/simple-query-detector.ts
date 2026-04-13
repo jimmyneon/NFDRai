@@ -245,6 +245,51 @@ function isAcknowledgment(message: string): boolean {
 }
 
 /**
+ * Check if message is likely responding to staff's question or statement
+ * These should not get AI responses - customer is talking to John
+ */
+function isRespondingToStaff(message: string): boolean {
+  const lowerMessage = message.toLowerCase().trim();
+
+  // Direct answers to questions (likely responding to John's question)
+  const directAnswerPatterns = [
+    /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*(would be|works|is good)/i,
+    /^(today|tomorrow|this week|next week)\s*(would be|works|is good)/i,
+    /^(morning|afternoon|evening)\s*(would be|works|is good)/i,
+    /^(yes|yeah|yep|sure|ok|okay)\s*,?\s*(that|it)?\s*(would be|works|is|sounds)\s*(good|fine|great|perfect)/i,
+    /^(no|nope|nah)\s*,?\s*(that|it)?\s*(doesn't|does not|won't|will not)\s*work/i,
+  ];
+
+  for (const pattern of directAnswerPatterns) {
+    if (pattern.test(lowerMessage)) {
+      return true;
+    }
+  }
+
+  // Short responses that are likely answers to John's questions
+  // Only if message is very short (under 30 chars) and doesn't contain question words
+  if (lowerMessage.length < 30 && !lowerMessage.includes("?")) {
+    const shortAnswers = [
+      /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i,
+      /^(today|tomorrow)$/i,
+      /^(morning|afternoon|evening)$/i,
+      /^(yes|yeah|yep|sure|ok|okay|alright)$/i,
+      /^(no|nope|nah|not really)$/i,
+      /^(anytime|any time|whenever)$/i,
+      /^(as soon as possible|asap)$/i,
+    ];
+
+    for (const pattern of shortAnswers) {
+      if (pattern.test(lowerMessage)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Check if AI should respond based on staff activity and message type
  *
  * @param minutesSinceStaffMessage Minutes since last staff message
@@ -259,9 +304,8 @@ export function shouldAIRespond(
   reason: string;
   queryInfo?: SimpleQueryResult;
 } {
-  // 98% AUTOMATION: AI responds to everything except pure acknowledgments
-  // No more 30-minute pause or 2-minute guard
-  // AI uses staff message as context and responds appropriately
+  // CONSERVATIVE APPROACH: Be more careful after staff messages
+  // Don't compete with John or respond to messages clearly directed at him
 
   // Check if it's just an acknowledgment (thanks John, ok, bye, etc.)
   // These don't need AI responses - customer is just acknowledging staff
@@ -281,10 +325,29 @@ export function shouldAIRespond(
     };
   }
 
+  // NEW: Check if customer is responding to John's question/statement
+  // If John just messaged (< 5 minutes ago) and customer sends a short response
+  // that looks like an answer, stay quiet
+  if (minutesSinceStaffMessage < 5) {
+    const respondingToStaff = isRespondingToStaff(message);
+    console.log("[AI Response Check] Staff response check:", {
+      message: message.substring(0, 100),
+      isRespondingToStaff: respondingToStaff,
+      minutesSinceStaff: minutesSinceStaffMessage.toFixed(1),
+    });
+
+    if (respondingToStaff) {
+      return {
+        shouldRespond: false,
+        reason: `Customer responding to John's message (${minutesSinceStaffMessage.toFixed(1)} min ago) - staying quiet`,
+      };
+    }
+  }
+
   // Check if it's a simple query for logging purposes
   const queryInfo = isSimpleQuery(message);
 
-  // AI ALWAYS responds to non-acknowledgment messages
+  // AI responds to non-acknowledgment messages that aren't direct responses to John
   // Staff message is in conversation context, AI will use it appropriately
   return {
     shouldRespond: true,

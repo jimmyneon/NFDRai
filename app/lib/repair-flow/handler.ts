@@ -48,7 +48,7 @@ import {
  */
 async function fetchPricesFromDB(
   deviceType: string | null,
-  issue: string | null
+  issue: string | null,
 ): Promise<string> {
   try {
     const supabase = createServiceClient();
@@ -94,7 +94,7 @@ async function fetchPricesFromDB(
       const patterns = issuePatterns[issue.toLowerCase()];
       if (patterns) {
         query = query.or(
-          patterns.map((p) => `repair_type.ilike.%${p}%`).join(",")
+          patterns.map((p) => `repair_type.ilike.%${p}%`).join(","),
         );
       }
     }
@@ -112,12 +112,12 @@ async function fetchPricesFromDB(
         (p) =>
           `- ${p.device} ${p.repair_type}: ${p.price} (${
             p.turnaround || "same day"
-          })`
+          })`,
       )
       .join("\n");
 
     console.log(
-      `[Price Lookup] Found ${prices.length} prices for ${deviceType}/${issue}`
+      `[Price Lookup] Found ${prices.length} prices for ${deviceType}/${issue}`,
     );
     return priceList;
   } catch (error) {
@@ -147,7 +147,7 @@ function buildRepairFlowPrompt(
     stillMissing: string[];
     isOutcome?: boolean;
   },
-  dbPrices?: string
+  dbPrices?: string,
 ): string {
   // Determine what stage we're at
   const hasDevice = !context.stillMissing.includes("device");
@@ -256,7 +256,7 @@ Based on their answers, narrow it down:
 - Home button + 1 camera = iPhone SE or iPhone 8
 
 AFTER 5 QUESTIONS OR IF STILL UNSURE:
-Say: "No worries! Based on what you've told me, it sounds like an iPhone [X series]. Screen repairs for that range are typically £[range]. We can confirm the exact model and price when you pop in - it only takes a minute!"
+Say: "No worries! Based on what you've told me, it sounds like an iPhone [X series]. Screen repairs for that range are typically £[range]. You can get an exact quote here: https://www.newforestdevicerepairs.co.uk/repair-request"
 
 PRICE RANGES:
 - iPhone 15 series: £129-£189
@@ -290,7 +290,7 @@ For other Android:
 - "When did you buy it roughly?"
 
 AFTER 5 QUESTIONS OR IF STILL UNSURE:
-Say: "Based on what you've described, it sounds like a [brand] [series]. Screen repairs typically run £[range]. We can confirm the exact price when you bring it in!"
+Say: "Based on what you've described, it sounds like a [brand] [series]. Screen repairs typically run £[range]. You can get an exact quote here: https://www.newforestdevicerepairs.co.uk/repair-request"
 
 PRICE RANGES:
 - Samsung S series: £99-£229
@@ -412,7 +412,7 @@ RESPOND WITH ONLY YOUR MESSAGE (no quotes, no explanation):`;
 
 export async function handleRepairFlow(
   request: RepairFlowRequest,
-  sessionId?: string
+  sessionId?: string,
 ): Promise<RepairFlowResponse> {
   const { message } = request;
 
@@ -439,7 +439,7 @@ export async function handleRepairFlow(
     "category_",
   ];
   const isSpecialCommand = specialCommands.some((cmd) =>
-    msgLower.startsWith(cmd)
+    msgLower.startsWith(cmd),
   );
 
   // Handle price_estimate: messages - NOT greeting requests
@@ -618,7 +618,7 @@ export async function handleRepairFlow(
       console.log(
         "[Repair Flow] Unknown step:",
         context.step,
-        "- trying to help based on context"
+        "- trying to help based on context",
       );
       return handleUnknownStep(message, context);
   }
@@ -644,7 +644,7 @@ async function generateRepairFlowMessage(
     needsAssessment?: boolean;
     stillMissing: string[];
     isOutcome?: boolean;
-  }
+  },
 ): Promise<string[]> {
   console.log("🔥🔥🔥 [Repair Flow LLM] FUNCTION CALLED 🔥🔥🔥");
   console.log("[Repair Flow LLM] Called with:", {
@@ -687,11 +687,11 @@ async function generateRepairFlowMessage(
     if (context.deviceType || context.issue) {
       dbPrices = await fetchPricesFromDB(
         context.deviceType || null,
-        context.issue || null
+        context.issue || null,
       );
       console.log(
         "[Repair Flow LLM] Fetched DB prices:",
-        dbPrices.substring(0, 200)
+        dbPrices.substring(0, 200),
       );
     }
 
@@ -699,7 +699,7 @@ async function generateRepairFlowMessage(
       userMessage,
       chatHistory,
       context,
-      dbPrices
+      dbPrices,
     );
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -725,7 +725,7 @@ async function generateRepairFlowMessage(
     const data = await response.json();
     console.log(
       "[Repair Flow LLM] OpenAI response:",
-      JSON.stringify(data).slice(0, 200)
+      JSON.stringify(data).slice(0, 200),
     );
     const aiMessage = data.choices?.[0]?.message?.content?.trim() || "";
 
@@ -751,7 +751,7 @@ async function generateRepairFlowMessage(
  */
 async function extractWithAI(
   message: string,
-  contextSummary: string
+  contextSummary: string,
 ): Promise<{
   device_type?: string;
   device_name?: string;
@@ -777,7 +777,7 @@ async function extractWithAI(
     if (aiSettingsError) {
       console.error(
         "[AI Extraction] Failed to load ai_settings api_key:",
-        aiSettingsError
+        aiSettingsError,
       );
     }
 
@@ -878,7 +878,7 @@ Examples:
  */
 async function handleAIInstructions(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): Promise<RepairFlowResponse> {
   const instructions = context.ai_instructions!;
   const msgLower = message.toLowerCase();
@@ -902,12 +902,12 @@ async function handleAIInstructions(
   // If we didn't extract much, use AI for typo correction
   if (!extracted.device_type && !extracted.issue) {
     console.log(
-      "[AI Instructions] Pattern matching found nothing useful, using AI extraction..."
+      "[AI Instructions] Pattern matching found nothing useful, using AI extraction...",
     );
     extractionStrategy = "ai";
     extracted = await extractWithAI(
       message,
-      instructions.context_summary || ""
+      instructions.context_summary || "",
     );
   }
 
@@ -990,7 +990,7 @@ async function handleAIInstructions(
         needsAssessment,
         stillMissing: [],
         isOutcome: true,
-      }
+      },
     );
 
     return {
@@ -1039,13 +1039,13 @@ async function handleAIInstructions(
   const isShortGreeting =
     msgLower.trim().length <= 12 &&
     !msgLower.match(
-      /(screen|battery|charge|charging|water|crack|broken|broke|dead|won't turn on|wont turn on|problem|issue|phone|pone|fone|iphone|samsung|ipad|laptop|mac)/i
+      /(screen|battery|charge|charging|water|crack|broken|broke|dead|won't turn on|wont turn on|problem|issue|phone|pone|fone|iphone|samsung|ipad|laptop|mac)/i,
     );
 
   // Check if message looks like it might be about a device (even with typos)
   const mightBeDeviceRelated =
     /phone|pone|fone|phon|mobil|cell|iphone|samsung|ipad|tablet|laptop|mac|screen|broke|broken|crack|charg|batter/i.test(
-      msgLower
+      msgLower,
     );
 
   // Only trigger loop guard if:
@@ -1066,7 +1066,7 @@ async function handleAIInstructions(
     failedAttempts >= 3
   ) {
     console.log(
-      "[AI Instructions] Loop guard triggered after 3+ failed attempts - falling back to assessment."
+      "[AI Instructions] Loop guard triggered after 3+ failed attempts - falling back to assessment.",
     );
 
     // Generate a natural fallback message using LLM
@@ -1082,7 +1082,7 @@ async function handleAIInstructions(
         needsAssessment: true,
         stillMissing: [],
         isOutcome: true,
-      }
+      },
     );
 
     return {
@@ -1133,7 +1133,7 @@ async function handleAIInstructions(
         needsAssessment,
         stillMissing: ["model"],
         isOutcome: false,
-      }
+      },
     );
     return {
       type: "repair_flow_response",
@@ -1176,7 +1176,7 @@ async function handleAIInstructions(
         needsAssessment: false,
         stillMissing: ["issue"],
         isOutcome: false,
-      }
+      },
     );
     return {
       type: "repair_flow_response",
@@ -1211,7 +1211,7 @@ async function handleAIInstructions(
         needsAssessment,
         stillMissing: ["device"],
         isOutcome: false,
-      }
+      },
     );
     return {
       type: "repair_flow_response",
@@ -1236,7 +1236,7 @@ async function handleAIInstructions(
       needsAssessment: false,
       stillMissing: ["device", "issue"],
       isOutcome: false,
-    }
+    },
   );
   return {
     type: "repair_flow_response",
@@ -1295,7 +1295,7 @@ function buildAcknowledgingPrefix(message: string): string | null {
  */
 async function handleIssueUnknown(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): Promise<RepairFlowResponse> {
   const parsed = parseSymptomToIssue(message);
 
@@ -1317,7 +1317,7 @@ async function handleIssueUnknown(
  */
 function extractInfoFromMessage(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): {
   device_type?: string;
   device_name?: string;
@@ -1470,7 +1470,7 @@ function extractInfoFromMessage(
  */
 async function handleAITakeover(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): Promise<RepairFlowResponse> {
   const msgLower = message.toLowerCase();
   const fullState = context.full_state || {};
@@ -1480,7 +1480,7 @@ async function handleAITakeover(
   const trimmed = msgLower.trim();
   const isGreeting = /^(hi|hello|hey|hiya)\b/.test(trimmed);
   const isDontKnow = /(dunno|dont know|don't know|not sure|no idea)/.test(
-    trimmed
+    trimmed,
   );
 
   // If user just greets, respond once in a friendly way but don't loop
@@ -1497,7 +1497,7 @@ async function handleAITakeover(
         needsAssessment: false,
         stillMissing: ["device", "issue"],
         isOutcome: false,
-      }
+      },
     );
     return {
       type: "repair_flow_response",
@@ -1518,7 +1518,7 @@ async function handleAITakeover(
       .join(" ");
     const askingAboutModel =
       /model|which (iphone|samsung|ipad)|face id|home button|camera/.test(
-        lastMessages
+        lastMessages,
       );
 
     if (askingAboutModel) {
@@ -1536,7 +1536,7 @@ async function handleAITakeover(
           needsAssessment: false,
           stillMissing: ["model"],
           isOutcome: false,
-        }
+        },
       );
 
       // Show model identification buttons
@@ -1621,7 +1621,7 @@ async function handleAITakeover(
       needsAssessment: analysis.needsAssessment || false,
       stillMissing,
       isOutcome: stillMissing.length === 0,
-    }
+    },
   );
 
   // If we have everything needed, hand back control
@@ -1718,7 +1718,7 @@ async function handleAITakeover(
 
   console.log(
     "[AI Takeover] Quick actions:",
-    quickActions.map((q) => q.label)
+    quickActions.map((q) => q.label),
   );
 
   return {
@@ -1736,7 +1736,7 @@ async function handleAITakeover(
  */
 async function analyzeMessageWithAI(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): Promise<{
   deviceType: string | null;
   deviceName: string | null;
@@ -1764,7 +1764,7 @@ async function analyzeMessageWithAI(
     if (aiSettingsError) {
       console.error(
         "[AI Analysis] Failed to load ai_settings api_key:",
-        aiSettingsError
+        aiSettingsError,
       );
     }
 
@@ -1944,7 +1944,7 @@ Return ONLY valid JSON:
  */
 function handlePriceEstimateCommand(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const parts = message.split(":");
   const deviceType = parts[1] || context.device_type || "iphone";
@@ -2114,7 +2114,7 @@ function formatDeviceName(deviceType: string, model: string): string {
 function getPriceForModelAndIssue(
   model: string,
   issue: string,
-  deviceType: string
+  deviceType: string,
 ): string {
   const issueLower = issue.toLowerCase();
   const modelLower = model.toLowerCase();
@@ -2292,13 +2292,13 @@ function getSpecificPrice(model: string, issueLabel: string): string {
  */
 function handleInvalidRequest(
   step: string,
-  message: string
+  message: string,
 ): RepairFlowResponse {
   console.log(
     "[Repair Flow] Invalid request - step:",
     step,
     "message:",
-    message
+    message,
   );
 
   // If they sent a message with greeting step, try to be helpful
@@ -2326,7 +2326,7 @@ function handleInvalidRequest(
  */
 function handleOutcomeStep(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const msgLower = message.toLowerCase();
   const deviceName =
@@ -2334,7 +2334,7 @@ function handleOutcomeStep(
     context.device_name ||
     formatDeviceName(
       context.device_type || "device",
-      context.device_model || ""
+      context.device_model || "",
     );
   const issueLabel =
     context.issue_label || formatIssueLabel(context.issue || "repair");
@@ -2423,7 +2423,7 @@ function handleOutcomeStep(
  */
 function handleCollectContact(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   // For now, just acknowledge - frontend handles the form
   return {
@@ -2443,7 +2443,7 @@ function handleCollectContact(
  */
 function handleConfirmation(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const msgLower = message.toLowerCase();
 
@@ -2487,7 +2487,7 @@ function handleConfirmation(
  */
 function handleUnknownStep(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   console.log("[Repair Flow] Unknown step handler:", {
     step: context.step,
@@ -2611,7 +2611,7 @@ function handleGreeting(): RepairFlowResponse {
  */
 function handleOtherDevice(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const msgLower = message.toLowerCase();
 
@@ -2661,7 +2661,7 @@ function handleOtherDevice(
       messages: [
         `Thanks for the details! We can take a look at your ${deviceType}. 👍`,
         "For non-standard devices, we'll need to assess it in person to give you an accurate quote.",
-        "The assessment is free - just bring it in and John will take a look!",
+        "You can get started here: https://www.newforestdevicerepairs.co.uk/repair-request",
       ],
       scene: null,
       quick_actions: BOOKING_ACTIONS,
@@ -2716,7 +2716,7 @@ function handleUnknownDevice(): RepairFlowResponse {
  */
 function handleCategorySelected(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const category = message.replace("category_", "").toLowerCase();
 
@@ -2815,7 +2815,7 @@ function handleCompletelyUnknown(): RepairFlowResponse {
  */
 function handleDeviceSelected(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   // Device type can come from message (button click) or context
   const deviceType = context.device_type || message.toLowerCase();
@@ -2901,7 +2901,7 @@ function handleDeviceSelected(
  */
 function handleModelSelected(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   // Model can come from message (button click) or context
   const modelId = (context.device_model || message).toLowerCase();
@@ -3003,7 +3003,7 @@ function handleIdentifyiPhone(context: RepairFlowContext): RepairFlowResponse {
  */
 function handleIdentifyResponse(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const action = message.replace("identify_", "").toLowerCase();
   const deviceType = context.device_type || "iphone";
@@ -3011,10 +3011,10 @@ function handleIdentifyResponse(
     deviceType === "iphone"
       ? "iPhone"
       : deviceType === "ipad"
-      ? "iPad"
-      : deviceType === "samsung"
-      ? "Samsung"
-      : "device";
+        ? "iPad"
+        : deviceType === "samsung"
+          ? "Samsung"
+          : "device";
   const id = context.identification || {};
 
   // Device is usable - guide them to Settings
@@ -3026,8 +3026,8 @@ function handleIdentifyResponse(
         deviceType === "iphone"
           ? "Go to Settings → General → About → look for 'Model Name'"
           : deviceType === "samsung"
-          ? "Go to Settings → About Phone → look for 'Model Name'"
-          : "Go to Settings → About → look for 'Model Name'",
+            ? "Go to Settings → About Phone → look for 'Model Name'"
+            : "Go to Settings → About → look for 'Model Name'",
         "What does it say?",
       ],
       new_step: "identify_model",
@@ -3710,17 +3710,17 @@ function handleIdentifyResponse(
  * If not usable → Ask about port type, cameras, etc.
  */
 function startIdentificationFlow(
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const deviceType = context.device_type || "iphone";
   const deviceName =
     deviceType === "iphone"
       ? "iPhone"
       : deviceType === "ipad"
-      ? "iPad"
-      : deviceType === "samsung"
-      ? "Samsung"
-      : "device";
+        ? "iPad"
+        : deviceType === "samsung"
+          ? "Samsung"
+          : "device";
 
   return {
     type: "repair_flow_response",
@@ -3771,7 +3771,7 @@ function startIdentificationFlow(
  * Proceed without knowing exact model - give range pricing
  */
 function handleProceedWithoutModel(
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const deviceType = context.device_type || "iphone";
 
@@ -3837,7 +3837,7 @@ function handleProceedWithoutModel(
  */
 function handleModelUnknown(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const deviceType = context.device_type || "iphone";
   const series = context.selected_series || "";
@@ -3866,7 +3866,7 @@ function handleModelUnknown(
 
   if (dontKnowPatterns.some((pattern) => pattern.test(msgLower))) {
     console.log(
-      "[Model Unknown] User doesn't know model - starting identification help"
+      "[Model Unknown] User doesn't know model - starting identification help",
     );
     // Start identification flow - first ask if device is usable
     return startIdentificationFlow(context);
@@ -3877,7 +3877,7 @@ function handleModelUnknown(
     msgLower,
     deviceType,
     series,
-    summary
+    summary,
   );
   if (modelDetected) {
     return {
@@ -3957,10 +3957,10 @@ function handleModelUnknown(
         context.device_type === "iphone"
           ? "iPhone"
           : context.device_type === "ipad"
-          ? "iPad"
-          : context.device_type === "samsung"
-          ? "Samsung"
-          : "device";
+            ? "iPad"
+            : context.device_type === "samsung"
+              ? "Samsung"
+              : "device";
       return {
         type: "repair_flow_response",
         messages: [
@@ -4004,8 +4004,8 @@ function handleModelUnknown(
           deviceType === "samsung"
             ? "S21"
             : deviceType === "iphone"
-            ? "iPhone 12"
-            : "the model number"
+              ? "iPhone 12"
+              : "the model number"
         }"`,
       ],
       new_step: "model_unknown", // Stay on same step but don't loop
@@ -4345,7 +4345,7 @@ function handleModelUnknown(
  */
 function handleIdentifyDevice(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   // This is called when we're in the middle of identifying a device
   return handleCategorySelected(message, context);
@@ -4356,7 +4356,7 @@ function handleIdentifyDevice(
  */
 function handleIdentifyModel(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   return handleIdentifyResponse(message, context);
 }
@@ -4366,7 +4366,7 @@ function handleIdentifyModel(
  */
 async function handleIssueSelected(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): Promise<RepairFlowResponse> {
   const issue = context.issue || message.toLowerCase();
 
@@ -4454,7 +4454,7 @@ async function handleIssueSelected(
     issueLabel,
     priceEstimate,
     turnaround,
-    deviceConfig.name
+    deviceConfig.name,
   );
 
   return {
@@ -4472,7 +4472,7 @@ async function handleIssueSelected(
  */
 function handleDiagnoseIssue(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const deviceName =
     context.device_model ||
@@ -4498,7 +4498,7 @@ function handleDiagnoseIssue(
  */
 function handleSymptomSelected(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): RepairFlowResponse {
   const symptom = message.replace("symptom_", "").toLowerCase();
 
@@ -4553,7 +4553,7 @@ function handleDescribeIssue(context: RepairFlowContext): RepairFlowResponse {
  */
 function handleNeedsDiagnostic(
   context: RepairFlowContext,
-  issue: string
+  issue: string,
 ): RepairFlowResponse {
   const deviceName =
     context.device_model ||
@@ -4567,20 +4567,20 @@ function handleNeedsDiagnostic(
   if (issue === "water") {
     messages = [
       "Water damage can be tricky - it really depends on what's affected inside. 💧",
-      "The best thing is to bring it in for a free diagnostic. We'll open it up, assess the damage, and give you a firm quote.",
-      "No fix, no fee! 👍",
+      "We offer free diagnostics - we'll open it up, assess the damage, and give you a firm quote.",
+      "You can get started here: https://www.newforestdevicerepairs.co.uk/repair-request",
     ];
   } else if (issue === "power") {
     messages = [
       "Power issues can have a few causes - could be the battery, charging port, or something else.",
-      "The best thing is to bring it in for a free diagnostic - we'll figure out exactly what's wrong and give you a firm quote.",
-      "No fix, no fee! 👍",
+      "We offer free diagnostics - we'll figure out exactly what's wrong and give you a firm quote.",
+      "You can get started here: https://www.newforestdevicerepairs.co.uk/repair-request",
     ];
   } else {
     messages = [
       "Based on what you've described, this might need a closer look.",
-      "The best thing is to bring it in for a free diagnostic - we'll tell you exactly what's wrong and give you a firm quote before doing any work.",
-      "No fix, no fee! 👍",
+      "We offer free diagnostics - we'll tell you exactly what's wrong and give you a firm quote before doing any work.",
+      "You can get started here: https://www.newforestdevicerepairs.co.uk/repair-request",
     ];
   }
 
@@ -4635,7 +4635,7 @@ function detectModelWithContext(
   text: string,
   deviceType: string,
   series: string,
-  summary: string
+  summary: string,
 ): { id: string; label: string } | null {
   const msgLower = text.toLowerCase().trim();
 
@@ -4789,7 +4789,7 @@ function detectModelWithContext(
  */
 function detectModelFromText(
   text: string,
-  deviceType: string
+  deviceType: string,
 ): { id: string; label: string } | null {
   const textLower = text.toLowerCase().replace(/[^a-z0-9\s]/g, "");
 
@@ -5048,7 +5048,7 @@ function handleCallUs(): RepairFlowResponse {
  */
 async function handleFreeTextQuestion(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): Promise<RepairFlowResponse> {
   // First, try to parse as a symptom description
   const parsedIssue = parseSymptomToIssue(message);
@@ -5144,7 +5144,7 @@ function getIssueMessages(
   issueLabel: string,
   price: string,
   turnaround: string,
-  deviceName: string
+  deviceName: string,
 ): string[] {
   const messages: string[] = [];
 
@@ -5155,7 +5155,7 @@ function getIssueMessages(
     `${issueLabel} - you've come to the right place! 💪`,
   ];
   messages.push(
-    acknowledgments[Math.floor(Math.random() * acknowledgments.length)]
+    acknowledgments[Math.floor(Math.random() * acknowledgments.length)],
   );
 
   // Price and time info
@@ -5165,22 +5165,22 @@ function getIssueMessages(
     price.includes("around")
   ) {
     messages.push(
-      `The typical price is ${price.toLowerCase()} depending on your ${deviceName} model. Most repairs are done in ${turnaround}!`
+      `The typical price is ${price.toLowerCase()} depending on your ${deviceName} model. Most repairs are done in ${turnaround}!`,
     );
   } else {
     messages.push(
-      `That would be ${price}, and we can usually have it done in ${turnaround}.`
+      `That would be ${price}, and we can usually have it done in ${turnaround}.`,
     );
   }
 
   // Always add disclaimer that John will confirm
   messages.push(
-    "This is just an estimate - John will confirm the exact price when he sees your device."
+    "This is just an estimate - John will confirm the exact price when he sees your device.",
   );
 
   // Call to action
   messages.push(
-    "Would you like to book this repair, or do you have any questions?"
+    "Would you like to book this repair, or do you have any questions?",
   );
 
   return messages;
@@ -5191,7 +5191,7 @@ function getIssueMessages(
  */
 async function lookupPrice(
   deviceModel: string,
-  issue: string
+  issue: string,
 ): Promise<{ cost: number; turnaround: string | null } | null> {
   try {
     const supabase = createServiceClient();
@@ -5229,7 +5229,7 @@ async function lookupPrice(
  */
 function getQuickAnswer(
   message: string,
-  context: RepairFlowContext
+  context: RepairFlowContext,
 ): string | null {
   const lowerMessage = message.toLowerCase();
 
@@ -5412,7 +5412,7 @@ function getIPhoneChargingPrice(model: string): string {
 async function handleMacBookYearSelected(
   model: string,
   year: string,
-  issue: string
+  issue: string,
 ): Promise<RepairFlowResponse> {
   const modelLabel = model
     .replace(/-/g, " ")
@@ -5432,7 +5432,7 @@ async function handleMacBookYearSelected(
       type: "repair_flow_response",
       messages: [
         `No problem! For a ${modelLabel} ${issueLabel}, prices typically range from ${priceInfo.range}.`,
-        "Bring it in and we'll identify the exact model and give you a firm quote. The assessment is free!",
+        "You can get an exact quote here: https://www.newforestdevicerepairs.co.uk/repair-request",
       ],
       scene: {
         device_type: "macbook",
@@ -5480,7 +5480,7 @@ async function handleMacBookYearSelected(
 function getMacBookPrice(
   model: string,
   year: string,
-  issue: string
+  issue: string,
 ): { price: string; range: string; turnaround: string } {
   // Screen repair prices by year/chip
   const screenPrices: Record<string, Record<string, string>> = {
