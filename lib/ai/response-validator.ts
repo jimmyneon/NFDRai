@@ -33,29 +33,28 @@ export function validateAIResponse(response: string): ValidationResult {
       // Remove pricing, add link instead
       correctedResponse = correctedResponse.replace(
         pattern,
-        "You can get a quote here: https://www.newforestdevicerepairs.co.uk/repair-request"
+        "You can get a quote here: https://www.newforestdevicerepairs.co.uk/repair-request",
       );
       break;
     }
   }
 
-  // Check 2: John references
-  const johnPatterns = [
-    /john will/i,
-    /i'?ll let john/i,
-    /pass.*to john/i,
-    /check with john/i,
-    /john can/i,
-    /john'?ll/i,
+  // Check 2: John references - REMOVED
+  // NOTE: "John will confirm" is now ALLOWED per migration 096
+  // We want AI to say "John will confirm a time" for bookings
+  // Only block if AI is trying to pass message to John (which it shouldn't do)
+  const badJohnPatterns = [
+    /i'?ll let john know/i,
+    /i'?ll pass.*to john/i,
+    /i'?ll tell john/i,
   ];
 
-  for (const pattern of johnPatterns) {
+  for (const pattern of badJohnPatterns) {
     if (pattern.test(response)) {
-      violations.push("Mentions John");
-      correctedResponse = correctedResponse.replace(
-        pattern,
-        "You can get help here: https://www.newforestdevicerepairs.co.uk/start"
+      violations.push(
+        "Trying to pass message to John (should handle directly or route to website)",
       );
+      // Don't replace - just flag it
       break;
     }
   }
@@ -89,7 +88,9 @@ export function validateAIResponse(response: string): ValidationResult {
 
   for (const pattern of deviceHelpPatterns) {
     if (pattern.test(response)) {
-      violations.push("Provides device identification help (should route to website)");
+      violations.push(
+        "Provides device identification help (should route to website)",
+      );
       correctedResponse =
         "No problem! Start here and we'll help you identify it: https://www.newforestdevicerepairs.co.uk/repair-request";
       break;
@@ -136,7 +137,7 @@ export function validateAIResponse(response: string): ValidationResult {
  */
 export function logValidation(
   validation: ValidationResult,
-  originalResponse: string
+  originalResponse: string,
 ): void {
   if (!validation.valid) {
     console.warn("[Response Validator] ⚠️ Violations found:", {
@@ -145,7 +146,10 @@ export function logValidation(
       correctedLength: validation.correctedResponse?.length,
     });
     console.log("[Response Validator] Original:", originalResponse);
-    console.log("[Response Validator] Corrected:", validation.correctedResponse);
+    console.log(
+      "[Response Validator] Corrected:",
+      validation.correctedResponse,
+    );
   } else {
     console.log("[Response Validator] ✅ Response valid");
   }
@@ -156,17 +160,17 @@ export function logValidation(
  */
 export function validateAPIUsage(
   response: string,
-  hasAPIData: boolean
+  hasAPIData: boolean,
 ): boolean {
   // If response mentions status/repair/quote info, it should have API data
   const mentionsStatus = /status|ready|progress|job ref|tracking/i.test(
-    response
+    response,
   );
   const mentionsQuote = /quote.*£|quoted.*price/i.test(response);
 
   if ((mentionsStatus || mentionsQuote) && !hasAPIData) {
     console.warn(
-      "[Response Validator] ⚠️ Response mentions status/quote but no API data provided"
+      "[Response Validator] ⚠️ Response mentions status/quote but no API data provided",
     );
     return false;
   }

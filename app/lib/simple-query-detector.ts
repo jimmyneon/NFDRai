@@ -169,34 +169,18 @@ export function isSimpleQuery(message: string): SimpleQueryResult {
 function isAcknowledgment(message: string): boolean {
   const lowerMessage = message.toLowerCase().trim();
 
-  // Special-case longer "coming/arrival" style messages (customer confirming they will come in)
-  // These should be treated as acknowledgments even if longer than 50 characters,
-  // as long as they don't contain questions.
-  const longArrivalPatterns = [
-    /i'?ll\s+be\s+leaving\s+soon/i,
-    /i'?ll\s+be\s+there\s+about/i,
-    /i\s+could\s+get\s+there\s+about/i,
-    /i'?ll\s+come\s+in\s+(later|tomorrow|today)/i,
-    /see\s+you\s+(then|at\s+\d|later|soon)/i,
-  ];
-
-  // If message contains a question mark, it's NOT just an acknowledgment
-  // If message contains a question mark, it's NOT just an acknowledgment
+  // Safety checks FIRST - reject if these are present
+  // 1. Contains question mark = NOT pure acknowledgment
   if (lowerMessage.includes("?")) {
     return false;
   }
 
-  // Long arrival/coming messages without questions are acknowledgments
-  if (longArrivalPatterns.some((pattern) => pattern.test(lowerMessage))) {
-    return true;
-  }
-
-  // If message is longer than 50 characters, likely has additional content
+  // 2. Too long = likely has more content
   if (lowerMessage.length > 50) {
     return false;
   }
 
-  // If message contains question words, it's NOT just an acknowledgment
+  // 3. Contains question words = NOT pure acknowledgment
   const questionWords = [
     "how",
     "what",
@@ -211,6 +195,24 @@ function isAcknowledgment(message: string): boolean {
   ];
   if (questionWords.some((word) => lowerMessage.includes(word))) {
     return false;
+  }
+
+  // NEW: Check for acknowledgments of John's updates/info
+  // "thanks for the update", "appreciate it", "no problem", etc.
+  const updateAcknowledgments = [
+    /thanks?\s+(for\s+)?(the\s+)?(update|info|letting me know|heads up)/i,
+    /appreciate\s+(it|that|the update|the info)/i,
+    /no\s+(problem|worries|probs)/i,
+    /got\s+it/i,
+    /understood/i,
+    /will\s+do/i,
+    /sounds?\s+good/i,
+  ];
+
+  for (const pattern of updateAcknowledgments) {
+    if (pattern.test(lowerMessage)) {
+      return true;
+    }
   }
 
   const acknowledgmentPatterns = [
@@ -261,6 +263,34 @@ function isRespondingToStaff(message: string): boolean {
   ];
 
   for (const pattern of directAnswerPatterns) {
+    if (pattern.test(lowerMessage)) {
+      return true;
+    }
+  }
+
+  // NEW: Yes/no answers with "please" or emojis (very likely answering John's question)
+  const yesNoWithPlease = [
+    /^(yes|yeah|yep|sure)\s+please[\s!.😊👍✅]*$/i,
+    /^(no|nope|nah)\s+(thanks?|thank you)[\s!.😊👍]*$/i,
+    /^(yes|yeah|yep|sure)[\s!.😊👍✅]+$/i, // "Yes 😊" or "Yeah!"
+    /^(no|nope|nah)[\s!.😊👍]+$/i,
+  ];
+
+  for (const pattern of yesNoWithPlease) {
+    if (pattern.test(lowerMessage)) {
+      return true;
+    }
+  }
+
+  // NEW: Responses to offers ("just the screen please", "both please", etc.)
+  const offerResponses = [
+    /just\s+the\s+\w+\s+please/i,
+    /both\s+please/i,
+    /all\s+of\s+(it|them)\s+please/i,
+    /only\s+the\s+\w+/i,
+  ];
+
+  for (const pattern of offerResponses) {
     if (pattern.test(lowerMessage)) {
       return true;
     }

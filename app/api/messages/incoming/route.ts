@@ -1281,7 +1281,7 @@ export async function POST(request: NextRequest) {
     // Check repair status if customer is asking about their repair
     let repairStatusContext = "";
     const isStatusInquiry =
-      /status|ready|update|how'?s|progress|when will|finished|done|collect|check|left|dropped off|repair/i.test(
+      /status|ready|update|how'?s|progress|when will|finished|done|collect|check|left|dropped off|repair|parts?|waiting|eta|arrive|delivery|ordered|shipped|tracking|stuck|delayed|still waiting/i.test(
         messageToProcess,
       );
 
