@@ -67,9 +67,10 @@ export async function POST(request: NextRequest) {
       "[Missed Call - UK Number] ✅ Verified UK number - SMS allowed",
     );
 
-    // Rate limiting: Max 1 missed call response per 2 minutes per phone number
+    // Rate limiting: Max 1 missed call response per 30 minutes per phone number
+    // Prevents spam if someone repeatedly calls
     const rateLimit = checkRateLimit(from, "missed-call", {
-      windowMs: 2 * 60 * 1000, // 2 minutes
+      windowMs: 30 * 60 * 1000, // 30 minutes
       maxRequests: 1,
     });
 
