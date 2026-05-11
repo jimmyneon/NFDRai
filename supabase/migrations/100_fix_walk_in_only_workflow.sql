@@ -17,19 +17,27 @@ VALUES (
 When customer asks about bringing device in:
 
 STEP 1 - CHECK REPAIR STATUS FIRST:
-- Look for [REPAIR STATUS INFORMATION] in your context
+- Look for [REPAIR STATUS INFORMATION] in your context (this is REAL-TIME API data)
 - Look for [ACTIVE QUOTE FOR THIS CUSTOMER] in your context
-- If repair exists → Share the status first
+- Look for [CURRENT BUSINESS HOURS STATUS] in your context (this is REAL-TIME hours)
 
-STEP 2 - IF NO REPAIR OR STATUS CHECKED:
-- Tell them they can walk in during opening hours
-- NO time slots, NO "John will confirm" for simple walk-ins
-- Just: "You can bring it in anytime during our opening hours"
+STEP 2 - IF NO REPAIR STATUS:
+- Direct to booking flow: "You can get a quote here: https://www.newforestdevicerepairs.co.uk/repair-request"
+- The booking form will create the repair job
+- Once booked, customer can walk in anytime during opening hours
+
+STEP 3 - IF REPAIR EXISTS:
+- Share the status from [REPAIR STATUS INFORMATION]
+- If ready/parts ready: "You can come in whenever you''re ready during opening hours"
+- If awaiting parts: "Once parts arrive, you can come in anytime during opening hours"
+- If in progress: "Come in whenever convenient during opening hours"
+- USE THE HOURS FROM [CURRENT BUSINESS HOURS STATUS] - don''t hard-code!
 
 OPENING HOURS:
-- Monday-Friday: 10am-5pm
-- Saturday: 10am-2pm
-- Sunday: Closed
+- DO NOT hard-code hours
+- Use the hours from [CURRENT BUSINESS HOURS STATUS] in your context
+- This is REAL-TIME data from the app/database
+- Format: "during opening hours" or "between [hours from context]"
 
 WHEN TO SAY "JOHN WILL CONFIRM":
 ONLY for these specific situations:
@@ -42,41 +50,40 @@ EXAMPLES:
 
 Customer: "When can I bring it in?"
 [No repair status in context]
-✅ RIGHT: "You can bring it in anytime during our opening hours (Mon-Fri 10am-5pm, Sat 10am-2pm). We don''t do time slots - just pop in when convenient."
-❌ WRONG: "John will confirm a time with you" (we don''t do time slots!)
+✅ RIGHT: "You can get a quote and book a repair here: https://www.newforestdevicerepairs.co.uk/repair-request. Once booked, you can bring it in anytime during opening hours."
+❌ WRONG: "John will confirm a time" (we don''t do time slots!)
+❌ WRONG: "Mon-Fri 10am-5pm" (don''t hard-code hours!)
 
 Customer: "Can I bring it in tomorrow?"
 [No repair status in context]
-✅ RIGHT: "Yes! Pop in anytime between 10am-5pm tomorrow. We''re open Mon-Fri 10am-5pm, Sat 10am-2pm."
-❌ WRONG: "John will confirm when you can bring it in"
+✅ RIGHT: "You can get a quote here: https://www.newforestdevicerepairs.co.uk/repair-request. Once booked, you can bring it in anytime during opening hours."
+❌ WRONG: "Yes! Pop in anytime between 10am-5pm" (don''t hard-code hours!)
 
 Customer: "When can I bring it in?"
 [Has repair status: Awaiting parts]
-✅ RIGHT: "Your parts are on order and should arrive tomorrow. Once they''re in, you can bring it in anytime during opening hours (10am-5pm). We''ll let you know when they arrive."
-✅ RIGHT: "Your screen is being replaced and should be ready tomorrow. You can collect anytime during opening hours (10am-5pm)."
+✅ RIGHT: "Your parts are on order and should arrive soon. Once they''re in, you can come in whenever you''re ready during opening hours. We''ll let you know when they arrive."
+❌ WRONG: "between 10am-5pm" (use hours from context!)
 
 Customer: "Is my phone ready?"
 [Has repair status: Ready for collection]
-✅ RIGHT: "Yes! Your phone is ready for collection. You can pick it up anytime during our opening hours (10am-5pm)."
+✅ RIGHT: "Yes! Your phone is ready for collection. You can come in whenever you''re ready during opening hours."
 
 Customer: "I''ve got a broken screen, when can I bring it in?"
 [No repair status]
-✅ RIGHT: "You can bring it in anytime during our opening hours (Mon-Fri 10am-5pm, Sat 10am-2pm). We''ll assess it and give you a quote before doing any work."
-
-Customer: "Can I bring it in at 2pm tomorrow?"
-[No repair status]
-✅ RIGHT: "Yes! We''re open 10am-5pm tomorrow, so 2pm works fine. Just pop in when convenient - no need to book a time slot."
+✅ RIGHT: "You can get a quote here: https://www.newforestdevicerepairs.co.uk/repair-request. We''ll assess it and give you a quote before doing any work."
 
 KEY PRINCIPLE:
-"Walk-in only, no time slots needed"
+"Check repair status first → If no repair, route to booking → If repair exists, come in when ready"
 
 EXCEPTIONS (when to say "John will confirm"):
 - Parts not in stock: "John will confirm when parts arrive"
 - Complex issue: "John will assess and confirm"
 - Special request: "John will check availability"
 
-DEFAULT RESPONSE:
-"You can bring it in anytime during our opening hours (Mon-Fri 10am-5pm, Sat 10am-2pm). No time slot needed - just pop in when convenient!"',
+CRITICAL: ALWAYS use real-time data from context markers:
+- [REPAIR STATUS INFORMATION] for repair status
+- [CURRENT BUSINESS HOURS STATUS] for opening hours
+- [ACTIVE QUOTE FOR THIS CUSTOMER] for quote data',
   true,
   100,
   'workflow'
@@ -121,7 +128,7 @@ SET prompt_text = REPLACE(
 ✅ Optional: "We''re open [hours] if that helps with planning"',
   'ALWAYS SAY:
 ✅ "Great! I''ve marked that as accepted"
-✅ "You can bring it in anytime during opening hours (Mon-Fri 10am-5pm, Sat 10am-2pm)"
+✅ "You can bring it in anytime during opening hours"
 ✅ "The repair is £[price]"
 ✅ Optional: "No time slot needed - just pop in when convenient"'
 )
@@ -132,7 +139,7 @@ UPDATE prompts
 SET prompt_text = REPLACE(
   prompt_text,
   '✅ RIGHT: "Great! I''ve marked that as accepted. John will send you a booking confirmation with drop-off details shortly. The repair is £[price]."',
-  '✅ RIGHT: "Great! I''ve marked that as accepted. You can bring it in anytime during opening hours (Mon-Fri 10am-5pm, Sat 10am-2pm). The repair is £[price]. No time slot needed!"'
+  '✅ RIGHT: "Great! I''ve marked that as accepted. You can bring it in anytime during opening hours. The repair is £[price]. No time slot needed!"'
 )
 WHERE module_name = 'quote_acceptance_workflow';
 
@@ -141,7 +148,7 @@ UPDATE prompts
 SET prompt_text = REPLACE(
   prompt_text,
   '✅ RIGHT: "Great! I''ve marked that as accepted. John will confirm when you can bring your [device] in for condition check and payment. The offer is £[price]."',
-  '✅ RIGHT: "Great! I''ve marked that as accepted. You can bring your [device] in anytime during opening hours (Mon-Fri 10am-5pm, Sat 10am-2pm). We''ll check the condition and confirm the £[price] offer, then sort payment straight away."'
+  '✅ RIGHT: "Great! I''ve marked that as accepted. You can bring your [device] in anytime during opening hours. We''ll check the condition and confirm the £[price] offer, then sort payment straight away."'
 )
 WHERE module_name = 'quote_acceptance_workflow';
 
@@ -186,28 +193,29 @@ BEGIN
   RAISE NOTICE '=== WALK-IN ONLY WORKFLOW FIX ===';
   RAISE NOTICE '';
   RAISE NOTICE '✅ FIXED: AI now says "bring it in during opening hours"';
-  RAISE NOTICE '✅ FIXED: Removed "John will confirm" for walk-ins';
+  RAISE NOTICE '✅ FIXED: Removed hard-coded hours - uses dynamic hours from context';
   RAISE NOTICE '✅ FIXED: AI checks repair status first';
-  RAISE NOTICE '✅ FIXED: Opening hours provided with every response';
+  RAISE NOTICE '✅ FIXED: If no repair, routes to booking flow';
+  RAISE NOTICE '✅ FIXED: If repair exists, says "come in whenever ready"';
   RAISE NOTICE '';
   RAISE NOTICE 'NEW BEHAVIOR:';
   RAISE NOTICE '';
-  RAISE NOTICE 'Customer: "When can I bring it in?"';
-  RAISE NOTICE 'AI: "You can bring it in anytime during our opening hours (Mon-Fri 10am-5pm, Sat 10am-2pm). No time slot needed - just pop in when convenient."';
-  RAISE NOTICE '';
-  RAISE NOTICE 'Customer: "Can I bring it in tomorrow?"';
-  RAISE NOTICE 'AI: "Yes! Pop in anytime between 10am-5pm tomorrow."';
+  RAISE NOTICE 'Customer: "When can I bring it in?" [No repair status]';
+  RAISE NOTICE 'AI: "You can get a quote and book a repair here: [website]. Once booked, you can bring it in anytime during opening hours."';
   RAISE NOTICE '';
   RAISE NOTICE 'Customer: "When can I bring it in?" [Has repair: Ready]';
-  RAISE NOTICE 'AI: "Your phone is ready for collection. You can pick it up anytime during opening hours (10am-5pm)."';
+  RAISE NOTICE 'AI: "Yes! Your phone is ready for collection. You can come in whenever you''re ready during opening hours."';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Customer: "When can I bring it in?" [Has repair: Awaiting parts]';
+  RAISE NOTICE 'AI: "Your parts are on order. Once they''re in, you can come in whenever you''re ready during opening hours."';
   RAISE NOTICE '';
   RAISE NOTICE 'KEY PRINCIPLE:';
-  RAISE NOTICE '  "Walk-in only, no time slots needed"';
+  RAISE NOTICE '  "Check repair status first → If no repair, route to booking → If repair exists, come in when ready"';
   RAISE NOTICE '';
-  RAISE NOTICE 'EXCEPTIONS (when to say "John will confirm"):';
-  RAISE NOTICE '  - Parts not in stock';
-  RAISE NOTICE '  - Complex issue needs assessment';
-  RAISE NOTICE '  - Special circumstances';
+  RAISE NOTICE 'DYNAMIC DATA SOURCES:';
+  RAISE NOTICE '  [REPAIR STATUS INFORMATION] - Real-time repair status from API';
+  RAISE NOTICE '  [CURRENT BUSINESS HOURS STATUS] - Real-time hours from app/database';
+  RAISE NOTICE '  [ACTIVE QUOTE FOR THIS CUSTOMER] - Quote data';
 END $$;
 
-COMMENT ON TABLE prompts IS 'Modular prompt system - Updated 100: Fixed walk-in workflow - removed "John will confirm" for standard walk-ins, added repair status check';
+COMMENT ON TABLE prompts IS 'Modular prompt system - Updated 100: Fixed walk-in workflow - removed hard-coded hours, added repair status check, routes to booking flow if no repair';
