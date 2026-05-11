@@ -1278,41 +1278,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check repair status if customer is asking about their repair
+    // Check repair status for EVERY message (not just status inquiries)
+    // This ensures AI always has real-time repair status in context
     let repairStatusContext = "";
-    const isStatusInquiry =
-      /status|ready|update|how'?s|progress|when will|finished|done|collect|check|left|dropped off|repair|parts?|waiting|eta|arrive|delivery|ordered|shipped|tracking|stuck|delayed|still waiting/i.test(
-        messageToProcess,
-      );
+    console.log("[Repair Status] Checking repair status for phone:", from);
+    const statusResult = await checkRepairStatus(from);
 
-    if (isStatusInquiry) {
-      console.log(
-        "[Repair Status] Customer asking about repair - FORCING API check...",
-      );
-      const statusResult = await checkRepairStatus(from);
-
-      if (statusResult.success && statusResult.jobs.length > 0) {
-        const formattedStatus = formatRepairStatusForAI(statusResult);
-        if (formattedStatus) {
-          repairStatusContext = `\n\n[REPAIR STATUS INFORMATION]\n${formattedStatus}\n[END REPAIR STATUS]`;
-          console.log(
-            "[Repair Status] ✅ Found",
-            statusResult.jobs.length,
-            "job(s) - added to AI context",
-          );
-        }
-      } else if (statusResult.success && statusResult.jobs.length === 0) {
-        // No jobs found - add special template to context
-        repairStatusContext = `\n\n[NO REPAIR JOBS FOUND]\n${getNoJobsFoundTemplate()}\n[END REPAIR STATUS]`;
+    if (statusResult.success && statusResult.jobs.length > 0) {
+      const formattedStatus = formatRepairStatusForAI(statusResult);
+      if (formattedStatus) {
+        repairStatusContext = `\n\n[REPAIR STATUS INFORMATION]\n${formattedStatus}\n[END REPAIR STATUS]`;
         console.log(
-          "[Repair Status] ⚠️ No jobs found - added no-jobs template to context",
-        );
-      } else {
-        console.log(
-          "[Repair Status] ❌ Failed to check status:",
-          statusResult.error,
+          "[Repair Status] ✅ Found",
+          statusResult.jobs.length,
+          "job(s) - added to AI context",
         );
       }
+    } else if (statusResult.success && statusResult.jobs.length === 0) {
+      // No jobs found - add special template to context so AI knows there's no repair
+      repairStatusContext = `\n\n[NO REPAIR JOBS FOUND]\n${getNoJobsFoundTemplate()}\n[END REPAIR STATUS]`;
+      console.log(
+        "[Repair Status] ⚠️ No jobs found - added no-jobs template to context",
+      );
+    } else {
+      console.log(
+        "[Repair Status] ❌ Failed to check status:",
+        statusResult.error,
+      );
     }
 
     // Generate AI response with smart state-aware generator (using batched message if applicable)
