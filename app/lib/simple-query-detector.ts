@@ -322,6 +322,11 @@ function isRespondingToStaff(message: string): boolean {
 /**
  * Check if AI should respond based on staff activity and message type
  *
+ * DYNAMIC APPROACH - No hard 30-minute limit:
+ * - AI ALWAYS responds to simple queries (hours, location, directions, contact)
+ * - AI stays silent if customer is clearly responding to John's question
+ * - AI uses John's messages as context when responding
+ *
  * @param minutesSinceStaffMessage Minutes since last staff message
  * @param message Customer message to analyze
  * @returns Object with shouldRespond flag and reason
@@ -334,8 +339,17 @@ export function shouldAIRespond(
   reason: string;
   queryInfo?: SimpleQueryResult;
 } {
-  // CONSERVATIVE APPROACH: Be more careful after staff messages
-  // Don't compete with John or respond to messages clearly directed at him
+  // Check if it's a simple query (hours, location, directions, contact)
+  // AI ALWAYS responds to these - John doesn't want to answer basic questions
+  const queryInfo = isSimpleQuery(message);
+
+  if (queryInfo.isSimpleQuery) {
+    return {
+      shouldRespond: true,
+      reason: `Simple query (${queryInfo.queryType}) - AI can answer even if John is talking`,
+      queryInfo,
+    };
+  }
 
   // Check if it's just an acknowledgment (thanks John, ok, bye, etc.)
   // These don't need AI responses - customer is just acknowledging staff
@@ -355,7 +369,7 @@ export function shouldAIRespond(
     };
   }
 
-  // NEW: Check if customer is responding to John's question/statement
+  // Check if customer is responding to John's question/statement
   // If John just messaged (< 5 minutes ago) and customer sends a short response
   // that looks like an answer, stay quiet
   if (minutesSinceStaffMessage < 5) {
@@ -374,17 +388,11 @@ export function shouldAIRespond(
     }
   }
 
-  // Check if it's a simple query for logging purposes
-  const queryInfo = isSimpleQuery(message);
-
-  // AI responds to non-acknowledgment messages that aren't direct responses to John
+  // AI responds to non-acknowledgment, non-simple-query messages
   // Staff message is in conversation context, AI will use it appropriately
   return {
     shouldRespond: true,
-    reason:
-      minutesSinceStaffMessage < 30
-        ? `AI responding (staff replied ${minutesSinceStaffMessage.toFixed(1)} min ago - using as context)`
-        : `AI responding (staff replied ${minutesSinceStaffMessage.toFixed(0)} min ago)`,
+    reason: `AI responding (using John's messages as context if available)`,
     queryInfo,
   };
 }

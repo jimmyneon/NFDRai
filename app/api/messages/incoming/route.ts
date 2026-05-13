@@ -985,25 +985,16 @@ export async function POST(request: NextRequest) {
         const minutesSinceStaffReply =
           (Date.now() - lastStaffReplyTime) / (1000 * 60);
 
-        // If staff replied more than 30 minutes ago, auto-switch to AI
-        const timeBasedSwitch = minutesSinceStaffReply > 30;
-
-        // CRITICAL: Respect the 30-minute staff pause window.
-        // Even if a message looks like a generic question, do NOT auto-switch to AI
-        // unless it's a simple query (hours/location/etc) or the pause has expired.
+        // Staff has replied - analyze if we should switch back to auto mode
+        // AI uses dynamic conversation state, not a hard time limit
         const pauseDecision = shouldAIRespond(minutesSinceStaffReply, message);
 
         // Staff has replied - analyze if we should switch back to auto mode
         const shouldAutoSwitch =
-          timeBasedSwitch ||
-          (pauseDecision.shouldRespond && shouldSwitchToAutoMode(message));
-        const reason = timeBasedSwitch
-          ? `Staff replied ${minutesSinceStaffReply.toFixed(
-              0,
-            )} min ago - switching to auto`
-          : pauseDecision.shouldRespond
-            ? getModeDecisionReason(message, shouldAutoSwitch)
-            : pauseDecision.reason;
+          pauseDecision.shouldRespond && shouldSwitchToAutoMode(message);
+        const reason = pauseDecision.shouldRespond
+          ? getModeDecisionReason(message, shouldAutoSwitch)
+          : pauseDecision.reason;
 
         console.log("[Smart Mode] Message:", message.substring(0, 50));
         console.log(
@@ -1139,7 +1130,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if staff has recently replied
-    // If staff replied within last 30 minutes, only respond to simple queries (hours, directions, etc)
+    // If staff replied recently, AI uses dynamic conversation state to decide
+    // AI ALWAYS responds to simple queries (hours, directions, contact)
+    // AI stays silent if customer is clearly responding to John's question
     // UNLESS we just switched to auto mode (then always respond)
 
     const { data: recentMessages } = await supabase
@@ -1200,7 +1193,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // AI can respond - either it's been 30+ minutes or it's a simple query
+      // AI can respond - using dynamic conversation state
       console.log(
         "[Staff Activity Check] ✅ AI will respond:",
         aiResponseDecision.reason,
@@ -1309,6 +1302,50 @@ export async function POST(request: NextRequest) {
 
     // Generate AI response with smart state-aware generator (using batched message if applicable)
     console.log("[Smart AI] Generating response with state awareness...");
+
+    // LOG CONTEXT BEING SENT TO AI - for debugging
+    console.log("[AI Context Audit] === CONTEXT MARKERS SENT TO AI ===");
+    console.log("[AI Context Audit] Message length:", messageToProcess.length);
+    console.log(
+      "[AI Context Audit] Conversation history present:",
+      conversationHistoryContext.length > 0,
+    );
+    console.log(
+      "[AI Context Audit] Quote context present:",
+      quoteContext.length > 0,
+    );
+    console.log(
+      "[AI Context Audit] Repair status context present:",
+      repairStatusContext.length > 0,
+    );
+
+    if (conversationHistoryContext.length > 0) {
+      console.log(
+        "[AI Context Audit] Staff messages in context:",
+        (conversationHistoryContext.match(/John \(Owner\)/g) || []).length,
+      );
+    }
+
+    if (quoteContext.length > 0) {
+      console.log(
+        "[AI Context Audit] Quote context marker:",
+        quoteContext.includes("[ACTIVE QUOTE FOR THIS CUSTOMER]")
+          ? "ACTIVE_QUOTE"
+          : "NO_QUOTE",
+      );
+    }
+
+    if (repairStatusContext.length > 0) {
+      console.log(
+        "[AI Context Audit] Repair status marker:",
+        repairStatusContext.includes("[REPAIR STATUS INFORMATION]")
+          ? "HAS_REPAIR"
+          : "NO_REPAIR",
+      );
+    }
+
+    console.log("[AI Context Audit] === END CONTEXT AUDIT ===");
+
     const aiResult = await generateSmartResponse({
       customerMessage:
         messageToProcess +
