@@ -35,7 +35,9 @@ New Forest Device Repairs`;
 export function buildOpeningHoursSms(name: string): string {
   const firstName = name.split(" ")[0];
 
-  return `Hi ${firstName}, we're open 10am-5pm Monday to Friday, and 10am-2pm on Saturdays. We're closed Sundays.
+  return `Hi ${firstName}, we're open 10am-5pm Monday to Friday, and 10am-3pm on Saturdays. We're closed Sundays.
+
+You can check our live hours on Google Maps: https://www.google.com/maps/search/?api=1&query=New+Forest+Device+Repairs
 
 Many thanks,
 New Forest Device Repairs`;
@@ -61,7 +63,8 @@ export function buildBookingQuestionSms(
   repairLink?: string,
 ): string {
   const firstName = name.split(" ")[0];
-  const link = repairLink || "https://nfd-rai.vercel.app/start-repair";
+  const link =
+    repairLink || "https://www.newforestdevicerepairs.co.uk/repair-request";
 
   return `Hi ${firstName}, we don't usually take fixed bookings. You're welcome to pop into the shop during opening hours, or you can submit a repair request here so we have the details ready: ${link}
 
@@ -75,7 +78,9 @@ New Forest Device Repairs`;
 export function buildDropInQuestionSms(name: string): string {
   const firstName = name.split(" ")[0];
 
-  return `Hi ${firstName}, you're welcome to pop in during opening hours - no appointment needed. We're open 10am-5pm Monday to Friday, and 10am-2pm Saturdays.
+  return `Hi ${firstName}, you're welcome to pop in during opening hours - no appointment needed. We're open 10am-5pm Monday to Friday, and 10am-3pm Saturdays.
+
+You can check our live hours on Google Maps: https://www.google.com/maps/search/?api=1&query=New+Forest+Device+Repairs
 
 Many thanks,
 New Forest Device Repairs`;
@@ -89,7 +94,8 @@ export function buildNewRepairRequestSms(
   repairLink?: string,
 ): string {
   const firstName = name.split(" ")[0];
-  const link = repairLink || "https://nfd-rai.vercel.app/start-repair";
+  const link =
+    repairLink || "https://www.newforestdevicerepairs.co.uk/repair-request";
 
   return `Thanks ${firstName}, we'd be happy to help with that. Please submit a repair request here so we have the details ready: ${link}
 
@@ -105,7 +111,7 @@ New Forest Device Repairs`;
 export function buildScreenQuoteSms(name: string): string {
   const firstName = name.split(" ")[0];
 
-  return `Hi ${firstName}, for screen repairs we have options from around £50-£150 depending on the device model and screen type. John will confirm the exact quote once he has the device details.
+  return `Hi ${firstName}, for screen repairs John will confirm the exact quote once he has the device details.
 
 Please submit a repair request with your device model so we can give you an accurate quote.
 
@@ -119,9 +125,9 @@ New Forest Device Repairs`;
 export function buildBatteryQuoteSms(name: string): string {
   const firstName = name.split(" ")[0];
 
-  return `Hi ${firstName}, battery replacements are typically £40-£60 depending on the device model. This includes a 6-month warranty.
+  return `Hi ${firstName}, for battery replacements John will confirm the exact quote once he has the device details.
 
-Please submit a repair request with your device model for an exact quote.
+Please submit a repair request with your device model for an accurate quote.
 
 Many thanks,
 New Forest Device Repairs`;
@@ -133,7 +139,7 @@ New Forest Device Repairs`;
 export function buildChargingPortQuoteSms(name: string): string {
   const firstName = name.split(" ")[0];
 
-  return `Hi ${firstName}, charging port repairs are typically £40-£60 depending on the device and the issue. John will confirm the exact quote after inspection.
+  return `Hi ${firstName}, for charging port repairs John will confirm the exact quote after inspection.
 
 Please submit a repair request with your device details.
 
@@ -347,22 +353,6 @@ export function buildPartsOrderQuoteSms(details: TemplateDetails): string {
     `\n\nThis quote is valid for 7 days.`,
     `${partsInfo}\n\nThis quote is valid for 7 days.`,
   );
-}
-
-/**
- * Technical support template - generic response for technical enquiries
- */
-export function buildTechnicalSupportSms(name: string): string {
-  const firstName = name.split(" ")[0];
-
-  return `Thanks ${firstName}, we've got your request for technical support.
-
-John will be in touch as soon as possible to help you out.
-
-Just to let you know, prices start from £40 depending on what's needed, but we'll always confirm the price with you before starting any repair.
-
-Many thanks,
-New Forest Device Repairs`;
 }
 
 /**
