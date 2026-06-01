@@ -20,7 +20,7 @@ export interface TemplateDetails {
  */
 export function buildAcknowledgmentSms(name: string): string {
   const firstName = name.split(" ")[0];
-  
+
   return `Thanks ${firstName}, we've received your message. 
 We'll get back to you as soon as we can - usually within a couple of hours during business hours.
 
@@ -47,11 +47,12 @@ export function buildQuoteSms(details: TemplateDetails): string {
   const hasAdditionalIssues = additional_issues && additional_issues.length > 0;
 
   // Build device name - avoid duplication
-  const deviceName = device_model
-    .toLowerCase()
-    .includes(device_make.toLowerCase())
-    ? device_model
-    : `${device_make} ${device_model}`;
+  const deviceName =
+    device_model && device_make
+      ? device_model.toLowerCase().includes(device_make.toLowerCase())
+        ? device_model
+        : `${device_make} ${device_model}`
+      : device_model || device_make || "your device";
 
   let message = `Hi ${firstName},\n\n`;
 
@@ -67,11 +68,11 @@ export function buildQuoteSms(details: TemplateDetails): string {
       message += `\n`;
     });
 
-    message += `\nTotal: £${quote_amount.toFixed(2)}`;
+    message += `\nTotal: £${(quote_amount || 0).toFixed(2)}`;
   } else {
     message += `Your quote for the ${deviceName} (${issue}`;
     if (description) message += ` - ${description}`;
-    message += `) is £${quote_amount.toFixed(2)}.`;
+    message += `) is £${(quote_amount || 0).toFixed(2)}.`;
   }
 
   message += `\n\nThis quote is valid for 7 days.`;
@@ -87,13 +88,13 @@ export function buildQuoteSms(details: TemplateDetails): string {
  */
 export function buildPartsOrderQuoteSms(details: TemplateDetails): string {
   const quoteMessage = buildQuoteSms(details);
-  
+
   // Insert parts ordering info before the validity line
   const partsInfo = `\n\nWe'll need to order parts for this job. Normally next day delivery, excluding weekends.`;
-  
+
   return quoteMessage.replace(
     `\n\nThis quote is valid for 7 days.`,
-    `${partsInfo}\n\nThis quote is valid for 7 days.`
+    `${partsInfo}\n\nThis quote is valid for 7 days.`,
   );
 }
 
@@ -102,7 +103,7 @@ export function buildPartsOrderQuoteSms(details: TemplateDetails): string {
  */
 export function buildTechnicalSupportSms(name: string): string {
   const firstName = name.split(" ")[0];
-  
+
   return `Thanks ${firstName}, we've got your request for technical support.
 
 John will be in touch as soon as possible to help you out.
@@ -119,11 +120,11 @@ New Forest Device Repairs`;
  */
 export function buildDontKnowSms(name: string, customMessage?: string): string {
   const firstName = name.split(" ")[0];
-  
+
   if (customMessage) {
     return customMessage;
   }
-  
+
   return `Thanks ${firstName}, we've received your enquiry.
 
 John will take a look and get back to you shortly to help figure out the best way forward.
@@ -137,7 +138,7 @@ New Forest Device Repairs`;
  */
 export function buildQuoteAcceptedSms(name: string): string {
   const firstName = name.split(" ")[0];
-  
+
   return `Great ${firstName}, thanks for accepting the quote.
 
 We'll be in touch shortly to arrange collection or drop-off.

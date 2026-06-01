@@ -10,7 +10,9 @@ export type RequestType = "quote" | "technical_support" | "dont_know";
 /**
  * Map intent classification to request type
  */
-export function mapIntentToRequestType(classification: IntentClassification): RequestType {
+export function mapIntentToRequestType(
+  classification: IntentClassification,
+): RequestType {
   const { intent, confidence } = classification;
 
   // If confidence is low, default to dont_know (needs human review)
@@ -27,18 +29,18 @@ export function mapIntentToRequestType(classification: IntentClassification): Re
     case "sell_device":
     case "warranty_claim":
       return "quote";
-    
+
     case "status_check":
       // Status check is about existing repair - not a new quote
       // But we can't check status, so pass to John
       return "dont_know";
-    
+
     case "general_info":
       // General info could be technical support or just simple questions
       // We'll need to check the actual message content
       // For now, treat as dont_know to be safe
       return "dont_know";
-    
+
     default:
       return "dont_know";
   }
@@ -57,7 +59,7 @@ export async function determineRequestType(params: {
 }> {
   const classification = await classifyIntent(params);
   const requestType = mapIntentToRequestType(classification);
-  
+
   return {
     requestType,
     classification,

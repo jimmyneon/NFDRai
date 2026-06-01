@@ -132,7 +132,7 @@ Respond with ONLY valid JSON (no markdown, no code blocks):
  */
 function fallbackClassification(
   message: string,
-  history: Array<{ sender: string; text: string }>
+  history: Array<{ sender: string; text: string }>,
 ): IntentClassification {
   const lowerMessage = message.toLowerCase();
   const allText = [message, ...history.map((h) => h.text)]
@@ -172,7 +172,7 @@ function fallbackClassification(
   // Buyback patterns - include past tense "sold" and variations
   if (
     lowerMessage.match(
-      /sell|sold|selling|buy my|trade.?in|how much.*worth|valuation/
+      /sell|sold|selling|buy my|trade.?in|how much.*worth|valuation/,
     )
   ) {
     return {
@@ -198,7 +198,7 @@ function fallbackClassification(
   // Only match if explicitly asking about existing repair
   if (
     lowerMessage.match(
-      /is\s+(it|my|the).*(ready|done|finished)|can\s+i\s+pick.*up|repair\s+status|when\s+will.*be\s+(ready|done)/
+      /is\s+(it|my|the).*(ready|done|finished)|can\s+i\s+pick.*up|repair\s+status|when\s+will.*be\s+(ready|done)/,
     )
   ) {
     return {
@@ -259,11 +259,11 @@ export async function batchClassifyIntents(params: {
         }).catch((error) => {
           console.error(
             `[Batch Classifier] Error for message ${msg.id}:`,
-            error
+            error,
           );
           return fallbackClassification(msg.text, []);
-        })
-      )
+        }),
+      ),
     );
 
     batch.forEach((msg, idx) => {
@@ -280,7 +280,7 @@ export async function batchClassifyIntents(params: {
  */
 export function isConfidentClassification(
   classification: IntentClassification,
-  threshold: number = 0.7
+  threshold: number = 0.7,
 ): boolean {
   return classification.confidence >= threshold;
 }
