@@ -1,6 +1,7 @@
 /**
  * SMS Templates for different request types
  * Friendly, natural language appropriate for New Forest/Hampshire area
+ * AI selects template based on intent classification, fills in variables
  */
 
 export interface TemplateDetails {
@@ -12,6 +13,256 @@ export interface TemplateDetails {
   additional_issues?: Array<{ issue: string; description: string }> | null;
   quote_amount?: number;
   additional_notes?: string;
+  repairStatus?: string;
+  repairLink?: string;
+}
+
+/**
+ * Escalation template - when AI can't handle automatically
+ */
+export function buildEscalationSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks ${firstName}, I'm not able to answer that automatically, so I'll pass this to John to review. He'll get back to you as soon as possible.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Opening hours template
+ */
+export function buildOpeningHoursSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Hi ${firstName}, we're open 10am-5pm Monday to Friday, and 10am-2pm on Saturdays. We're closed Sundays.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Lunch closure template
+ */
+export function buildLunchClosureSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Hi ${firstName}, we're open during our normal opening hours and we don't usually close for lunch. You're welcome to pop in during opening hours.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Booking question template
+ */
+export function buildBookingQuestionSms(
+  name: string,
+  repairLink?: string,
+): string {
+  const firstName = name.split(" ")[0];
+  const link = repairLink || "https://nfd-rai.vercel.app/start-repair";
+
+  return `Hi ${firstName}, we don't usually take fixed bookings. You're welcome to pop into the shop during opening hours, or you can submit a repair request here so we have the details ready: ${link}
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Drop-in question template
+ */
+export function buildDropInQuestionSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Hi ${firstName}, you're welcome to pop in during opening hours - no appointment needed. We're open 10am-5pm Monday to Friday, and 10am-2pm Saturdays.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * New repair request template
+ */
+export function buildNewRepairRequestSms(
+  name: string,
+  repairLink?: string,
+): string {
+  const firstName = name.split(" ")[0];
+  const link = repairLink || "https://nfd-rai.vercel.app/start-repair";
+
+  return `Thanks ${firstName}, we'd be happy to help with that. Please submit a repair request here so we have the details ready: ${link}
+
+John will review the details and get back to you as soon as possible.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Screen quote template
+ */
+export function buildScreenQuoteSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Hi ${firstName}, for screen repairs we have options from around £50-£150 depending on the device model and screen type. John will confirm the exact quote once he has the device details.
+
+Please submit a repair request with your device model so we can give you an accurate quote.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Battery quote template
+ */
+export function buildBatteryQuoteSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Hi ${firstName}, battery replacements are typically £40-£60 depending on the device model. This includes a 6-month warranty.
+
+Please submit a repair request with your device model for an exact quote.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Charging port quote template
+ */
+export function buildChargingPortQuoteSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Hi ${firstName}, charging port repairs are typically £40-£60 depending on the device and the issue. John will confirm the exact quote after inspection.
+
+Please submit a repair request with your device details.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Technical support template
+ */
+export function buildTechnicalSupportSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks ${firstName}, this sounds like technical support/troubleshooting. Technical support services start from £40. John will review the details and advise the next step.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Email issue template
+ */
+export function buildEmailIssueSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks ${firstName}, email issues can be tricky to diagnose. John will need to review the details to help troubleshoot this. Technical support starts from £40.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Device setup template
+ */
+export function buildDeviceSetupSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks ${firstName}, we can help with device setup. This is a technical support service starting from £40. John will review your requirements and advise the next step.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Data transfer template
+ */
+export function buildDataTransferSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks ${firstName}, data transfer services start from £40 depending on the amount of data and devices involved. John will review the details and provide a quote.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Virus or popups template
+ */
+export function buildVirusOrPopupsSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks ${firstName}, virus/malware removal and performance optimisation starts from £40. John will need to assess the device to determine the extent of the issue.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Repair status request template
+ */
+export function buildRepairStatusSms(
+  name: string,
+  repairStatus?: string,
+): string {
+  const firstName = name.split(" ")[0];
+  const status = repairStatus || "being processed";
+
+  return `Hi ${firstName}, your repair status is currently: ${status}. We'll contact you when there is an update or when it's ready for collection.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Price question template
+ */
+export function buildPriceQuestionSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Hi ${firstName}, pricing depends on the device model and the repair needed. Please submit a repair request with your device details for an accurate quote.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Deposit question template
+ */
+export function buildDepositQuestionSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Hi ${firstName}, some repairs may require a deposit if we need to order parts. John will confirm if a deposit is needed when reviewing your repair request.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Complaint or confusion template
+ */
+export function buildComplaintOrConfusionSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks ${firstName}, I'm not able to handle this automatically. I'll pass this to John to review and he'll get back to you as soon as possible.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Unknown or complex template
+ */
+export function buildUnknownOrComplexSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks ${firstName}, I'm not sure I understand what you need. I'll pass this to John to review and he'll get back to you as soon as possible.
+
+Many thanks,
+New Forest Device Repairs`;
 }
 
 /**
@@ -21,8 +272,8 @@ export interface TemplateDetails {
 export function buildAcknowledgmentSms(name: string): string {
   const firstName = name.split(" ")[0];
 
-  return `Thanks ${firstName}, we've received your message. 
-We'll get back to you as soon as we can - usually within a couple of hours during business hours.
+  return `Thanks ${firstName}, we've received your repair request. 
+John will review the details and get back to you with a quote as soon as possible - usually within a couple of hours during business hours.
 
 Many thanks,
 New Forest Device Repairs`;

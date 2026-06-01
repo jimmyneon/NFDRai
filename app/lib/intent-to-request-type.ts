@@ -5,45 +5,42 @@
 import { classifyIntent } from "@/lib/ai/intent-classifier";
 import type { IntentClassification } from "@/lib/ai/intent-classifier";
 
-export type RequestType = "quote" | "technical_support" | "dont_know";
+export type RequestType =
+  | "opening_hours"
+  | "lunch_closure"
+  | "booking_question"
+  | "drop_in_question"
+  | "new_repair_request"
+  | "screen_quote"
+  | "battery_quote"
+  | "charging_port_quote"
+  | "technical_support"
+  | "email_issue"
+  | "device_setup"
+  | "data_transfer"
+  | "virus_or_popups"
+  | "repair_status_request"
+  | "price_question"
+  | "deposit_question"
+  | "complaint_or_confusion"
+  | "unknown_or_complex";
 
 /**
  * Map intent classification to request type
+ * Returns the intent directly since we now have 17 categories
  */
 export function mapIntentToRequestType(
   classification: IntentClassification,
 ): RequestType {
   const { intent, confidence } = classification;
 
-  // If confidence is low, default to dont_know (needs human review)
-  if (confidence < 0.6) {
-    return "dont_know";
+  // If confidence is below 90%, escalate to unknown_or_complex
+  if (confidence < 0.9) {
+    return "unknown_or_complex";
   }
 
-  // Quote-related intents - customer wants a repair quote
-  switch (intent) {
-    case "screen_repair":
-    case "battery_replacement":
-    case "diagnostic":
-    case "buyback":
-    case "sell_device":
-    case "warranty_claim":
-      return "quote";
-
-    case "status_check":
-      // Status check is about existing repair - not a new quote
-      // But we can't check status, so pass to John
-      return "dont_know";
-
-    case "general_info":
-      // General info could be technical support or just simple questions
-      // We'll need to check the actual message content
-      // For now, treat as dont_know to be safe
-      return "dont_know";
-
-    default:
-      return "dont_know";
-  }
+  // Return the intent directly as the request type
+  return intent as RequestType;
 }
 
 /**
@@ -56,12 +53,25 @@ export async function determineRequestType(params: {
 }): Promise<{
   requestType: RequestType;
   classification: IntentClassification;
+  shouldEscalate: boolean;
 }> {
   const classification = await classifyIntent(params);
   const requestType = mapIntentToRequestType(classification);
 
+  // Escalate if confidence is low or if it's a complex category
+  const shouldEscalate =
+    classification.confidence < 0.9 ||
+    requestType === "unknown_or_complex" ||
+    requestType === "complaint_or_confusion" ||
+    requestType === "technical_support" ||
+    requestType === "email_issue" ||
+    requestType === "device_setup" ||
+    requestType === "data_transfer" ||
+    requestType === "virus_or_popups";
+
   return {
     requestType,
     classification,
+    shouldEscalate,
   };
 }

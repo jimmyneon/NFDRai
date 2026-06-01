@@ -46,11 +46,32 @@ import {
   formatRepairStatusForAI,
   getNoJobsFoundTemplate,
 } from "@/app/lib/repair-status-checker";
-import { determineRequestType } from "@/app/lib/intent-to-request-type";
+import {
+  determineRequestType,
+  type RequestType,
+} from "@/app/lib/intent-to-request-type";
 import {
   buildAcknowledgmentSms,
   buildTechnicalSupportSms,
   buildDontKnowSms,
+  buildEscalationSms,
+  buildOpeningHoursSms,
+  buildLunchClosureSms,
+  buildBookingQuestionSms,
+  buildDropInQuestionSms,
+  buildNewRepairRequestSms,
+  buildScreenQuoteSms,
+  buildBatteryQuoteSms,
+  buildChargingPortQuoteSms,
+  buildEmailIssueSms,
+  buildDeviceSetupSms,
+  buildDataTransferSms,
+  buildVirusOrPopupsSms,
+  buildRepairStatusSms,
+  buildPriceQuestionSms,
+  buildDepositQuestionSms,
+  buildComplaintOrConfusionSms,
+  buildUnknownOrComplexSms,
 } from "@/app/lib/sms-templates";
 
 /**
@@ -545,7 +566,7 @@ export async function POST(request: NextRequest) {
 
     // NEW: Use AI to classify intent and determine request type
     // Then send template response based on classification (not AI-generated)
-    let requestType: "quote" | "technical_support" | "dont_know" = "dont_know";
+    let requestType: RequestType = "unknown_or_complex";
     let classificationResult: any = null;
 
     try {
@@ -578,23 +599,135 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       console.error("[Intent Classification] Error:", error);
-      // Default to dont_know if classification fails
-      requestType = "dont_know";
+      // Default to unknown_or_complex if classification fails
+      requestType = "unknown_or_complex";
+    }
+
+    // NEW: Reply rate limiting to prevent circles
+    // Check if we've sent an automated reply recently (within 30 minutes)
+    const { data: recentAIMessagesForRateLimit } = await supabase
+      .from("messages")
+      .select("created_at, text")
+      .eq("conversation_id", conversation.id)
+      .eq("sender", "ai")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    let shouldSkipReply = false;
+    if (
+      recentAIMessagesForRateLimit &&
+      recentAIMessagesForRateLimit.length > 0
+    ) {
+      const lastAIMessage = recentAIMessagesForRateLimit[0];
+      const minutesSinceLastAI =
+        (Date.now() - new Date(lastAIMessage.created_at).getTime()) / 1000 / 60;
+
+      // If we sent a reply within last 30 minutes, only reply for specific intents
+      if (minutesSinceLastAI < 30) {
+        const allowedIntents = [
+          "opening_hours",
+          "repair_status_request",
+          "drop_in_question",
+        ];
+        if (!allowedIntents.includes(requestType)) {
+          console.log(
+            "[Reply Rate Limit] Skipping reply - sent AI message",
+            minutesSinceLastAI.toFixed(1),
+            "minutes ago",
+          );
+          console.log(
+            "[Reply Rate Limit] Current intent:",
+            requestType,
+            "- not in allowed list",
+          );
+          shouldSkipReply = true;
+        }
+      }
     }
 
     // NEW: Send template response based on request type instead of AI-generated response
     // This prevents AI from being chatty and ensures consistent, friendly responses
     let templateResponse: string | null = null;
 
-    if (requestType === "quote") {
-      // Quote request - send acknowledgment that John will provide quote
-      templateResponse = buildAcknowledgmentSms(customer.name || "there");
-    } else if (requestType === "technical_support") {
-      // Technical support - send generic response with pricing guidance
-      templateResponse = buildTechnicalSupportSms(customer.name || "there");
-    } else {
-      // dont_know - send generic acknowledgment for John to review
-      templateResponse = buildDontKnowSms(customer.name || "there");
+    // Check if should escalate based on classification
+    if (classificationResult?.shouldEscalate) {
+      templateResponse = buildEscalationSms(customer.name || "there");
+    } else if (!shouldSkipReply) {
+      // Select template based on request type
+      switch (requestType) {
+        case "opening_hours":
+          templateResponse = buildOpeningHoursSms(customer.name || "there");
+          break;
+        case "lunch_closure":
+          templateResponse = buildLunchClosureSms(customer.name || "there");
+          break;
+        case "booking_question":
+          templateResponse = buildBookingQuestionSms(customer.name || "there");
+          break;
+        case "drop_in_question":
+          templateResponse = buildDropInQuestionSms(customer.name || "there");
+          break;
+        case "new_repair_request":
+          templateResponse = buildNewRepairRequestSms(customer.name || "there");
+          break;
+        case "screen_quote":
+          templateResponse = buildScreenQuoteSms(customer.name || "there");
+          break;
+        case "battery_quote":
+          templateResponse = buildBatteryQuoteSms(customer.name || "there");
+          break;
+        case "charging_port_quote":
+          templateResponse = buildChargingPortQuoteSms(
+            customer.name || "there",
+          );
+          break;
+        case "technical_support":
+          templateResponse = buildTechnicalSupportSms(customer.name || "there");
+          break;
+        case "email_issue":
+          templateResponse = buildEmailIssueSms(customer.name || "there");
+          break;
+        case "device_setup":
+          templateResponse = buildDeviceSetupSms(customer.name || "there");
+          break;
+        case "data_transfer":
+          templateResponse = buildDataTransferSms(customer.name || "there");
+          break;
+        case "virus_or_popups":
+          templateResponse = buildVirusOrPopupsSms(customer.name || "there");
+          break;
+        case "repair_status_request":
+          // Check repair status API
+          const statusResult = await checkRepairStatus(from);
+          if (statusResult.success && statusResult.jobs.length > 0) {
+            const status = statusResult.jobs[0].status || "being processed";
+            templateResponse = buildRepairStatusSms(
+              customer.name || "there",
+              status,
+            );
+          } else {
+            templateResponse = buildRepairStatusSms(
+              customer.name || "there",
+              "no repair found",
+            );
+          }
+          break;
+        case "price_question":
+          templateResponse = buildPriceQuestionSms(customer.name || "there");
+          break;
+        case "deposit_question":
+          templateResponse = buildDepositQuestionSms(customer.name || "there");
+          break;
+        case "complaint_or_confusion":
+          templateResponse = buildComplaintOrConfusionSms(
+            customer.name || "there",
+          );
+          break;
+        case "unknown_or_complex":
+        default:
+          templateResponse = buildUnknownOrComplexSms(customer.name || "there");
+          break;
+      }
     }
 
     if (templateResponse) {

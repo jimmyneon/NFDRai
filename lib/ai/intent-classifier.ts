@@ -35,25 +35,36 @@ export async function classifyIntent(params: {
   const classificationPrompt = `You are an intent classifier for a device repair shop. Analyze the customer message WITH CONTEXT and classify it into ONE category.
 
 CATEGORIES:
-- screen_repair: Customer mentions broken/cracked screen, display issues
-- battery_replacement: Customer mentions battery issues, draining, not charging
-- diagnostic: Device won't turn on, not working, needs diagnosis, "it's broken" (vague)
-- buyback: Customer wants to sell their device to us (includes "sold", "selling", "sell", "buy my phone", "valuation")
-- sell_device: Customer wants to buy a device from us
-- warranty_claim: Customer mentions previous repair, still not working
-- status_check: Customer asking if EXISTING repair is ready/done (ONLY if they explicitly ask "is it ready?", "is it done?", "can I pick it up?")
-- general_info: Questions about hours, location, services, pricing
+- opening_hours: Customer asks about opening hours, closing time, when open
+- lunch_closure: Customer asks about lunch breaks, closed for lunch
+- booking_question: Customer asks about booking appointments, scheduling repairs
+- drop_in_question: Customer asks about dropping in without appointment, walk-ins
+- new_repair_request: Customer wants a new repair, "can you fix", "need repair"
+- screen_quote: Customer specifically asks for screen repair quote/price
+- battery_quote: Customer specifically asks for battery replacement quote/price
+- charging_port_quote: Customer specifically asks for charging port repair quote/price
+- technical_support: Customer asks for help with a technical issue, troubleshooting
+- email_issue: Customer has email problems, can't send/receive emails
+- device_setup: Customer needs help setting up a new device, transferring data
+- data_transfer: Customer wants to transfer data from old to new device
+- virus_or_popups: Customer mentions virus, malware, popups, slow performance
+- repair_status_request: Customer asks about existing repair status, "is it ready", "when done"
+- price_question: General pricing question not specific to a repair type
+- deposit_question: Customer asks about deposits, payment terms
+- complaint_or_confusion: Customer sounds angry, confused, or challenging something
+- unknown_or_complex: Unclear intent, complex request, or multiple topics
 
-CRITICAL RULES FOR STATUS_CHECK:
-- ONLY use status_check if customer EXPLICITLY asks about existing repair status
-- Phrases like "Is it ready?", "Is it done?", "Can I pick it up?" = status_check
-- Phrases like "It's broken", "I want it repaired", "Can you fix it?" = diagnostic or screen_repair (NEW repair, NOT status check!)
-- When in doubt between status_check and new repair → Choose new repair (diagnostic)
+CRITICAL RULES:
+- If confidence < 0.9, classify as unknown_or_complex (escalation required)
+- If customer sounds angry/frustrated, classify as complaint_or_confusion
+- If customer asks technical fault questions, classify as technical_support
+- If customer asks for exact quote without device details, classify as unknown_or_complex
+- If customer asks about existing repair status, classify as repair_status_request
 
 CONTEXT MATTERS:
-- If conversation just started → Likely NEW repair, not status check
-- If customer just told you device model → Likely NEW repair
-- If no previous repair mentioned in history → Definitely NEW repair
+- If conversation just started → Likely NEW inquiry
+- If customer just told you device model → Use that context
+- If no previous repair mentioned → NEW repair, not status check
 
 RECENT CONVERSATION:
 ${recentContext || "No previous messages - this is likely a NEW inquiry"}
