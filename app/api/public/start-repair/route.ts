@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendMessageViaProvider } from "@/app/lib/messaging/provider";
-import { buildQuoteRequestConfirmationSms } from "@/app/lib/quote-request-sms";
+import { buildAcknowledgmentSms } from "@/app/lib/sms-templates";
 import { syncQuoteToRepairApp } from "@/app/lib/repair-app-sync";
 
 // Use service role for public access (no auth required)
@@ -21,7 +21,8 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
  *   "email": "john@example.com",  // optional
  *   "device_make": "Apple",
  *   "device_model": "iPhone 14 Pro",
- *   "issue": "Cracked screen"
+ *   "issue": "Cracked screen",
+ *   "request_type": "quote" | "technical_support" | "dont_know"  // optional, defaults to 'quote'
  * }
  */
 export async function POST(request: NextRequest) {
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
       type,
       page,
       source,
+      request_type,
     } = payload;
     const requestType: "repair" | "sell" = type === "sell" ? "sell" : "repair";
 
@@ -127,6 +129,7 @@ export async function POST(request: NextRequest) {
       source:
         typeof source === "string" && source.length > 0 ? source : "website",
       status: "pending",
+      request_type: request_type || "quote",
     };
 
     if (typeof page === "string" && page.length > 0) {
@@ -216,14 +219,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build confirmation SMS
-    const smsMessage = buildConfirmationSms({
-      name,
-      device_make,
-      device_model,
-      issue: normalizedIssue,
-      type: requestType,
-    });
+    // Build acknowledgment SMS (generic, friendly message)
+    const smsMessage = buildAcknowledgmentSms(name);
 
     // Send SMS via MacroDroid
     const smsResult = await sendMessageViaProvider({
@@ -232,13 +229,17 @@ export async function POST(request: NextRequest) {
       text: smsMessage,
     });
 
-    // Update quote request with SMS status
+    // Update quote request with SMS status and acknowledgment tracking
     if (quoteRequest) {
       await supabase
         .from("quote_requests")
         .update({
           sms_sent: smsResult.sent,
           sms_sent_at: smsResult.sent ? new Date().toISOString() : null,
+          acknowledgment_sent: smsResult.sent,
+          acknowledgment_sent_at: smsResult.sent
+            ? new Date().toISOString()
+            : null,
         })
         .eq("id", quoteRequest.id);
     }
@@ -357,19 +358,6 @@ export async function OPTIONS() {
       "Access-Control-Allow-Headers": "Content-Type",
     },
   });
-}
-
-/**
- * Build confirmation SMS message
- */
-function buildConfirmationSms(details: {
-  name: string;
-  device_make: string;
-  device_model: string;
-  issue: string;
-  type: "repair" | "sell";
-}): string {
-  return buildQuoteRequestConfirmationSms(details);
 }
 
 /**
