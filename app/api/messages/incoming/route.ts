@@ -46,6 +46,12 @@ import {
   formatRepairStatusForAI,
   getNoJobsFoundTemplate,
 } from "@/app/lib/repair-status-checker";
+import { determineRequestType } from "@/app/lib/intent-to-request-type";
+import {
+  buildAcknowledgmentSms,
+  buildTechnicalSupportSms,
+  buildDontKnowSms,
+} from "@/app/lib/sms-templates";
 
 /**
  * Calculate similarity between two strings (0 = completely different, 1 = identical)
@@ -536,6 +542,106 @@ export async function POST(request: NextRequest) {
     console.log(
       `[Message Processing] Customer message inserted successfully (ID: ${messageId})`,
     );
+
+    // NEW: Use AI to classify intent and determine request type
+    // Then send template response based on classification (not AI-generated)
+    let requestType: "quote" | "technical_support" | "dont_know" = "dont_know";
+    let classificationResult: any = null;
+
+    try {
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (openaiKey) {
+        // Get conversation history for context
+        const { data: history } = await supabase
+          .from("messages")
+          .select("sender, text")
+          .eq("conversation_id", conversation.id)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        classificationResult = await determineRequestType({
+          customerMessage: message,
+          conversationHistory: history || [],
+          apiKey: openaiKey,
+        });
+
+        requestType = classificationResult.requestType;
+        console.log("[Intent Classification] Request type:", requestType);
+        console.log(
+          "[Intent Classification] Intent:",
+          classificationResult.classification.intent,
+        );
+        console.log(
+          "[Intent Classification] Confidence:",
+          classificationResult.classification.confidence,
+        );
+      }
+    } catch (error) {
+      console.error("[Intent Classification] Error:", error);
+      // Default to dont_know if classification fails
+      requestType = "dont_know";
+    }
+
+    // NEW: Send template response based on request type instead of AI-generated response
+    // This prevents AI from being chatty and ensures consistent, friendly responses
+    let templateResponse: string | null = null;
+
+    if (requestType === "quote") {
+      // Quote request - send acknowledgment that John will provide quote
+      templateResponse = buildAcknowledgmentSms(customer.name || "there");
+    } else if (requestType === "technical_support") {
+      // Technical support - send generic response with pricing guidance
+      templateResponse = buildTechnicalSupportSms(customer.name || "there");
+    } else {
+      // dont_know - send generic acknowledgment for John to review
+      templateResponse = buildDontKnowSms(customer.name || "there");
+    }
+
+    if (templateResponse) {
+      console.log(
+        "[Template Response] Sending template based on request type:",
+        requestType,
+      );
+      console.log(
+        "[Template Response] Message:",
+        templateResponse.substring(0, 100) + "...",
+      );
+
+      // Send template response via SMS
+      const smsResult = await sendMessageViaProvider({
+        channel: channel,
+        to: from,
+        text: templateResponse,
+      });
+
+      if (smsResult.sent) {
+        // Insert template response as AI message
+        await supabase.from("messages").insert({
+          conversation_id: conversation.id,
+          sender: "ai",
+          text: templateResponse,
+        });
+
+        console.log("[Template Response] ✅ Template sent successfully");
+
+        // Return success - no need for AI response generation
+        return NextResponse.json(
+          {
+            success: true,
+            mode: "template_response",
+            requestType,
+            message: "Template response sent based on AI classification",
+          },
+          {
+            headers: {
+              "Content-Type": "application/json; charset=utf-8",
+            },
+          },
+        );
+      } else {
+        console.error("[Template Response] Failed to send template SMS");
+      }
+    }
 
     // CRITICAL: Check if AI just sent a message (within last 2 seconds)
     // BUT only skip if customer message is very short/vague (not a real answer)
