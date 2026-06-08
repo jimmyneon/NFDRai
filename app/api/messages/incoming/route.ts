@@ -603,6 +603,62 @@ export async function POST(request: NextRequest) {
     let templateResponse: string | null = null;
     let shouldSkipReply = false;
     let shouldDisableAI = false;
+
+    // FIRST MESSAGE GATE: On very first contact, stay silent if the message is ambiguous.
+    // Better to have John reply manually than send a confusing automated response.
+    const isFirstInteraction =
+      !recentAIMessagesForRateLimit ||
+      recentAIMessagesForRateLimit.length === 0;
+    const classificationConfidence =
+      classificationResult?.classification.confidence ?? 0;
+
+    if (isFirstInteraction) {
+      const isAmbiguous =
+        requestType === "unknown_or_complex" || classificationConfidence < 0.75;
+
+      if (isAmbiguous) {
+        console.log(
+          "[First Message Gate] 🔕 First contact - ambiguous message, staying silent and alerting John",
+        );
+        console.log(
+          "[First Message Gate] Intent:",
+          requestType,
+          "| Confidence:",
+          classificationConfidence.toFixed(2),
+        );
+
+        await supabaseService.from("alerts").insert({
+          conversation_id: conversation.id,
+          type: "manual_required",
+          message: `New customer - unclear first message (intent: ${requestType}, confidence: ${Math.round(classificationConfidence * 100)}%). Please review and reply manually.`,
+          notified_to: "admin",
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            mode: "silent_first_message",
+            message:
+              "First message is ambiguous - staying silent, John alerted",
+            requestType,
+            confidence: classificationConfidence,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json; charset=utf-8",
+            },
+          },
+        );
+      }
+
+      console.log(
+        "[First Message Gate] ✅ First contact - clear intent, proceeding:",
+        requestType,
+        "| Confidence:",
+        classificationConfidence.toFixed(2),
+      );
+    }
+
     if (
       recentAIMessagesForRateLimit &&
       recentAIMessagesForRateLimit.length > 0
