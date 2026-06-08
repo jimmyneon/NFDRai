@@ -66,7 +66,7 @@ export function buildBookingQuestionSms(
   const link =
     repairLink || "https://www.newforestdevicerepairs.co.uk/repair-request";
 
-  return `Hi ${firstName}, we don't usually take fixed bookings. You're welcome to pop into the shop during opening hours, or you can submit a repair request here so we have the details ready: ${link}
+  return `Hi ${firstName}, no appointment needed - just pop in during opening hours. Or you can fill in this form so we have the details ready when you arrive: ${link}
 
 Many thanks,
 New Forest Device Repairs`;
@@ -168,7 +168,7 @@ New Forest Device Repairs`;
 export function buildPriceQuestionSms(name: string): string {
   const firstName = name.split(" ")[0];
 
-  return `Hi ${firstName}, pricing depends on the device model and the repair needed. Please submit a repair request with your device details for an accurate quote.
+  return `Hi ${firstName}, pricing depends on the device and repair type. Reply with your device model and what's wrong, or fill in the form here for an accurate quote: https://www.newforestdevicerepairs.co.uk/repair-request
 
 Many thanks,
 New Forest Device Repairs`;
@@ -231,7 +231,7 @@ export function buildAcknowledgmentSms(name: string): string {
   const firstName = name.split(" ")[0];
 
   return `Thanks ${firstName}, we've received your repair request. 
-John will review the details and get back to you with a quote as soon as possible - usually within a couple of hours during business hours.
+John will review it and get back to you with a quote - usually within 2 hours during business hours.
 
 Many thanks,
 New Forest Device Repairs`;
@@ -286,7 +286,7 @@ export function buildQuoteSms(details: TemplateDetails): string {
 
   message += `\n\nThis quote is valid for 7 days.`;
   message += `\n\nPlease check the device model and repair details above are correct before accepting.`;
-  message += `\n\nJust reply to this message if you'd like to book in, or if you have any questions.`;
+  message += `\n\nReply YES to book this in, or text back if you have any questions.`;
   message += `\n\nMany thanks,\nJohn\nNew Forest Device Repairs`;
 
   return message;
@@ -334,7 +334,7 @@ export function buildQuoteAcceptedSms(name: string): string {
 
   return `Great ${firstName}, thanks for accepting the quote.
 
-We'll be in touch shortly to arrange collection or drop-off.
+We'll text you shortly to arrange a time to drop off your device.
 
 Many thanks,
 New Forest Device Repairs`;
