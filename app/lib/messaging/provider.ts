@@ -1,4 +1,18 @@
 /**
+ * Convert +447... or 00447... to 07... format for Android/MacroDroid reliability.
+ * Internal storage uses +44 format, but Android SMS sends more reliably with local 07 format.
+ */
+function toUKLocalFormat(phone: string): string {
+  if (phone.startsWith("+447")) {
+    return "0" + phone.substring(3);
+  }
+  if (phone.startsWith("00447")) {
+    return "0" + phone.substring(4);
+  }
+  return phone;
+}
+
+/**
  * Send message via MacroDroid webhook or external provider
  */
 export async function sendMessageViaProvider({
@@ -25,13 +39,17 @@ export async function sendMessageViaProvider({
     try {
       const smsWebhookUrl = `${macrodroidBase}/send-sms`;
 
+      // Convert +447... to 07... for MacroDroid — Android SMS is more reliable with local UK format
+      const macrodroidPhone = toUKLocalFormat(to);
+      console.log(`[MacroDroid] Phone format: ${to} → ${macrodroidPhone}`);
+
       const response = await fetch(smsWebhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json; charset=utf-8",
         },
         body: JSON.stringify({
-          phone: to,
+          phone: macrodroidPhone,
           message: text,
         }),
       });
@@ -123,7 +141,7 @@ export async function sendMessageViaProvider({
             recipient: { id: to },
             message: { text },
           }),
-        }
+        },
       );
 
       if (response.ok) {

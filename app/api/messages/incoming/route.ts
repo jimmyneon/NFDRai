@@ -52,26 +52,12 @@ import {
 } from "@/app/lib/intent-to-request-type";
 import {
   buildAcknowledgmentSms,
-  buildTechnicalSupportSms,
-  buildDontKnowSms,
   buildEscalationSms,
   buildOpeningHoursSms,
   buildLunchClosureSms,
   buildBookingQuestionSms,
   buildDropInQuestionSms,
-  buildNewRepairRequestSms,
-  buildScreenQuoteSms,
-  buildBatteryQuoteSms,
-  buildChargingPortQuoteSms,
-  buildEmailIssueSms,
-  buildDeviceSetupSms,
-  buildDataTransferSms,
-  buildVirusOrPopupsSms,
   buildRepairStatusSms,
-  buildPriceQuestionSms,
-  buildDepositQuestionSms,
-  buildComplaintOrConfusionSms,
-  buildUnknownOrComplexSms,
 } from "@/app/lib/sms-templates";
 
 /**
@@ -603,8 +589,9 @@ export async function POST(request: NextRequest) {
       requestType = "unknown_or_complex";
     }
 
-    // NEW: Reply rate limiting to prevent circles
-    // Check if we've sent an automated reply recently (within 30 minutes)
+    // NEW: Critical reply limiting - AI should give up much sooner
+    // After first automated reply, only continue for: opening_hours, repair_status, booking_question
+    // Otherwise escalate to John and disable further AI replies in this conversation
     const { data: recentAIMessagesForRateLimit } = await supabase
       .from("messages")
       .select("created_at, text")
@@ -613,7 +600,9 @@ export async function POST(request: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(1);
 
+    let templateResponse: string | null = null;
     let shouldSkipReply = false;
+    let shouldDisableAI = false;
     if (
       recentAIMessagesForRateLimit &&
       recentAIMessagesForRateLimit.length > 0
@@ -626,12 +615,12 @@ export async function POST(request: NextRequest) {
       if (minutesSinceLastAI < 30) {
         const allowedIntents = [
           "opening_hours",
-          "repair_status_request",
-          "drop_in_question",
+          "repair_status",
+          "booking_question",
         ];
         if (!allowedIntents.includes(requestType)) {
           console.log(
-            "[Reply Rate Limit] Skipping reply - sent AI message",
+            "[Reply Rate Limit] Escalating to John - sent AI message",
             minutesSinceLastAI.toFixed(1),
             "minutes ago",
           );
@@ -641,13 +630,22 @@ export async function POST(request: NextRequest) {
             "- not in allowed list",
           );
           shouldSkipReply = true;
+          shouldDisableAI = true;
+          templateResponse = buildEscalationSms(customer.name || "there");
+
+          // Disable AI for this conversation to prevent further automated replies
+          await supabase
+            .from("conversations")
+            .update({
+              status: "blocked",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", conversation.id);
+
+          console.log("[Reply Rate Limit] AI disabled for this conversation");
         }
       }
     }
-
-    // NEW: Send template response based on request type instead of AI-generated response
-    // This prevents AI from being chatty and ensures consistent, friendly responses
-    let templateResponse: string | null = null;
 
     // Check if should escalate based on classification
     if (classificationResult?.shouldEscalate) {
@@ -667,36 +665,7 @@ export async function POST(request: NextRequest) {
         case "drop_in_question":
           templateResponse = buildDropInQuestionSms(customer.name || "there");
           break;
-        case "new_repair_request":
-          templateResponse = buildNewRepairRequestSms(customer.name || "there");
-          break;
-        case "screen_quote":
-          templateResponse = buildScreenQuoteSms(customer.name || "there");
-          break;
-        case "battery_quote":
-          templateResponse = buildBatteryQuoteSms(customer.name || "there");
-          break;
-        case "charging_port_quote":
-          templateResponse = buildChargingPortQuoteSms(
-            customer.name || "there",
-          );
-          break;
-        case "technical_support":
-          templateResponse = buildTechnicalSupportSms(customer.name || "there");
-          break;
-        case "email_issue":
-          templateResponse = buildEmailIssueSms(customer.name || "there");
-          break;
-        case "device_setup":
-          templateResponse = buildDeviceSetupSms(customer.name || "there");
-          break;
-        case "data_transfer":
-          templateResponse = buildDataTransferSms(customer.name || "there");
-          break;
-        case "virus_or_popups":
-          templateResponse = buildVirusOrPopupsSms(customer.name || "there");
-          break;
-        case "repair_status_request":
+        case "repair_status":
           // Check repair status API
           const statusResult = await checkRepairStatus(from);
           if (statusResult.success && statusResult.jobs.length > 0) {
@@ -712,20 +681,17 @@ export async function POST(request: NextRequest) {
             );
           }
           break;
-        case "price_question":
-          templateResponse = buildPriceQuestionSms(customer.name || "there");
-          break;
+        case "technical_support":
+        case "email_issue":
+        case "device_setup":
+        case "data_transfer":
+        case "virus_or_popups":
         case "deposit_question":
-          templateResponse = buildDepositQuestionSms(customer.name || "there");
-          break;
-        case "complaint_or_confusion":
-          templateResponse = buildComplaintOrConfusionSms(
-            customer.name || "there",
-          );
-          break;
         case "unknown_or_complex":
         default:
-          templateResponse = buildUnknownOrComplexSms(customer.name || "there");
+          // Let the smart AI handle these — it gives much better contextual answers
+          // than a generic "I don't understand" template
+          templateResponse = null;
           break;
       }
     }

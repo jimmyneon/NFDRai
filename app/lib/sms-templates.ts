@@ -87,67 +87,6 @@ New Forest Device Repairs`;
 }
 
 /**
- * New repair request template
- */
-export function buildNewRepairRequestSms(
-  name: string,
-  repairLink?: string,
-): string {
-  const firstName = name.split(" ")[0];
-  const link =
-    repairLink || "https://www.newforestdevicerepairs.co.uk/repair-request";
-
-  return `Thanks ${firstName}, we'd be happy to help with that. Please submit a repair request here so we have the details ready: ${link}
-
-John will review the details and get back to you as soon as possible.
-
-Many thanks,
-New Forest Device Repairs`;
-}
-
-/**
- * Screen quote template
- */
-export function buildScreenQuoteSms(name: string): string {
-  const firstName = name.split(" ")[0];
-
-  return `Hi ${firstName}, for screen repairs John will confirm the exact quote once he has the device details.
-
-Please submit a repair request with your device model so we can give you an accurate quote.
-
-Many thanks,
-New Forest Device Repairs`;
-}
-
-/**
- * Battery quote template
- */
-export function buildBatteryQuoteSms(name: string): string {
-  const firstName = name.split(" ")[0];
-
-  return `Hi ${firstName}, for battery replacements John will confirm the exact quote once he has the device details.
-
-Please submit a repair request with your device model for an accurate quote.
-
-Many thanks,
-New Forest Device Repairs`;
-}
-
-/**
- * Charging port quote template
- */
-export function buildChargingPortQuoteSms(name: string): string {
-  const firstName = name.split(" ")[0];
-
-  return `Hi ${firstName}, for charging port repairs John will confirm the exact quote after inspection.
-
-Please submit a repair request with your device details.
-
-Many thanks,
-New Forest Device Repairs`;
-}
-
-/**
  * Technical support template
  */
 export function buildTechnicalSupportSms(name: string): string {
@@ -254,6 +193,19 @@ export function buildComplaintOrConfusionSms(name: string): string {
   const firstName = name.split(" ")[0];
 
   return `Thanks ${firstName}, I'm not able to handle this automatically. I'll pass this to John to review and he'll get back to you as soon as possible.
+
+Many thanks,
+New Forest Device Repairs`;
+}
+
+/**
+ * Queue template - for awaiting review
+ * Use once only, do not repeat
+ */
+export function buildQueueSms(name: string): string {
+  const firstName = name.split(" ")[0];
+
+  return `Thanks for your patience. Your enquiry is currently awaiting review. John will respond as soon as possible.
 
 Many thanks,
 New Forest Device Repairs`;

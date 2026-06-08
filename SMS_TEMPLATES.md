@@ -2,7 +2,34 @@
 
 This file documents all SMS templates used in the NFD Repairs system.
 
-## Incoming SMS Templates (17 Intent Categories)
+## System Architecture
+
+AI acts as a **classifier and routing engine**, not a conversational agent:
+
+- AI classifies customer intent into 13 categories
+- AI selects an approved template based on intent
+- AI escalates uncertainty to John
+- AI does NOT generate freeform responses
+- AI does NOT have conversations
+
+## Critical Reply Limiting Rule
+
+After sending an automated response, if customer replies again:
+
+**Only continue automatically for:**
+
+- opening_hours
+- repair_status
+- booking_question
+
+**Otherwise:**
+
+- ESCALATE TO JOHN
+- Disable further AI replies in that conversation (sets conversation status to "blocked")
+
+This prevents conversational loops and customer frustration.
+
+## Incoming SMS Templates (13 Intent Categories)
 
 These templates are triggered by AI intent classification when customers send SMS messages.
 
@@ -70,63 +97,20 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### 6. New Repair Request (buildNewRepairRequestSms)
+### 6. Repair Status (buildRepairStatusSms)
 
-**When:** Customer wants a new repair, "can you fix", "need repair"
-**Trigger:** `new_repair_request` intent
+**When:** Customer asks about existing repair status, "is it ready", "when done"
+**Trigger:** `repair_status` intent
+**Note:** Uses real API data to fetch actual repair status
 
 ```
-Thanks {firstName}, we'd be happy to help with that. Please submit a repair request here so we have the details ready: https://www.newforestdevicerepairs.co.uk/repair-request
-
-John will review the details and get back to you as soon as possible.
+Hi {firstName}, your repair status is currently: {actualStatusFromAPI}. We'll contact you when there is an update or when it's ready for collection.
 
 Many thanks,
 New Forest Device Repairs
 ```
 
-### 7. Screen Quote (buildScreenQuoteSms)
-
-**When:** Customer specifically asks for screen repair quote/price
-**Trigger:** `screen_quote` intent
-
-```
-Hi {firstName}, for screen repairs John will confirm the exact quote once he has the device details.
-
-Please submit a repair request with your device model so we can give you an accurate quote.
-
-Many thanks,
-New Forest Device Repairs
-```
-
-### 8. Battery Quote (buildBatteryQuoteSms)
-
-**When:** Customer specifically asks for battery replacement quote/price
-**Trigger:** `battery_quote` intent
-
-```
-Hi {firstName}, for battery replacements John will confirm the exact quote once he has the device details.
-
-Please submit a repair request with your device model for an accurate quote.
-
-Many thanks,
-New Forest Device Repairs
-```
-
-### 9. Charging Port Quote (buildChargingPortQuoteSms)
-
-**When:** Customer specifically asks for charging port repair quote/price
-**Trigger:** `charging_port_quote` intent
-
-```
-Hi {firstName}, for charging port repairs John will confirm the exact quote after inspection.
-
-Please submit a repair request with your device details.
-
-Many thanks,
-New Forest Device Repairs
-```
-
-### 10. Technical Support (buildTechnicalSupportSms)
+### 7. Technical Support (buildTechnicalSupportSms)
 
 **When:** Customer asks for help with a technical issue, troubleshooting
 **Trigger:** `technical_support` intent
@@ -138,7 +122,7 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### 11. Email Issue (buildEmailIssueSms)
+### 8. Email Issue (buildEmailIssueSms)
 
 **When:** Customer has email problems, can't send/receive emails
 **Trigger:** `email_issue` intent
@@ -150,7 +134,7 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### 12. Device Setup (buildDeviceSetupSms)
+### 9. Device Setup (buildDeviceSetupSms)
 
 **When:** Customer needs help setting up a new device, transferring data
 **Trigger:** `device_setup` intent
@@ -162,7 +146,7 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### 13. Data Transfer (buildDataTransferSms)
+### 10. Data Transfer (buildDataTransferSms)
 
 **When:** Customer wants to transfer data from old to new device
 **Trigger:** `data_transfer` intent
@@ -174,7 +158,7 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### 14. Virus or Popups (buildVirusOrPopupsSms)
+### 11. Virus or Popups (buildVirusOrPopupsSms)
 
 **When:** Customer mentions virus, malware, popups, slow performance
 **Trigger:** `virus_or_popups` intent
@@ -186,32 +170,7 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### 15. Repair Status (buildRepairStatusSms)
-
-**When:** Customer asks about existing repair status, "is it ready", "when done"
-**Trigger:** `repair_status_request` intent
-**Note:** Uses real API data to fetch actual repair status
-
-```
-Hi {firstName}, your repair status is currently: {actualStatusFromAPI}. We'll contact you when there is an update or when it's ready for collection.
-
-Many thanks,
-New Forest Device Repairs
-```
-
-### 16. Price Question (buildPriceQuestionSms)
-
-**When:** General pricing question not specific to a repair type
-**Trigger:** `price_question` intent
-
-```
-Hi {firstName}, pricing depends on the device model and the repair needed. Please submit a repair request with your device details for an accurate quote.
-
-Many thanks,
-New Forest Device Repairs
-```
-
-### 17. Deposit Question (buildDepositQuestionSms)
+### 12. Deposit Question (buildDepositQuestionSms)
 
 **When:** Customer asks about deposits, payment terms
 **Trigger:** `deposit_question` intent
@@ -223,7 +182,7 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### 18. Complaint or Confusion (buildComplaintOrConfusionSms)
+### 13. Complaint or Confusion (buildComplaintOrConfusionSms)
 
 **When:** Customer sounds angry, confused, or challenging something
 **Trigger:** `complaint_or_confusion` intent
@@ -235,13 +194,26 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### 19. Unknown or Complex (buildUnknownOrComplexSms)
+### 14. Unknown or Complex (buildUnknownOrComplexSms)
 
 **When:** Unclear intent, complex request, or multiple topics
 **Trigger:** `unknown_or_complex` intent
 
 ```
 Thanks {firstName}, I'm not sure I understand what you need. I'll pass this to John to review and he'll get back to you as soon as possible.
+
+Many thanks,
+New Forest Device Repairs
+```
+
+### 15. Queue (buildQueueSms)
+
+**When:** Customer enquiry is awaiting review
+**Trigger:** Use once only, do not repeat
+**Note:** New template for awaiting review
+
+```
+Thanks for your patience. Your enquiry is currently awaiting review. John will respond as soon as possible.
 
 Many thanks,
 New Forest Device Repairs
@@ -310,22 +282,6 @@ Many thanks,
 New Forest Device Repairs
 ```
 
-### Technical Support - Generic (buildTechnicalSupportSms - DUPLICATE)
-
-**When:** Generic response for technical enquiries
-**Note:** This is a duplicate function - should be removed
-
-```
-Thanks {firstName}, we've got your request for technical support.
-
-John will be in touch as soon as possible to help you out.
-
-Just to let you know, prices start from £40 depending on what's needed, but we'll always confirm the price with you before starting any repair.
-
-Many thanks,
-New Forest Device Repairs
-```
-
 ### Don't Know (buildDontKnowSms)
 
 **When:** Customer unsure what they need
@@ -342,6 +298,75 @@ New Forest Device Repairs
 
 ---
 
+## System Changes Summary
+
+### Simplified from 17 to 13 Categories
+
+**Removed categories:**
+
+- screen_quote (now escalates to unknown_or_complex)
+- battery_quote (now escalates to unknown_or_complex)
+- charging_port_quote (now escalates to unknown_or_complex)
+- price_question (now escalates to unknown_or_complex)
+- new_repair_request (now escalates to unknown_or_complex)
+
+**Remaining 13 categories:**
+
+- opening_hours
+- lunch_closure
+- booking_question
+- drop_in_question
+- repair_status
+- technical_support
+- email_issue
+- device_setup
+- data_transfer
+- virus_or_popups
+- deposit_question
+- complaint_or_confusion
+- unknown_or_complex
+
+### Pricing Policy
+
+**Removed specific repair pricing:**
+
+- No more "screen repairs £50-£150"
+- No more "battery repairs £40-£60"
+- No more "charging port repairs £40-£60"
+
+**Only technical support mentions pricing:**
+
+- "Technical support services start from £40"
+
+**All other repairs:**
+
+- "John will review the details and provide a quote"
+- No price estimates given by AI
+
+### Critical Reply Limiting
+
+**After first automated reply:**
+
+- Only continue for: opening_hours, repair_status, booking_question
+- Otherwise: escalate to John and disable AI for conversation
+- Sets conversation status to "blocked"
+
+**This prevents:**
+
+- Conversational loops
+- Customer frustration
+- AI trying to answer everything
+
+### Confidence Rule
+
+If confidence is below 90%:
+
+- DO NOT GUESS
+- DO NOT GENERATE A RESPONSE
+- Use escalation template instead
+
+---
+
 ## Issues Fixed
 
 1. ✅ **Opening hours corrected:** Now shows 10am-3pm Saturday (was 10am-2pm)
@@ -349,3 +374,6 @@ New Forest Device Repairs
 3. ✅ **Specific repair pricing removed:** Screen, battery, and charging port pricing removed - only technical support mentions £40
 4. ✅ **Website link corrected:** Updated to https://www.newforestdevicerepairs.co.uk/repair-request
 5. ✅ **Duplicate function removed:** Removed duplicate buildTechnicalSupportSms function
+6. ✅ **System simplified:** Reduced from 17 to 13 intent categories
+7. ✅ **Critical reply limiting:** AI gives up much sooner, only continues for specific intents
+8. ✅ **Queue template added:** New template for awaiting review (use once only)

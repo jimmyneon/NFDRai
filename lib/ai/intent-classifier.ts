@@ -39,17 +39,12 @@ CATEGORIES:
 - lunch_closure: Customer asks about lunch breaks, closed for lunch
 - booking_question: Customer asks about booking appointments, scheduling repairs
 - drop_in_question: Customer asks about dropping in without appointment, walk-ins
-- new_repair_request: Customer wants a new repair, "can you fix", "need repair"
-- screen_quote: Customer specifically asks for screen repair quote/price
-- battery_quote: Customer specifically asks for battery replacement quote/price
-- charging_port_quote: Customer specifically asks for charging port repair quote/price
+- repair_status: Customer asks about existing repair status, "is it ready", "when done"
 - technical_support: Customer asks for help with a technical issue, troubleshooting
 - email_issue: Customer has email problems, can't send/receive emails
 - device_setup: Customer needs help setting up a new device, transferring data
 - data_transfer: Customer wants to transfer data from old to new device
 - virus_or_popups: Customer mentions virus, malware, popups, slow performance
-- repair_status_request: Customer asks about existing repair status, "is it ready", "when done"
-- price_question: General pricing question not specific to a repair type
 - deposit_question: Customer asks about deposits, payment terms
 - complaint_or_confusion: Customer sounds angry, confused, or challenging something
 - unknown_or_complex: Unclear intent, complex request, or multiple topics
@@ -59,7 +54,8 @@ CRITICAL RULES:
 - If customer sounds angry/frustrated, classify as complaint_or_confusion
 - If customer asks technical fault questions, classify as technical_support
 - If customer asks for exact quote without device details, classify as unknown_or_complex
-- If customer asks about existing repair status, classify as repair_status_request
+- If customer asks about existing repair status, classify as repair_status
+- DO NOT classify as specific repair quote types (screen, battery, etc.) - use unknown_or_complex instead
 
 CONTEXT MATTERS:
 - If conversation just started → Likely NEW inquiry

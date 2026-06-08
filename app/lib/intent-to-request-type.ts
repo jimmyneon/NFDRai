@@ -10,32 +10,27 @@ export type RequestType =
   | "lunch_closure"
   | "booking_question"
   | "drop_in_question"
-  | "new_repair_request"
-  | "screen_quote"
-  | "battery_quote"
-  | "charging_port_quote"
+  | "repair_status"
   | "technical_support"
   | "email_issue"
   | "device_setup"
   | "data_transfer"
   | "virus_or_popups"
-  | "repair_status_request"
-  | "price_question"
   | "deposit_question"
   | "complaint_or_confusion"
   | "unknown_or_complex";
 
 /**
  * Map intent classification to request type
- * Returns the intent directly since we now have 17 categories
+ * Returns the intent directly since we now have 13 categories
  */
 export function mapIntentToRequestType(
   classification: IntentClassification,
 ): RequestType {
   const { intent, confidence } = classification;
 
-  // If confidence is below 90%, escalate to unknown_or_complex
-  if (confidence < 0.9) {
+  // If confidence is below 65%, treat as unknown so the full AI handles it
+  if (confidence < 0.65) {
     return "unknown_or_complex";
   }
 
@@ -58,16 +53,9 @@ export async function determineRequestType(params: {
   const classification = await classifyIntent(params);
   const requestType = mapIntentToRequestType(classification);
 
-  // Escalate if confidence is low or if it's a complex category
-  const shouldEscalate =
-    classification.confidence < 0.9 ||
-    requestType === "unknown_or_complex" ||
-    requestType === "complaint_or_confusion" ||
-    requestType === "technical_support" ||
-    requestType === "email_issue" ||
-    requestType === "device_setup" ||
-    requestType === "data_transfer" ||
-    requestType === "virus_or_popups";
+  // Only escalate for categories where a human genuinely needs to step in
+  // unknown_or_complex will fall through to the smart AI, not a generic template
+  const shouldEscalate = requestType === "complaint_or_confusion";
 
   return {
     requestType,
