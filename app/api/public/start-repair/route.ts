@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { sendMessageViaProvider } from "@/app/lib/messaging/provider";
 import { buildAcknowledgmentSms } from "@/app/lib/sms-templates";
 import { syncQuoteToRepairApp } from "@/app/lib/repair-app-sync";
+import { sendQuoteEmail } from "@/app/lib/messaging/email-provider";
 
 // Use service role for public access (no auth required)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -229,6 +230,22 @@ export async function POST(request: NextRequest) {
       text: smsMessage,
     });
 
+    // If SMS failed and we have an email, send acknowledgment via email
+    let emailSent = false;
+    if (!smsResult.sent && email) {
+      console.log(
+        "[Start Repair] SMS failed, sending acknowledgment via email",
+      );
+      const emailResult = await sendQuoteEmail({
+        to: email,
+        subject:
+          "We've received your repair request - New Forest Device Repairs",
+        text: smsMessage,
+      });
+      emailSent = emailResult.sent;
+      console.log(`[Start Repair] Email acknowledgment sent: ${emailSent}`);
+    }
+
     // Update quote request with SMS status and acknowledgment tracking
     if (quoteRequest) {
       await supabase
@@ -236,10 +253,9 @@ export async function POST(request: NextRequest) {
         .update({
           sms_sent: smsResult.sent,
           sms_sent_at: smsResult.sent ? new Date().toISOString() : null,
-          acknowledgment_sent: smsResult.sent,
-          acknowledgment_sent_at: smsResult.sent
-            ? new Date().toISOString()
-            : null,
+          acknowledgment_sent: smsResult.sent || emailSent,
+          acknowledgment_sent_at:
+            smsResult.sent || emailSent ? new Date().toISOString() : null,
         })
         .eq("id", quoteRequest.id);
     }
@@ -247,7 +263,9 @@ export async function POST(request: NextRequest) {
     console.log(
       `[Start Repair] Quote request created for ${name} (${normalizedPhone}) - ${device_make} ${device_model}`,
     );
-    console.log(`[Start Repair] SMS sent: ${smsResult.sent}`);
+    console.log(
+      `[Start Repair] SMS sent: ${smsResult.sent}, Email sent: ${emailSent}`,
+    );
 
     // Sync quote to Repair App
     if (quoteRequest) {

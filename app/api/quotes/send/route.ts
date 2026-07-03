@@ -10,6 +10,7 @@ import {
   buildDontKnowSms,
   buildQuoteAcceptedSms,
 } from "@/app/lib/sms-templates";
+import { sendQuoteEmail } from "@/app/lib/messaging/email-provider";
 
 /**
  * POST /api/quotes/send
@@ -58,24 +59,38 @@ export async function POST(request: NextRequest) {
 
     // Check if this is a UK mobile number (block landlines, 0800, international)
     const smsCheck = shouldSendSMS(quoteRequest.phone);
-    if (!smsCheck.allowed) {
-      console.log("[Quote Send - Phone Block] ❌", smsCheck.reason);
-      console.log("[Quote Send - Phone Block] Country:", smsCheck.country);
+    const canSendSMS = smsCheck.allowed;
+
+    if (!canSendSMS) {
+      console.log(
+        "[Quote Send - Phone Block] ❌ SMS not possible:",
+        smsCheck.reason,
+      );
       console.log("[Quote Send - Phone Block] Number:", quoteRequest.phone);
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Cannot send SMS to this number",
-          reason: smsCheck.reason,
-          country: smsCheck.country,
-          message: `Quote cannot be sent via SMS: ${smsCheck.reason}`,
-        },
-        { status: 400 },
+      // Try email fallback if customer has an email address
+      if (quoteRequest.email) {
+        console.log(
+          "[Quote Send] Attempting email fallback to:",
+          quoteRequest.email,
+        );
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Cannot send quote - not a UK mobile and no email on file",
+            reason: smsCheck.reason,
+            country: smsCheck.country,
+            message: `Cannot send via SMS (${smsCheck.reason}) and no email address on file. Please contact the customer directly.`,
+          },
+          { status: 400 },
+        );
+      }
+    } else {
+      console.log(
+        "[Quote Send - UK Mobile] ✅ Verified UK mobile - SMS allowed",
       );
     }
-
-    console.log("[Quote Send - UK Mobile] ✅ Verified UK mobile - SMS allowed");
 
     // Build the SMS message based on request type
     let smsMessage: string;
@@ -111,18 +126,63 @@ export async function POST(request: NextRequest) {
           });
     }
 
-    console.log("[Quote Send] Sending SMS to", quoteRequest.phone);
-    console.log("[Quote Send] Message:", smsMessage);
+    // Send via SMS if possible, otherwise fall back to email
+    let smsSent = false;
+    let emailSent = false;
+    let sendError: string | undefined;
 
-    // Send SMS via MacroDroid
-    const smsResult = await sendMessageViaProvider({
-      channel: "sms",
-      to: quoteRequest.phone,
-      text: smsMessage,
-    });
+    if (canSendSMS) {
+      console.log("[Quote Send] Sending SMS to", quoteRequest.phone);
+      const smsResult = await sendMessageViaProvider({
+        channel: "sms",
+        to: quoteRequest.phone,
+        text: smsMessage,
+      });
 
-    if (!smsResult.sent) {
-      throw new Error("Failed to send SMS");
+      if (smsResult.sent) {
+        smsSent = true;
+      } else {
+        console.error("[Quote Send] SMS failed:", smsResult.error);
+        sendError = smsResult.error;
+        // Try email fallback if SMS fails
+        if (quoteRequest.email) {
+          console.log("[Quote Send] SMS failed, trying email fallback");
+        }
+      }
+    }
+
+    // Send via email if SMS wasn't possible or failed, and we have an email
+    if (!smsSent && quoteRequest.email) {
+      const emailSubject = `Your quote from New Forest Device Repairs`;
+      const emailResult = await sendQuoteEmail({
+        to: quoteRequest.email,
+        subject: emailSubject,
+        text: smsMessage,
+      });
+
+      if (emailResult.sent) {
+        emailSent = true;
+        console.log("[Quote Send] ✅ Quote sent via email fallback");
+      } else {
+        console.error(
+          "[Quote Send] Email fallback also failed:",
+          emailResult.error,
+        );
+        sendError = `SMS: ${sendError || "not possible"}; Email: ${emailResult.error}`;
+      }
+    }
+
+    if (!smsSent && !emailSent) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to send quote via SMS or email",
+          reason: sendError,
+          message:
+            "Could not send via SMS or email. Please contact the customer directly.",
+        },
+        { status: 500 },
+      );
     }
 
     // Update the quote request
@@ -184,7 +244,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       quote_id,
-      sms_sent: true,
+      sms_sent: smsSent,
+      email_sent: emailSent,
+      method: smsSent ? "sms" : "email",
     });
   } catch (error) {
     console.error("[Quote Send] Error:", error);

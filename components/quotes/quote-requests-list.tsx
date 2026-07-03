@@ -364,6 +364,35 @@ New Forest Device Repairs`;
                       Chat
                     </Badge>
                   )}
+                  {request.source === "website" && (
+                    <Badge
+                      variant="outline"
+                      className="bg-blue-50 text-blue-700 border-blue-200 text-xs shrink-0"
+                    >
+                      <Globe className="w-3 h-3 mr-1" />
+                      Website
+                    </Badge>
+                  )}
+                  {request.source === "ai_responder" && (
+                    <Badge
+                      variant="outline"
+                      className="bg-green-50 text-green-700 border-green-200 text-xs shrink-0"
+                    >
+                      <Smartphone className="w-3 h-3 mr-1" />
+                      SMS
+                    </Badge>
+                  )}
+                  {(!request.source ||
+                    (request.source !== "webchat" &&
+                      request.source !== "website" &&
+                      request.source !== "ai_responder")) && (
+                    <Badge
+                      variant="outline"
+                      className="bg-gray-50 text-gray-700 border-gray-200 text-xs shrink-0"
+                    >
+                      {request.source || "Unknown"}
+                    </Badge>
+                  )}
                   {requestType === "sell" && (
                     <Badge
                       variant="outline"
