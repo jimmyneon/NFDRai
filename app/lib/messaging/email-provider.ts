@@ -1,9 +1,17 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || "New Forest Device Repairs <noreply@newforestdevicerepairs.co.uk>";
+  process.env.RESEND_FROM_EMAIL ||
+  "New Forest Device Repairs <noreply@newforestdevicerepairs.co.uk>";
 
 /**
  * Send an email via Resend
@@ -36,7 +44,7 @@ export async function sendQuoteEmail({
   }
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResendClient().emails.send({
       from: FROM_EMAIL,
       to,
       subject,
