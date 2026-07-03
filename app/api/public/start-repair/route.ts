@@ -230,12 +230,10 @@ export async function POST(request: NextRequest) {
       text: smsMessage,
     });
 
-    // If SMS failed and we have an email, send acknowledgment via email
+    // Always send via email if the customer provided an email address
     let emailSent = false;
-    if (!smsResult.sent && email) {
-      console.log(
-        "[Start Repair] SMS failed, sending acknowledgment via email",
-      );
+    if (email) {
+      console.log("[Start Repair] Sending acknowledgment via email to", email);
       const emailResult = await sendQuoteEmail({
         to: email,
         subject:

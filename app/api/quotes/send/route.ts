@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
           });
     }
 
-    // Send via SMS if possible, otherwise fall back to email
+    // Send via SMS if possible
     let smsSent = false;
     let emailSent = false;
     let sendError: string | undefined;
@@ -144,15 +144,12 @@ export async function POST(request: NextRequest) {
       } else {
         console.error("[Quote Send] SMS failed:", smsResult.error);
         sendError = smsResult.error;
-        // Try email fallback if SMS fails
-        if (quoteRequest.email) {
-          console.log("[Quote Send] SMS failed, trying email fallback");
-        }
       }
     }
 
-    // Send via email if SMS wasn't possible or failed, and we have an email
-    if (!smsSent && quoteRequest.email) {
+    // Always send via email if the customer has an email address
+    if (quoteRequest.email) {
+      console.log("[Quote Send] Sending email to", quoteRequest.email);
       const emailSubject = `Your quote from New Forest Device Repairs`;
       const emailResult = await sendQuoteEmail({
         to: quoteRequest.email,
@@ -162,12 +159,9 @@ export async function POST(request: NextRequest) {
 
       if (emailResult.sent) {
         emailSent = true;
-        console.log("[Quote Send] ✅ Quote sent via email fallback");
+        console.log("[Quote Send] ✅ Quote sent via email");
       } else {
-        console.error(
-          "[Quote Send] Email fallback also failed:",
-          emailResult.error,
-        );
+        console.error("[Quote Send] Email failed:", emailResult.error);
         sendError = `SMS: ${sendError || "not possible"}; Email: ${emailResult.error}`;
       }
     }
