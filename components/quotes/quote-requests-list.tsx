@@ -355,6 +355,10 @@ New Forest Device Repairs`;
                     <Phone className="w-3 h-3" />
                     {request.phone}
                   </span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    <Mail className="w-3 h-3" />
+                    {request.email || "N/A"}
+                  </span>
                   {request.source === "webchat" && (
                     <Badge
                       variant="outline"
